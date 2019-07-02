@@ -35,21 +35,27 @@ ces Main { Arrow() }
 ```
 
 If a name given to a structure is `Main`, then it can't be
-instantiated explicitly.  Instead, the instantiation is performed when
-a `.ces` file containing it is interpreted.
+instantiated explicitly.  Instead, the instantiation of `Main` is
+performed when a `.ces` file containing it is interpreted.  All
+structures defined in a file must have unique names.
 
-Any _full rule_ may be transformed into an equivalent rule expression
-consisting of _open rules_ separated with (infix) addition operator.
-The arrow above is thus equivalent to
+Any full rule may be transformed into an equivalent rule expression
+consisting of a sequence of _open rules_ separated with (infix)
+addition operator.  The arrow above is thus equivalent to
 
 ```rust
 ces Arrow { { a -> b } + { b <- a } }
 ces Main { Arrow() }
 ```
 
-Syntactic concatenation of rule expressions, unless '+'-separated, is
-interpreted as multiplication of corresponding polynomials.  Next is
-the same arrow as above (for brevity, defined directly in `Main`),
+If the addition operator is missing between rule expressions, then
+their syntactic concatenation will be interpreted as _multiplication_
+of corresponding polynomials.
+
+In case of arrow definition, the result of multiplication of the two
+open rules is the same as the result of their addition.  For example,
+next is the same arrow as above (for brevity, defined directly in
+`Main`),
 
 ```rust
 ces Main { { a -> b } { b <- a } }
@@ -84,15 +90,16 @@ ces Main { Arrow(a, z) }
 
 ### Arrow sequence
 
-A _full rule_ consists of two or more polynomials.  For example, a
-rule with four single-node polynomials results in three arrows,
+A full rule consists of two or more polynomials.  For example, a rule
+with four single-node polynomials results in three arrows,
 
 ```rust
 ces ThreeArrowsInARow(w: Node, x: Node, y: Node, z: Node) { w => x => y => z }
 ```
 
-Atomic rule expressions are rules and structure instantiations. They
-are the two constructs allowed in leaves of a rule expression's AST.
+An atomic rule expression is a single rule or a structure
+instantiation.  These are the two constructs allowed in leaves of an
+AST of a rule expression.
 
 ```rust
 // seven arrows in a row
@@ -101,8 +108,7 @@ ces Main { ThreeArrowsInARow(a, b, c, d) + { d => e } + ThreeArrowsInARow(e, f, 
 
 ### Fork
 
-A fork structure may be defined with a _full rule_ (an atomic rule
-expression),
+A fork structure may be defined with a single full rule,
 
 ```rust
 ces Main { a => b c }
@@ -123,11 +129,18 @@ ces Main {
 
 ### Choice
 
-Like a fork, a choice structure may be defined with a single _full
-rule_,
+Like a fork, a choice structure may be defined with a single full
+rule,
 
 ```rust
 ces Main { a => b + c } // equivalently, b <= a => c
+```
+
+Node identifiers occuring in a rule need not be unique.  Next is a
+valid definition of a three-way choice.
+
+```rust
+ces Main { b <= a => c <= a => d } // equivalent to a => b + c + d
 ```
 
 ## License

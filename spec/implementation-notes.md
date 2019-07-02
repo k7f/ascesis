@@ -5,8 +5,7 @@ Implementation notes for _cesar_
 
 In principle, an _open_ cause-effect rule doesn't unfold to a proper
 (coherent) c-e structure, except in special cases, where there is a
-loop on every non-isolated node.  _Open_ rules come in four
-variations.
+loop on every non-isolated node.  Open rules come in four variations.
 
 ### _Effect-only_ rules
 
@@ -15,7 +14,7 @@ e_rule = node_list "->" polynomial ;
 ```
 
 This rule specifies an effect `polynomial` for all nodes in the
-`node_list`.  An _effect-only_ rule generates
+`node_list`.  An effect-only rule generates
 
   - set _T_ of sending ports, one port for each node in the
     `node_list`,
@@ -37,7 +36,7 @@ c_rule = node_list "<-" polynomial ;
 ```
 
 This rule specifies a cause `polynomial` for all nodes in the
-`node_list`.  A _cause-only_ rule generates
+`node_list`.  A cause-only rule generates
 
   - set _R_ of receiving ports, one port for each node in the
     `node_list`,
@@ -53,7 +52,7 @@ This rule specifies a cause `polynomial` for all nodes in the
 ce_rule = polynomial "->" node_list "->" polynomial ;
 ```
 
-A _cause-then-effect_ rule generates
+A cause-then-effect rule generates
 
   - set _T_ of sending ports and a set _R_ of corresponding receiving
     antiports, one sending port and one receiving port for each node
@@ -89,10 +88,40 @@ it unfolds to a proper c-e structure.
 ec_rule = polynomial "<-" node_list "<-" polynomial ;
 ```
 
-These are semantically equivalent to _cause-then-effect_ rules with
-left and right polynomials exchanged.  See above.
+These are semantically equivalent to cause-then-effect rules with left
+and right polynomials exchanged.  See above.
 
 ## _Full_ rules
 
-A _full_ rule always unfolds to a proper (coherent) c-e structure.
-However, there are structures undefinable with full rules only.
+```ebnf
+full_rule = polynomial {  ( "=>" | "<=" ) polynomial } ;
+```
+
+A full rule is transformed into a sum ('+'-separated sequence) of open
+rules.  A full rule with more than two polynomials is first
+transformed into a sum of two-polynomial full rules, for example `b <=
+a => c` becomes `{ a => b } + { a => c }`.  Then each two-polynomial
+rule is replaced with a sum of two open rules, one effect-only,
+another cause-only.  Finally, the resulting rule expression is
+simplified by integrating effect-only rules having a common node list
+and doing the same with cause-only rules.
+
+For example, `a b c => d e f` is transformed to
+
+```rust
+{ a, b, c -> d e f } + { d, e, f <- a b c }
+```
+
+`b <= a => c` is transformed to
+
+```rust
+{ a -> b + c } + { b <- a } + { c <- a }
+```
+
+etc.  A full rule always unfolds to a proper (coherent) c-e structure.
+However, there are structures undefinable with full rules only, as a
+simple triangle structure shows:
+
+```rust
+{ a -> b c } + { b <- a c } + { a -> c -> b }
+```
