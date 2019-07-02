@@ -1,0 +1,88 @@
+# cesar syntax in EBNF
+
+# White space is optional anywhere between tokens.
+
+ces_file = { ces_def | ces_inst | meta_block } ;
+
+## Structure definition
+
+ces_def = ces_sig "{" rule_expr "}" ;
+ces_sig = "ces" ces_ident [ "(" [ arg_list_decl ] ")" ] ;
+
+## Structure instantiation
+
+ces_inst = ces_ident "(" [ arg_list ] ")" ;
+
+## Context
+
+meta_block = nodes_block ; # | ...
+nodes_block = nodes_sig "{" node_spec { "," node_spec } [ "," ] "}" ;
+nodes_sig = "nodes" [ "(" [ arg_list_decl ] ")" ] ;
+node_spec = node_ident ":" "{" node_attr { "," node_attr } [ "," ] "}" ;
+node_attr = name_spec | cap_spec ;
+name_spec = "name" ":" name_expr ;
+name_expr = string ; # | ...
+cap_spec = "cap" ":" cap_expr ;
+cap_expr = size ; # | ...
+
+## Argument declarations and values
+
+arg_list_decl = arg_spec { "," arg_spec } [ "," ] ;
+arg_spec = arg_ident ":" ("Node" | "CES" | "Size" | "String") ;
+arg_list = arg_value { ","  arg_value } [ "," ] ;
+arg_value = node_ident | ces_ident | size | string ;
+
+## Rule expressions
+
+rule_expr = rule | "{" rule_expr "}" { [ "+" ] "{" rule_expr "}" } ;
+rule = open_rule | full_rule ;
+
+open_rule = e_rule | c_rule | ce_rule | ec_rule ;
+
+# effect polynomial with explicit node list on the left
+e_rule = node_list "->" polynomial ;
+
+# cause polynomial with explicit node list on the left
+c_rule = node_list "<-" polynomial ;
+
+# cause-then-effect pair of polynomials with explicit node list in the
+# middle
+ce_rule = polynomial "->" node_list "->" polynomial ;
+
+# effect-then-cause pair of polynomials with explicit node list in the
+# middle
+ec_rule = polynomial "<-" node_list "<-" polynomial ;
+
+# multi-polynomial rule with implicit node lists
+full_rule = polynomial {  ( "=>" | "<=" ) polynomial } ;
+
+# part of open rules
+node_list = node_ident { "," node_ident } [ "," ] ;
+
+## Polynomial
+
+polynomial = node_ident
+           | "(" polynomial ")"
+           | polynomial { [ "+" ] polynomial } ;
+
+## Identifiers
+
+ces_ident = uppercase_letter { alphanum_char } ;
+node_ident = lowercase_letter { alphanum_char } ;
+arg_ident = [ "_" | letter ] { alphanum_char } ;
+
+## Literals
+
+size = digit { digit } ;
+string = "\"" { any_char } "\"" ;
+
+## Character classes
+
+alphanum_char = letter | digit | "_" ;
+letter = uppercase_letter | lowercase_letter ;
+uppercase_letter = "A".."Z" ;
+lowercase_letter = "a".."z" ;
+digit = "0".."9" ;
+any_char = plain_char | escaped_char ;
+plain_char = "\x20".."\x7F" | "\x80".."\xFF" ;
+escaped_char = "\\" ( "\"" | "\\" | "a" | "b" | "n" | "r" | "t" ) ;
