@@ -102,9 +102,12 @@ rules.  A full rule with more than two polynomials is first
 transformed into a sum of two-polynomial full rules, for example `b <=
 a => c` becomes `{ a => b } + { a => c }`.  Then each two-polynomial
 rule is replaced with a sum of two open rules, one effect-only,
-another cause-only.  Finally, the resulting rule expression is
-simplified by integrating effect-only rules having a common node list
-and doing the same with cause-only rules.
+another cause-only.  Next, the resulting rule expression is simplified
+by integrating effect-only rules having a common node list and doing
+the same with cause-only rules.  Finally, rule expression is further
+simplified by merging node lists which point to the same effect
+polynomials, and merging node lists pointed to by the same cause
+polynomials.
 
 For example, `a b c => d e f` is transformed to
 

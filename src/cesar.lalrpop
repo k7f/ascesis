@@ -1,0 +1,26 @@
+use std::str::FromStr;
+use lalrpop_util::ParseError;
+use crate::Literal;
+
+grammar<'env>(errors: &'env mut Vec<ParseError<usize, Token<'input>, &'static str>>);
+
+pub Test: Vec<Literal> = {
+    NonEmptyList<Literal, Comma>
+};
+
+NonEmptyList<T, Sep>: Vec<T> =
+    <first: T> <elts: (Sep <T>)*> <last: Sep?> => {
+        let mut result = vec![first];
+        result.extend(elts);
+        result
+    };
+
+Comma: () = {
+    "," => (),
+    <!> => errors.push(<>.error),
+};
+
+Literal: Literal = {
+    r#""[^"]*""# => Literal::String(String::from_str(<>).unwrap()), // FIXME remove quotes
+    r"[0-9]+" => Literal::Size(u64::from_str(<>).unwrap()),
+};

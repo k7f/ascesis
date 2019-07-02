@@ -1,0 +1,23 @@
+[workspace]
+
+[package]
+
+name = "cesar-lang"
+version = "0.0.1"
+description = "Cause-effect structural algebraic representation language"
+authors = ["k7f"]
+edition = "2018"
+license = "MIT"
+repository = "https://github.com/k7f/cesar-lang"
+readme = "README.md"
+
+build = "build.rs"
+
+[dependencies]
+
+regex = "1.1"
+lalrpop-util = "0.17"
+
+[build-dependencies]
+
+lalrpop = "0.17"

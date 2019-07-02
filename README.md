@@ -34,14 +34,16 @@ ces Arrow { a => b }
 ces Main { Arrow() }
 ```
 
-If a name given to a structure is `Main`, then it can't be
-instantiated explicitly.  Instead, the instantiation of `Main` is
-performed when a `.ces` file containing it is interpreted.  All
-structures defined in a file must have unique names.
+Structure `Main` cannot be instantiated explicitly.  Instead, the
+instantiation of `Main` is performed when a `.ces` file containing its
+definition is being interpreted.  All structures defined in a file
+must have unique names.
 
 Any full rule may be transformed into an equivalent rule expression
 consisting of a sequence of _open rules_ separated with (infix)
-addition operator.  The arrow above is thus equivalent to
+addition operator (cf [implementation
+notes](spec/implementation-notes.md#full-rules)).  The arrow above is
+thus equivalent to
 
 ```rust
 ces Arrow { { a -> b } + { b <- a } }
@@ -62,8 +64,8 @@ ces Main { { a -> b } { b <- a } }
 ```
 
 Indeed, in this case we get `b` &bullet; _&theta;_ for effect
-polynomial of node `a` and _&theta;_ &bullet; `a` for cause polynomial
-of node `b`.
+polynomial of node `a`, and _&theta;_ &bullet; `a` for cause
+polynomial of node `b`.
 
 By default, node names are equal to node identifiers and node
 capacities are equal to 1.  Therefore, in all previous examples they are
