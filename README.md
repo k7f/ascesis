@@ -24,7 +24,7 @@ For now, see [implementation notes](spec/implementation-notes.md).
 
 ### Single arrow
 
-The simplest _full rule_ defines a single arrow.  Such a rule,
+The simplest _fat rule_ defines a single arrow.  Such a rule,
 `a => b`, is in the body of the `Arrow` structure defined below.
 An instance of the `Arrow` structure is created in the body of the
 `Main` structure definition.
@@ -39,11 +39,11 @@ instantiation of `Main` is performed when a `.ces` file containing its
 definition is being interpreted.  All structures defined in a file
 must have unique names.
 
-Any full rule may be transformed into an equivalent rule expression
-consisting of a sequence of _open rules_ separated with (infix)
-addition operator (cf [implementation
-notes](spec/implementation-notes.md#full-rules)).  The arrow above is
-thus equivalent to
+Any fat rule is equivalent to a rule expression consisting of a
+sequence of _thin rules_ separated with (infix) addition operator.
+The fat-into-thin (_FIT_) transformation steps are sketched out in
+[implementation notes](spec/implementation-notes.md#fat-rules).  The
+arrow above is thus equivalent to
 
 ```rust
 ces Arrow { { a -> b } + { b <- a } }
@@ -55,7 +55,7 @@ their syntactic concatenation will be interpreted as _multiplication_
 of corresponding polynomials.
 
 In case of arrow definition, the result of multiplication of the two
-open rules is the same as the result of their addition.  For example,
+thin rules is the same as the result of their addition.  For example,
 next is the same arrow as above (for brevity, defined directly in
 `Main`),
 
@@ -92,7 +92,7 @@ ces Main { Arrow(a, z) }
 
 ### Arrow sequence
 
-A full rule consists of two or more polynomials.  For example, a rule
+A fat rule consists of two or more polynomials.  For example, a rule
 with four single-node polynomials results in three arrows,
 
 ```rust
@@ -110,7 +110,7 @@ ces Main { ThreeArrowsInARow(a, b, c, d) + { d => e } + ThreeArrowsInARow(e, f, 
 
 ### Fork
 
-A fork structure may be defined with a single full rule,
+A fork structure may be defined with a single fat rule,
 
 ```rust
 ces Main { a => b c }
@@ -131,18 +131,24 @@ ces Main {
 
 ### Choice
 
-Like a fork, a choice structure may be defined with a single full
-rule,
+Like a fork, a choice structure may be defined with a single fat rule,
 
 ```rust
 ces Main { a => b + c } // equivalently, b <= a => c
 ```
 
 Node identifiers occuring in a rule need not be unique.  Next is a
-valid definition of a three-way choice.
+valid definition of a three-way choice,
 
 ```rust
 ces Main { b <= a => c <= a => d } // equivalent to a => b + c + d
+```
+
+and another expression, where the choice is between a set of nodes and
+its subset:
+
+```rust
+ces Main { a => b c + b } // equivalent to { a => b c } + { a => b }
 ```
 
 ## License

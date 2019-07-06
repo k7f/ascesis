@@ -1,26 +1,93 @@
-use std::str::FromStr;
-use lalrpop_util::ParseError;
-use crate::Literal;
+use lalrpop_util::ErrorRecovery;
+use crate::{Rex, Rule, ThinRule, FatRule, NodeList, Polynomial, BinOp, Literal};
 
-grammar<'env>(errors: &'env mut Vec<ParseError<usize, Token<'input>, &'static str>>);
+grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
-pub Test: Vec<Literal> = {
-    NonEmptyList<Literal, Comma>
+// Rule expressions
+
+// rex = "{" rule "}" | "{" rex { [ "+" ] rex } "}" ;
+pub Rex: Rex = {
+    "{" <Rule> "}" => Rex::from_rule(<>),
+    "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_rexlist(tail),
 };
 
-NonEmptyList<T, Sep>: Vec<T> =
-    <first: T> <elts: (Sep <T>)*> <last: Sep?> => {
-        let mut result = vec![first];
-        result.extend(elts);
-        result
-    };
+// Rules
 
-Comma: () = {
-    "," => (),
-    <!> => errors.push(<>.error),
+// rule = thin_rule | fat_rule ;
+Rule: Rule = {
+    <ThinRule> => Rule::Thin(<>),
+    <FatRule> => Rule::Fat(<>),
 };
 
+// thin_rule = e_rule | c_rule | ce_rule | ec_rule ;
+// e_rule = node_list "->" polynomial ;
+// c_rule = node_list "<-" polynomial ;
+// ce_rule = polynomial "->" node_list "->" polynomial ;
+// ec_rule = polynomial "<-" node_list "<-" polynomial ;
+ThinRule: ThinRule = {
+    <cause: Polynomial> "->" <nodes: TxNodeList> <effect: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    },
+    <effect: Polynomial> "<-" <nodes: RxNodeList> "<-" <cause: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    },
+    <nodes: TxNodeList> <effect: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_effect(effect)
+    },
+    <nodes: RxNodeList> <cause: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause)
+    },
+};
+
+// fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
+FatRule: FatRule =
+    <head: Polynomial> <tail: (<FatOp> <Polynomial>)+> =>
+        FatRule::from_parts(head, tail);
+
+// part of thin rules
+// node_list = node_ident { "," node_ident } [ "," ] ;
+TxNodeList: NodeList = {
+    <node: NodeIdent> "," "->" => NodeList::from_node(node),
+    <head: NodeIdent> "," <tail: TxNodeList> => tail.with_node(head),
+};
+
+RxNodeList: NodeList = {
+    <node: NodeIdent> "," "<-" => NodeList::from_node(node),
+    <head: NodeIdent> "," <tail: RxNodeList> => tail.with_node(head),
+};
+
+// Polynomial
+
+// polynomial = node_ident
+//            | "(" polynomial ")"
+//            | polynomial { [ "+" ] polynomial } ;
+Polynomial: Polynomial = {
+    <head: Polynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
+    <head: PolyTerm> <tail: PolyTerm*> => head.with_product_multiplied(tail),
+};
+
+PolyTerm: Polynomial = {
+    <NodeIdent> => Polynomial::from_node(<>),
+    "(" <Polynomial> ")",
+};
+
+// Operators
+
+AddOp: BinOp = "+" => BinOp::Add;
+ThinOp: BinOp = { "->" => BinOp::ThinTx, "<-" => BinOp::ThinRx };
+FatOp: BinOp = { "=>" => BinOp::FatTx, "<=" => BinOp::FatRx };
+
+// Identifiers
+
+CesIdent: String = r"[A-Z][A-Za-z0-9_]*" => <>.to_owned();
+NodeIdent: String = r"[a-z][A-Za-z0-9_]*" => <>.to_owned();
+UnderIdent: String = r"_[A-Za-z0-9_]*" => <>.to_owned();
+
+// Literals
+
+// size = digit { digit } ;
+// string = "\"" { any_char } "\"" ;
 Literal: Literal = {
-    r#""[^"]*""# => Literal::String(String::from_str(<>).unwrap()), // FIXME remove quotes
-    r"[0-9]+" => Literal::Size(u64::from_str(<>).unwrap()),
+    r"[0-9]+" => Literal::from_digits(<>).unwrap(),
+    r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap(),
 };

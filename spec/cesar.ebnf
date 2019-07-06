@@ -6,7 +6,7 @@ ces_file = { ces_def | ces_inst | meta_block } ;
 
 ## Structure definition
 
-ces_def = ces_sig "{" rule_expr "}" ;
+ces_def = ces_sig "{" rex "}" ;
 ces_sig = "ces" ces_ident [ "(" [ arg_list_decl ] ")" ] ;
 
 ## Structure instantiation
@@ -28,16 +28,16 @@ cap_expr = size ; # | ...
 ## Argument declarations and values
 
 arg_list_decl = arg_spec { "," arg_spec } [ "," ] ;
-arg_spec = arg_ident ":" ("Node" | "CES" | "Size" | "String") ;
+arg_spec = arg_ident ":" ( "Node" | "CES" | "Size" | "String" ) ;
 arg_list = arg_value { ","  arg_value } [ "," ] ;
 arg_value = node_ident | ces_ident | size | string ;
 
 ## Rule expressions
 
-rule_expr = rule | "{" rule_expr "}" { [ "+" ] "{" rule_expr "}" } ;
-rule = open_rule | full_rule ;
+rex = rule | "{" rex "}" { [ "+" ] "{" rex "}" } ;
+rule = thin_rule | fat_rule ;
 
-open_rule = e_rule | c_rule | ce_rule | ec_rule ;
+thin_rule = e_rule | c_rule | ce_rule | ec_rule ;
 
 # effect polynomial with explicit node list on the left
 e_rule = node_list "->" polynomial ;
@@ -54,9 +54,9 @@ ce_rule = polynomial "->" node_list "->" polynomial ;
 ec_rule = polynomial "<-" node_list "<-" polynomial ;
 
 # multi-polynomial rule with implicit node lists
-full_rule = polynomial {  ( "=>" | "<=" ) polynomial } ;
+fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
 
-# part of open rules
+# part of thin rules
 node_list = node_ident { "," node_ident } [ "," ] ;
 
 ## Polynomial
@@ -69,7 +69,7 @@ polynomial = node_ident
 
 ces_ident = uppercase_letter { alphanum_char } ;
 node_ident = lowercase_letter { alphanum_char } ;
-arg_ident = [ "_" | letter ] { alphanum_char } ;
+arg_ident = ( "_" | letter ) { alphanum_char } ;
 
 ## Literals
 

@@ -15,7 +15,9 @@ build = "build.rs"
 
 [dependencies]
 
+clap = "2.33"
 regex = "1.1"
+enquote = "1.0"
 lalrpop-util = "0.17"
 
 [build-dependencies]
