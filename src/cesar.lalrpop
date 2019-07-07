@@ -5,7 +5,8 @@ grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static
 
 // Rule expressions
 
-// rex = "{" rule "}" | "{" rex { [ "+" ] rex } "}" ;
+// rex = "{" rule "}"
+//     | "{" rex { [ "+" ] rex } "}" ;
 pub Rex: Rex = {
     "{" <Rule> "}" => Rex::from_rule(<>),
     "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_rexlist(tail),
@@ -19,53 +20,64 @@ Rule: Rule = {
     <FatRule> => Rule::Fat(<>),
 };
 
-// thin_rule = e_rule | c_rule | ce_rule | ec_rule ;
+// thin_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 // e_rule = node_list "->" polynomial ;
 // c_rule = node_list "<-" polynomial ;
-// ce_rule = polynomial "->" node_list "->" polynomial ;
-// ec_rule = polynomial "<-" node_list "<-" polynomial ;
+// ec_rule = node_list "->" polynomial "<-" polynomial ;
+// ce_rule = node_list "<-" polynomial "->" polynomial ;
+// fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
+// bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 ThinRule: ThinRule = {
-    <cause: Polynomial> "->" <nodes: TxNodeList> <effect: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
-    },
-    <effect: Polynomial> "<-" <nodes: RxNodeList> "<-" <cause: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
-    },
-    <nodes: TxNodeList> <effect: Polynomial> => {
+    // effect-only rule
+    <nodes: NodeList> "->" <effect: Polynomial> => {
         ThinRule::new().with_nodes(nodes).with_effect(effect)
     },
-    <nodes: RxNodeList> <cause: Polynomial> => {
+    // cause-only rule
+    <nodes: NodeList> "<-" <cause: Polynomial> => {
         ThinRule::new().with_nodes(nodes).with_cause(cause)
     },
+    // effect-then-cause rule
+    <nodes: NodeList> "->" <effect: Polynomial> "<-" <cause: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    },
+    // cause-then-effect rule
+    <nodes: NodeList> "<-" <cause: Polynomial> "->" <effect: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    },
+    // forward rule
+    "+" <cause: PlainPolynomial> "->" <nodes: NodeList> "->" <effect: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    },
+    // backward rule
+    "+" <effect: PlainPolynomial> "<-" <nodes: NodeList> "<-" <cause: Polynomial> => {
+        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    },
 };
+
+// node_list = node_ident { "," node_ident } [ "," ] ;
+NodeList: NodeList = {
+    <head: NodeIdent> <tail: CommaNodeIdent*> ","? => NodeList::from_node(head).with_nodes(tail),
+};
+
+CommaNodeIdent: String = "," <NodeIdent>;
 
 // fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
 FatRule: FatRule =
     <head: Polynomial> <tail: (<FatOp> <Polynomial>)+> =>
         FatRule::from_parts(head, tail);
 
-// part of thin rules
-// node_list = node_ident { "," node_ident } [ "," ] ;
-TxNodeList: NodeList = {
-    <node: NodeIdent> "," "->" => NodeList::from_node(node),
-    <head: NodeIdent> "," <tail: TxNodeList> => tail.with_node(head),
-};
-
-RxNodeList: NodeList = {
-    <node: NodeIdent> "," "<-" => NodeList::from_node(node),
-    <head: NodeIdent> "," <tail: RxNodeList> => tail.with_node(head),
-};
-
 // Polynomial
 
-// polynomial = node_ident
-//            | "(" polynomial ")"
-//            | polynomial { [ "+" ] polynomial } ;
-Polynomial: Polynomial = {
-    <head: Polynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
+// polynomial = [ "+" ] plain_polynomial ;
+Polynomial: Polynomial = "+"? <PlainPolynomial>;
+
+// plain_polynomial = [ plain_polynomial "+" ] poly_term { poly_term } ;
+PlainPolynomial: Polynomial = {
     <head: PolyTerm> <tail: PolyTerm*> => head.with_product_multiplied(tail),
+    <head: PlainPolynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
 };
 
+// poly_term = node_ident | "(" polynomial ")" ;
 PolyTerm: Polynomial = {
     <NodeIdent> => Polynomial::from_node(<>),
     "(" <Polynomial> ")",

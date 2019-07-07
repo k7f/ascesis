@@ -34,10 +34,14 @@ arg_value = node_ident | ces_ident | size | string ;
 
 ## Rule expressions
 
-rex = rule | "{" rex "}" { [ "+" ] "{" rex "}" } ;
+rex = "{" rule "}"
+    | "{" rex { [ "+" ] rex } "}" ;
+
+## Rules
+
 rule = thin_rule | fat_rule ;
 
-thin_rule = e_rule | c_rule | ce_rule | ec_rule ;
+thin_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 
 # effect polynomial with explicit node list on the left
 e_rule = node_list "->" polynomial ;
@@ -45,25 +49,30 @@ e_rule = node_list "->" polynomial ;
 # cause polynomial with explicit node list on the left
 c_rule = node_list "<-" polynomial ;
 
+# effect-then-cause polynomial with explicit node list on the left
+ec_rule = node_list "->" polynomial "<-" polynomial ;
+
+# cause-then-effect polynomial with explicit node list on the left
+ce_rule = node_list "<-" polynomial "->" polynomial ;
+
 # cause-then-effect pair of polynomials with explicit node list in the
 # middle
-ce_rule = polynomial "->" node_list "->" polynomial ;
+fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 
 # effect-then-cause pair of polynomials with explicit node list in the
 # middle
-ec_rule = polynomial "<-" node_list "<-" polynomial ;
+bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
+
+node_list = node_ident { "," node_ident } [ "," ] ;
 
 # multi-polynomial rule with implicit node lists
 fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
 
-# part of thin rules
-node_list = node_ident { "," node_ident } [ "," ] ;
-
 ## Polynomial
 
-polynomial = node_ident
-           | "(" polynomial ")"
-           | polynomial { [ "+" ] polynomial } ;
+polynomial = [ "+" ] plain_polynomial ;
+plain_polynomial = [ plain_polynomial "+" ] poly_term { poly_term } ;
+poly_term = node_ident | "(" polynomial ")" ;
 
 ## Identifiers
 

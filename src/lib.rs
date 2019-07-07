@@ -142,11 +142,10 @@ impl NodeList {
         NodeList { nodes: vec![node] }
     }
 
-    pub(crate) fn with_node(mut self, node: String) -> Self {
-        self.nodes.push(node);
+    pub(crate) fn with_nodes(mut self, nodes: Vec<String>) -> Self {
+        self.nodes.extend(nodes.into_iter());
         self
     }
-
 }
 
 #[derive(Clone, Default, Debug)]

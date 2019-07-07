@@ -1,6 +1,35 @@
 Implementation notes for _cesar_
 ================================
 
+## Pre-processing step
+
+To make the grammar of _cesar_ LR-parsable, two rules of the surface
+language
+
+```ebnf
+fw_rule = polynomial "->" node_list "->" polynomial ;
+bw_rule = polynomial "<-" node_list "<-" polynomial ;
+```
+
+are replaced with
+
+```ebnf
+fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
+bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
+```
+
+in the grammar presented to the parser generator.  Nevertheless,
+support for the surface language is still possible by pre-processing
+the input and prefixing some or all of the plain polynomials with the
+addition operator.  This might involve right-to-left scanning of the
+input string, custom lexer implementation, etc.
+
+### Why do we need thin forward rules?
+
+The formula `cause -> state -> effect` might have some iconic value as
+a hint to the flow of time (a left-to-right timeline), but is it worth
+all the trouble?
+
 ## _Thin_ rules
 
 In principle, a _thin_ cause-effect rule doesn't unfold to a proper
@@ -48,13 +77,14 @@ This rule specifies a cause `polynomial` for all nodes in the
   - set of thin, cause-only links, one for each pair in _T_ &times;
     _R_.
 
-### _Cause-then-effect_ rules
+### _Cause-then-effect_ and _forward_ rules
 
 ```ebnf
-ce_rule = polynomial "->" node_list "->" polynomial ;
+ce_rule = node_list "<-" polynomial "->" polynomial ;
+fw_rule = polynomial "->" node_list "->" polynomial ;
 ```
 
-A cause-then-effect rule generates
+A cause-then-effect (or forward) rule generates
 
   - set _T_ of sending ports and a set _R_ of corresponding receiving
     antiports, one sending port and one receiving port for each node
@@ -84,10 +114,11 @@ However, since `a b -> a, b -> a b` generates the same ports as above
 and four fat links, `(a > a)`, `(b > b)`, `(a > b)`, `(b > a)`, it
 unfolds to a proper c-e structure.
 
-### _Effect-then-cause_ rules
+### _Effect-then-cause_ and _backward_ rules
 
 ```ebnf
-ec_rule = polynomial "<-" node_list "<-" polynomial ;
+ec_rule = node_list "->" polynomial "<-" polynomial ;
+bw_rule = polynomial "<-" node_list "<-" polynomial ;
 ```
 
 These are semantically equivalent to cause-then-effect rules with left
