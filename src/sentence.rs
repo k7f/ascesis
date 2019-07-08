@@ -45,26 +45,26 @@ impl Generator {
     pub fn with_grammar(mut self, grammar: &Grammar) -> Self {
         self.clear();
         
-        for t in grammar.terminals() {
-            self.symbol_bounds.insert(*t, Some(1));
+        for t in grammar.terminal_ids() {
+            self.symbol_bounds.insert(t, Some(1));
         }
 
-        for nt in grammar.nonterminals() {
-            self.symbol_bounds.insert(*nt, None);
-            self.shortest_prod.insert(*nt, None);
+        for nt in grammar.nonterminal_ids() {
+            self.symbol_bounds.insert(nt, None);
+            self.shortest_prod.insert(nt, None);
         }
 
-        self.prod_bounds.resize(grammar.num_productions(), None);
+        self.prod_bounds.resize(grammar.len(), None);
 
         loop {
             let mut no_change = true;
 
             'outer:
-            for prod_id in 0..grammar.num_productions() {
+            for (prod_id, prod) in grammar.iter().enumerate() {
                 let mut sum = 1;
 
-                for element in grammar.get_rhs(prod_id).unwrap() {
-                    if let Some(bound) = self.symbol_bounds[element] {
+                for element in prod.rhs() {
+                    if let Some(bound) = self.symbol_bounds[&element] {
                         sum += bound;
                     } else {
                         continue 'outer;
@@ -73,11 +73,10 @@ impl Generator {
 
                 if self.prod_bounds[prod_id].map_or(true, |v| sum < v) {
                     self.prod_bounds[prod_id] = Some(sum);
-                    let lhs = grammar.get_lhs(prod_id).unwrap();
 
-                    if self.symbol_bounds[&lhs].map_or(true, |v| sum < v) {
-                        self.symbol_bounds.insert(lhs, Some(sum));
-                        self.shortest_prod.insert(lhs, Some(prod_id));
+                    if self.symbol_bounds[&prod.lhs()].map_or(true, |v| sum < v) {
+                        self.symbol_bounds.insert(prod.lhs(), Some(sum));
+                        self.shortest_prod.insert(prod.lhs(), Some(prod_id));
                         no_change = false;
                     }
                 }
@@ -86,31 +85,37 @@ impl Generator {
                 break
             }
         }
+        self
+    }
+
+    pub fn set_axiom(&mut self, grammar: &Grammar, axiom: SymbolID) {
+        // Reset axiom-dependent data.
+
+        self.deriv_bounds.clear();
+        self.shortest_prev.clear();
 
         // Compute shortest derivations.
 
-        for nt in grammar.nonterminals() {
-            self.deriv_bounds.insert(*nt, None);
-            self.shortest_prev.insert(*nt, None);
+        for nt in grammar.nonterminal_ids() {
+            self.deriv_bounds.insert(nt, None);
+            self.shortest_prev.insert(nt, None);
         }
-
-        let axiom = grammar.get_axiom();
 
         self.deriv_bounds.insert(axiom, self.symbol_bounds[&axiom]);
 
         loop {
             let mut no_change = true;
 
-            for prod_id in 0..grammar.num_productions() {
-                let lhs = grammar.get_lhs(prod_id).unwrap();
+            for (prod_id, prod) in grammar.iter().enumerate() {
 
                 if let Some(rlen) = self.prod_bounds[prod_id] {
-                    if let Some(dlen) = self.deriv_bounds[&lhs] {
-                        if let Some(slen) = self.symbol_bounds[&lhs] {
+                    if let Some(dlen) = self.deriv_bounds[&prod.lhs()] {
+                        if let Some(slen) = self.symbol_bounds[&prod.lhs()] {
 
                             let sum = dlen + rlen - slen;
 
-                            for element in grammar.get_rhs_nonterminals(prod_id).unwrap() {
+                            for element in prod.rhs_nonterminals() {
+
                                 if self.deriv_bounds[element].map_or(true, |v| sum < v) {
                                     self.deriv_bounds.insert(*element, Some(sum));
                                     self.shortest_prev.insert(*element, Some(prod_id));
@@ -125,7 +130,6 @@ impl Generator {
                 break
             }
         }
-        self
     }
 
     pub fn generate(&mut self, grammar: &Grammar) -> Sentence {

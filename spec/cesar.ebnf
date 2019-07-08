@@ -6,7 +6,7 @@ ces_file = { ces_def | ces_inst | meta_block } ;
 
 ## Structure definition
 
-ces_def = ces_sig "{" rex "}" ;
+ces_def = ces_sig rex ;
 ces_sig = "ces" ces_ident [ "(" [ arg_list_decl ] ")" ] ;
 
 ## Structure instantiation
