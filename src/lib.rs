@@ -3,6 +3,9 @@ extern crate lalrpop_util;
 
 lalrpop_mod!(pub cesar);
 
+pub(crate) mod grammar;
+pub(crate) mod sentence;
+
 use std::{fmt, collections::BTreeSet, iter::FromIterator, str::FromStr, error::Error};
 use enquote::unquote;
 use cesar::RexParser;

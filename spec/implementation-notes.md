@@ -1,34 +1,34 @@
 Implementation notes for _cesar_
 ================================
 
-## Pre-processing step
+## Optional pre-processing step
 
-To make the grammar of _cesar_ LR-parsable, two rules of the surface
-language
+Two rules from the first draft of the surface language,
 
 ```ebnf
 fw_rule = polynomial "->" node_list "->" polynomial ;
 bw_rule = polynomial "<-" node_list "<-" polynomial ;
 ```
 
-are replaced with
+were later replaced with
 
 ```ebnf
 fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 ```
 
-in the grammar presented to the parser generator.  Nevertheless,
-support for the surface language is still possible by pre-processing
-the input and prefixing some or all of the plain polynomials with the
-addition operator.  This might involve right-to-left scanning of the
-input string, custom lexer implementation, etc.
+This change was necessary to make the grammar of _cesar_ LR-parsable.
+Nevertheless, support for the surface language might still be possible
+by pre-processing the input and prefixing some or all of the plain
+polynomials with the addition operator.  This would probably involve
+right-to-left scanning of the input string, custom lexer
+implementation, etc.
 
-### Why do we need thin forward rules?
+### Do we need thin forward rules?
 
-The formula `cause -> state -> effect` might have some iconic value as
-a hint to the flow of time (a left-to-right timeline), but is it worth
-all the trouble?
+Probably not.  The formula `cause -> state -> effect` might have some
+iconic value as a hint to the flow of time (a left-to-right timeline),
+but it complicates the implementation and, probably, mental parsing.
 
 ## _Thin_ rules
 
@@ -159,5 +159,5 @@ However, there are structures undefinable with fat rules only, as a
 simple triangle structure shows:
 
 ```rust
-{ a -> b c } + { b <- a c } + { a -> c -> b }
+{ a -> b c } + { b <- a c } + { c <- a -> b }
 ```
