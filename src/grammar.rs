@@ -2,12 +2,13 @@ use std::ops::Range;
 use crate::bnf;
 
 pub type SymbolID = usize;
+pub type ProductionID = usize;
 
 #[derive(Clone, Default, Debug)]
 pub struct Production {
     lhs:              SymbolID,
     rhs:              Vec<SymbolID>,
-    rhs_nonterminals: Vec<SymbolID>,
+    rhs_nonterminals: Vec<SymbolID>, // for faster iteration...
 }
 
 impl Production {
@@ -113,8 +114,21 @@ impl Grammar {
         (0..self.num_terminals)
     }
 
+    pub fn is_terminal(&self, symbol_id: SymbolID) -> bool {
+        symbol_id < self.num_terminals
+    }
+
     pub fn nonterminal_ids(&self) -> Range<SymbolID> {
         (self.num_terminals..self.symbols.len())
+    }
+
+    pub fn id_of_nonterminal(&self, name: &str) -> Option<SymbolID> {
+        for id in self.num_terminals..self.symbols.len() {
+            if self.symbols[id] == name {
+                return Some(id)
+            }
+        }
+        None
     }
 
     pub fn len(&self) -> usize {
@@ -129,7 +143,7 @@ impl Grammar {
         self.productions.iter()
     }
 
-    pub fn get(&self, prod_id: usize) -> Option<&Production> {
+    pub fn get(&self, prod_id: ProductionID) -> Option<&Production> {
         self.productions.get(prod_id)
     }
 }

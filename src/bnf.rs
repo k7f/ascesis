@@ -31,7 +31,7 @@ fn first_unquoted_semi<S: AsRef<str>>(line: S) -> Option<usize> {
 pub fn without_comments<S: AsRef<str>>(spec: S) -> String {
     spec.as_ref().lines().fold(String::new(), |mut res, line| {
         if let Some(pos) = first_unquoted_semi(line) {
-            res.push_str(&line[..pos + 1]);
+            res.push_str(&line[..=pos]);
         } else {
             res.push_str(line);
         }
@@ -68,7 +68,11 @@ impl Syntax {
     }
 
     pub fn of_cesar() -> Self {
-        macro_rules! FILE_NAME { () => { "cesar_grammar.bnf" } }
+        macro_rules! FILE_NAME {
+            () => {
+                "cesar_grammar.bnf"
+            };
+        }
 
         let spec = include_str!(FILE_NAME!());
 

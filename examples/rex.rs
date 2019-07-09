@@ -1,10 +1,16 @@
 use std::error::Error;
-use cesar_lang::{Rex, ParsingError, CesarError, grammar::Grammar};
+use cesar_lang::{Rex, ParsingError, CesarError, grammar::Grammar, sentence::Generator};
 
 fn random_spec() -> String {
     let grammar = Grammar::of_cesar();
 
     println!("{:?}", grammar);
+
+    let mut generator = Generator::new().with_grammar(&grammar);
+
+    let axiom = grammar.id_of_nonterminal("Rex").unwrap();
+    generator.set_axiom(&grammar, axiom);
+    generator.emit(&grammar);
 
     r#"{ a => b }"#.to_owned()
 }
