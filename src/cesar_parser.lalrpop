@@ -3,7 +3,7 @@ use crate::{Rex, Rule, ThinRule, FatRule, NodeList, Polynomial, BinOp, Literal};
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
-// Rule expressions
+// Rule expression
 
 // rex = "{" rule "}"
 //     | "{" rex { [ "+" ] rex } "}" ;

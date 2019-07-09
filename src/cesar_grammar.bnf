@@ -1,0 +1,70 @@
+;; Rule expression
+
+<Rex> ::= "{" <Rule> "}"
+        | "{" <RexSeq> "}" ;
+
+<RexSeq> ::= <Rex>
+           | <Rex> <RexSeq>
+           | <Rex> "+" <RexSeq> ;
+
+;; Rules
+
+<Rule> ::= <ThinRule> | <FatRule> ;
+
+<ThinRule> ::= <E-Rule> | <C-Rule> | <EC-Rule> | <CE-Rule> | <FW-Rule> | <BW-Rule> ;
+
+; effect polynomial with explicit node list on the left
+<E-Rule> ::= <NodeList> "->" <Polynomial> ;
+
+; cause polynomial with explicit node list on the left
+<C-Rule> ::= <NodeList> "<-" <Polynomial> ;
+
+; effect-then-cause polynomial with explicit node list on the left
+<EC-Rule> ::= <NodeList> "->" <Polynomial> "<-" <Polynomial> ;
+
+; cause-then-effect polynomial with explicit node list on the left
+<CE-Rule> ::= <NodeList> "<-" <Polynomial> "->" <Polynomial> ;
+
+; cause-then-effect pair of polynomials with explicit node list in the
+; middle
+<FW-Rule> ::= "+" <PlainPolynomial> "->" <NodeList> "->" <Polynomial> ;
+
+; effect-then-cause pair of polynomials with explicit node list in the
+; middle
+<BW-Rule> ::= "+" <PlainPolynomial> "<-" <NodeList> "<-" <Polynomial> ;
+
+<NodeList> ::= <PlainNodeList>
+             | <PlainNodeList> "," ;
+
+<PlainNodeList> ::= <NodeIdent>
+                  | <NodeIdent> "," <PlainNodeList> ;
+
+; multi-polynomial rule with implicit node lists
+<FatRule> ::= <Polynomial> <FatArrow> <FatRuleTail> ;
+
+<FatRuleTail> ::= <Polynomial>
+                | <Polynomial> <FatArrow> <FatRuleTail> ;
+
+<FatArrow> ::= "=>" | "<=" ;
+
+;; Polynomial
+
+<Polynomial> ::= <PlainPolynomial>
+               | "+" <PlainPolynomial> ;
+
+<PlainPolynomial> ::= <PolyTermSeq>
+                    | <PlainPolynomial> "+" <PolyTermSeq> ;
+
+<PolyTermSeq> ::= <PolyTerm>
+                | <PolyTerm> <PolyTermSeq> ;
+
+<PolyTerm> ::= <NodeIdent>
+             | "(" <Polynomial> ")" ;
+
+;; Identifiers
+
+; FIXME
+<NodeIdent> ::= "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M"
+              | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z"
+              | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m"
+              | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;

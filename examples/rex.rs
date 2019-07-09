@@ -1,5 +1,28 @@
 use std::error::Error;
-use cesar_lang::{Rex, CesarError};
+use cesar_lang::{Rex, ParsingError, CesarError, grammar::Grammar};
+
+fn random_spec() -> String {
+    let grammar = Grammar::of_cesar();
+
+    println!("{:?}", grammar);
+
+    r#"{ a => b }"#.to_owned()
+}
+
+fn process_parsing_error(err: ParsingError) -> CesarError {
+    let message = format!("{}", err);
+    let mut lines = message.lines();
+
+    if let Some(line) = lines.next() {
+        eprintln!("[ERROR] {}", line);
+    }
+
+    for line in lines {
+        eprintln!("\t{}", line);
+    }
+
+    CesarError::from(err)
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = clap::App::new("Rex")
@@ -9,24 +32,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         .args_from_usage("[REX] 'rule expression'")
         .get_matches();
 
-    let spec = args.value_of("REX").unwrap_or(r#"{ a => b }"#); // FIXME random rex
+    if let Some(spec) = args.value_of("REX") {
+        let rex: Rex = spec.parse().map_err(process_parsing_error)?;
 
-    let rex: Rex = spec.parse().map_err(|err| {
-        let message = format!("{}", err);
-        let mut lines = message.lines();
+        println!("Rex: {:?}", rex);
+    } else {
+        let rex: Rex = random_spec().parse().map_err(process_parsing_error)?;
 
-        if let Some(line) = lines.next() {
-            eprintln!("[ERROR] {}", line);
-        }
-
-        for line in lines {
-            eprintln!("\t{}", line);
-        }
-
-        CesarError::from(err)
-    })?;
-
-    println!("Rex: {:?}", rex);
+        println!("Rex: {:?}", rex);
+    }
 
     Ok(())
 }

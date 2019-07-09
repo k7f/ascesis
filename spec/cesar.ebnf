@@ -1,6 +1,7 @@
 # cesar syntax in EBNF
 
-# White space is optional anywhere between tokens.
+# White space is optional anywhere between tokens, except inside
+# identifiers and literals.
 
 ces_file = { ces_def | ces_inst | meta_block } ;
 
@@ -76,12 +77,14 @@ poly_term = node_ident | "(" polynomial ")" ;
 
 ## Identifiers
 
+# FIXME whitespace
 ces_ident = uppercase_letter { alphanum_char } ;
 node_ident = lowercase_letter { alphanum_char } ;
 arg_ident = ( "_" | letter ) { alphanum_char } ;
 
 ## Literals
 
+# FIXME whitespace
 size = digit { digit } ;
 string = "\"" { any_char } "\"" ;
 

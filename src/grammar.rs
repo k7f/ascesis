@@ -74,6 +74,10 @@ impl Grammar {
         result
     }
 
+    pub fn of_cesar() -> Self {
+        Self::from_bnf(bnf::Syntax::of_cesar())
+    }
+
     pub fn with_symbols<I, J>(mut self, terminals: I, nonterminals: J) -> Self
     where
         I: IntoIterator<Item = String>,

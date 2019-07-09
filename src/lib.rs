@@ -5,11 +5,12 @@ extern crate lalrpop_util;
 
 lalrpop_mod!(
     #[allow(clippy::all)]
-    pub cesar_grammar
+    pub cesar_parser
 );
+
 lalrpop_mod!(
     #[allow(clippy::all)]
-    pub bnf_grammar
+    pub bnf_parser
 );
 
 pub mod bnf;
@@ -18,10 +19,10 @@ pub mod sentence;
 
 use std::{fmt, collections::BTreeSet, iter::FromIterator, str::FromStr, error::Error};
 use enquote::unquote;
-use crate::cesar_grammar::RexParser;
+use crate::cesar_parser::RexParser;
 
-pub(crate) type ParsingError = lalrpop_util::ParseError<usize, String, String>;
-pub(crate) type ParsingResult<T> = Result<T, ParsingError>;
+pub type ParsingError = lalrpop_util::ParseError<usize, String, String>;
+pub type ParsingResult<T> = Result<T, ParsingError>;
 
 #[derive(Clone, Debug)]
 pub enum CesarError {

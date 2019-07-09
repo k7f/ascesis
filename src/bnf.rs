@@ -1,6 +1,44 @@
 use std::{str::FromStr, error::Error};
 use enquote::unquote;
-use crate::{ParsingError, ParsingResult, bnf_grammar::SyntaxParser};
+use crate::{ParsingError, ParsingResult, bnf_parser::SyntaxParser};
+
+fn first_unquoted_semi<S: AsRef<str>>(line: S) -> Option<usize> {
+    let mut is_quoted = false;
+    let mut is_escaped = false;
+
+    for (pos, ch) in line.as_ref().chars().enumerate() {
+        if is_quoted {
+            if ch == '\\' {
+                is_escaped = !is_escaped;
+            } else if ch == '"' && !is_escaped {
+                is_quoted = false;
+            } else {
+                is_escaped = false;
+            }
+        } else if ch == '"' {
+            is_quoted = true;
+            is_escaped = false;
+        } else if ch == ';' {
+            return Some(pos)
+        }
+    }
+    None
+}
+
+/// Returns `spec` converted to a `String` after removing all
+/// substrings delimited with unquoted ";" on the left and the nearest
+/// end of line on the right (delimiters themselves are preserved).
+pub fn without_comments<S: AsRef<str>>(spec: S) -> String {
+    spec.as_ref().lines().fold(String::new(), |mut res, line| {
+        if let Some(pos) = first_unquoted_semi(line) {
+            res.push_str(&line[..pos + 1]);
+        } else {
+            res.push_str(line);
+        }
+        res.push('\n');
+        res
+    })
+}
 
 #[derive(Debug)]
 pub struct Syntax {
@@ -19,14 +57,25 @@ impl Syntax {
     }
 
     pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
+        let spec = without_comments(spec);
         let mut errors = Vec::new();
 
         let result = SyntaxParser::new()
-            .parse(&mut errors, spec)
+            .parse(&mut errors, &spec)
             .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
 
         Ok(result)
+    }
+
+    pub fn of_cesar() -> Self {
+        macro_rules! FILE_NAME { () => { "cesar_grammar.bnf" } }
+
+        let spec = include_str!(FILE_NAME!());
+
+        match Self::from_spec(spec) {
+            Ok(result) => result,
+            Err(err) => panic!("Error in file \"{}\": {}.", FILE_NAME!(), err),
+        }
     }
 
     /// Returns all literal symbols (language terminals) as a sorted, deduplicated `Vec`.

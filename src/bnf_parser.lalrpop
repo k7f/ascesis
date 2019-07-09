@@ -9,7 +9,7 @@ pub Syntax: Syntax = {
 };
 
 Rule: Rule = {
-    "<" <lhs: RuleName> ">" "::=" <rhs: Expression> ";" => Rule::new(lhs, rhs),
+    ";"* "<" <lhs: RuleName> ">" "::=" <rhs: Expression> ";" => Rule::new(lhs, rhs),
 };
 
 Expression: Expression = {
@@ -29,4 +29,4 @@ Term: Term = {
 
 Literal: String = r#""[^"]*""# => <>.to_owned();
 
-RuleName: String = r"[A-Za-z][A-Za-z0-9-]*" => <>.to_owned();
+RuleName: String = r#"[A-Za-z][A-Za-z0-9-]*"# => <>.to_owned();
