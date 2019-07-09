@@ -44,7 +44,7 @@ impl Generator {
 
     pub fn with_grammar(mut self, grammar: &Grammar) -> Self {
         self.clear();
-        
+
         for t in grammar.terminal_ids() {
             self.symbol_bounds.insert(t, Some(1));
         }
@@ -59,15 +59,14 @@ impl Generator {
         loop {
             let mut no_change = true;
 
-            'outer:
-            for (prod_id, prod) in grammar.iter().enumerate() {
+            'outer: for (prod_id, prod) in grammar.iter().enumerate() {
                 let mut sum = 1;
 
                 for element in prod.rhs() {
                     if let Some(bound) = self.symbol_bounds[&element] {
                         sum += bound;
                     } else {
-                        continue 'outer;
+                        continue 'outer
                     }
                 }
 
@@ -107,15 +106,12 @@ impl Generator {
             let mut no_change = true;
 
             for (prod_id, prod) in grammar.iter().enumerate() {
-
                 if let Some(rlen) = self.prod_bounds[prod_id] {
                     if let Some(dlen) = self.deriv_bounds[&prod.lhs()] {
                         if let Some(slen) = self.symbol_bounds[&prod.lhs()] {
-
                             let sum = dlen + rlen - slen;
 
                             for element in prod.rhs_nonterminals() {
-
                                 if self.deriv_bounds[element].map_or(true, |v| sum < v) {
                                     self.deriv_bounds.insert(*element, Some(sum));
                                     self.shortest_prev.insert(*element, Some(prod_id));

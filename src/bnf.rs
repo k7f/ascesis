@@ -9,9 +9,7 @@ pub struct Syntax {
 
 impl Syntax {
     pub(crate) fn from_rule(rule: Rule) -> Self {
-        Self {
-            rules: vec![rule],
-        }
+        Self { rules: vec![rule] }
     }
 
     // FIXME merge rules with equal lhs
@@ -20,13 +18,13 @@ impl Syntax {
         self
     }
 
-    pub(crate) fn from_spec<'a, S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
         let spec = spec.as_ref();
         let mut errors = Vec::new();
 
-        let result = SyntaxParser::new().parse(&mut errors, spec).map_err(|err| {
-            err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned())
-        })?;
+        let result = SyntaxParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
 
         Ok(result)
     }
@@ -72,10 +70,7 @@ pub struct Rule {
 
 impl Rule {
     pub(crate) fn new(lhs: String, rhs: Expression) -> Self {
-        Self {
-            lhs: lhs,
-            rhs,
-        }
+        Self { lhs, rhs }
     }
 
     pub fn get_lhs(&self) -> &str {
@@ -83,24 +78,31 @@ impl Rule {
     }
 
     pub fn get_rhs_list(&self, terminals: &[String], nonterminals: &[String]) -> Vec<Vec<usize>> {
-        self.rhs.lists.iter().map(|list| list.terms.iter().map(|term| {
-            match term {
-                Term::Literal(lit) => {
-                    if let Some(id) = terminals.binary_search(&lit).ok() {
-                        id
-                    } else {
-                        panic!("Unexpected terminal symbol \"{}\" in BNF grammar.", lit)
-                    }
-                }
-                Term::RuleName(name) => {
-                    if let Some(id) = nonterminals.binary_search(&name).ok() {
-                        id
-                    } else {
-                        panic!("Undefined nonterminal symbol <{}> in BNF grammar.", name);
-                    }
-                }
-            }
-        }).collect()).collect()
+        self.rhs
+            .lists
+            .iter()
+            .map(|list| {
+                list.terms
+                    .iter()
+                    .map(|term| match term {
+                        Term::Literal(lit) => {
+                            if let Ok(id) = terminals.binary_search(&lit) {
+                                id
+                            } else {
+                                panic!("Unexpected terminal symbol \"{}\" in BNF grammar.", lit)
+                            }
+                        }
+                        Term::RuleName(name) => {
+                            if let Ok(id) = nonterminals.binary_search(&name) {
+                                id
+                            } else {
+                                panic!("Undefined nonterminal symbol <{}> in BNF grammar.", name);
+                            }
+                        }
+                    })
+                    .collect()
+            })
+            .collect()
     }
 }
 
@@ -111,9 +113,7 @@ pub struct Expression {
 
 impl Expression {
     pub(crate) fn from_list(list: List) -> Self {
-        Self {
-            lists: vec![list],
-        }
+        Self { lists: vec![list] }
     }
 
     pub(crate) fn with_more(mut self, mut other: Self) -> Self {
@@ -129,9 +129,7 @@ pub struct List {
 
 impl List {
     pub(crate) fn from_term(term: Term) -> Self {
-        Self {
-            terms: vec![term],
-        }
+        Self { terms: vec![term] }
     }
 
     pub(crate) fn with_more(mut self, mut other: Self) -> Self {

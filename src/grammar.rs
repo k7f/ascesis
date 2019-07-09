@@ -5,8 +5,8 @@ pub type SymbolID = usize;
 
 #[derive(Clone, Default, Debug)]
 pub struct Production {
-    lhs: SymbolID,
-    rhs: Vec<SymbolID>,
+    lhs:              SymbolID,
+    rhs:              Vec<SymbolID>,
     rhs_nonterminals: Vec<SymbolID>,
 }
 
@@ -75,8 +75,9 @@ impl Grammar {
     }
 
     pub fn with_symbols<I, J>(mut self, terminals: I, nonterminals: J) -> Self
-    where I: IntoIterator<Item=String>,
-          J: IntoIterator<Item=String>,
+    where
+        I: IntoIterator<Item = String>,
+        J: IntoIterator<Item = String>,
     {
         self.productions.clear();
 
@@ -114,6 +115,10 @@ impl Grammar {
 
     pub fn len(&self) -> usize {
         self.productions.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.productions.is_empty()
     }
 
     pub fn iter(&self) -> std::slice::Iter<Production> {

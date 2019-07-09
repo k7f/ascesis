@@ -3,8 +3,14 @@
 #[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(pub cesar_grammar);
-lalrpop_mod!(pub bnf_grammar);
+lalrpop_mod!(
+    #[allow(clippy::all)]
+    pub cesar_grammar
+);
+lalrpop_mod!(
+    #[allow(clippy::all)]
+    pub bnf_grammar
+);
 
 pub mod bnf;
 pub mod grammar;
@@ -54,13 +60,13 @@ impl Rex {
         self
     }
 
-    pub(crate) fn from_spec<'a, S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
         let spec = spec.as_ref();
         let mut errors = Vec::new();
 
-        let result = RexParser::new().parse(&mut errors, spec).map_err(|err| {
-            err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned())
-        })?;
+        let result = RexParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
 
         Ok(result)
     }
@@ -97,12 +103,12 @@ impl ThinRule {
         self
     }
 
-    pub(crate) fn with_cause(mut self, cause: Polynomial) -> Self  {
+    pub(crate) fn with_cause(mut self, cause: Polynomial) -> Self {
         self.cause = cause;
         self
     }
 
-    pub(crate) fn with_effect(mut self, effect: Polynomial) -> Self  {
+    pub(crate) fn with_effect(mut self, effect: Polynomial) -> Self {
         self.effect = effect;
         self
     }
@@ -218,7 +224,11 @@ impl Literal {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BinOp {
-    Add, ThinTx, ThinRx, FatTx, FatRx,
+    Add,
+    ThinTx,
+    ThinRx,
+    FatTx,
+    FatRx,
 }
 
 impl fmt::Display for BinOp {

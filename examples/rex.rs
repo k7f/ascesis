@@ -9,9 +9,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .args_from_usage("[REX] 'rule expression'")
         .get_matches();
 
-    let spec = args
-        .value_of("REX")
-        .unwrap_or(r#"{ a => b }"#);  // FIXME random rex
+    let spec = args.value_of("REX").unwrap_or(r#"{ a => b }"#); // FIXME random rex
 
     let rex: Rex = spec.parse().map_err(|err| {
         let message = format!("{}", err);
