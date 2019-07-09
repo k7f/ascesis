@@ -1,4 +1,5 @@
 use std::ops::Range;
+use crate::bnf;
 
 pub type SymbolID = usize;
 
@@ -16,9 +17,9 @@ impl Production {
         result
     }
 
-    fn with_rhs(mut self, rhs: &[SymbolID], max_terminal: SymbolID) -> Self {
+    fn with_rhs(mut self, rhs: Vec<SymbolID>, max_terminal: SymbolID) -> Self {
         self.rhs_nonterminals = rhs.iter().copied().filter(|&id| id >= max_terminal).collect();
-        self.rhs = rhs.to_owned();
+        self.rhs = rhs;
         self
     }
 
@@ -38,11 +39,11 @@ impl Production {
     }
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct Grammar {
-    terminals:    Vec<String>,
-    nonterminals: Range<SymbolID>,
-    productions:  Vec<Production>,
+    symbols:       Vec<String>,
+    productions:   Vec<Production>,
+    num_terminals: usize,
 }
 
 impl Grammar {
@@ -50,38 +51,65 @@ impl Grammar {
         Self::default()
     }
 
-    pub fn with_terminals(mut self, terminals: &[String]) -> Self {
-        self.terminals = terminals.to_vec();
-        self.nonterminals = (terminals.len()..terminals.len());
+    pub fn from_bnf(bnf: bnf::Syntax) -> Self {
+        let mut result = Self::new();
+
+        result.symbols = bnf.get_literals();
+        result.num_terminals = result.symbols.len();
+
+        let nonterminals = bnf.get_rules().iter().map(|rule| rule.get_lhs().to_owned());
+        result.symbols.extend(nonterminals);
+        result.symbols[result.num_terminals..].sort();
+
+        for (ndx, rule) in bnf.get_rules().iter().enumerate() {
+            let lhs = ndx + result.num_terminals;
+
+            let (terminals, nonterminals) = result.symbols.split_at(result.num_terminals);
+            let rhs_list = rule.get_rhs_list(terminals, nonterminals);
+            for rhs in rhs_list.into_iter() {
+                result.add_production(lhs, rhs);
+            }
+        }
+
+        result
+    }
+
+    pub fn with_symbols<I, J>(mut self, terminals: I, nonterminals: J) -> Self
+    where I: IntoIterator<Item=String>,
+          J: IntoIterator<Item=String>,
+    {
         self.productions.clear();
+
+        self.symbols = terminals.into_iter().collect();
+        self.symbols.sort();
+
+        self.num_terminals = self.symbols.len();
+
+        self.symbols.extend(nonterminals);
+        self.symbols[self.num_terminals..].sort();
 
         self
     }
 
-    // FIXME ignore duplicates
-    pub fn add_production(&mut self, lhs: SymbolID, rhs: &[SymbolID]) {
+    pub fn add_production(&mut self, lhs: SymbolID, rhs: Vec<SymbolID>) {
         if rhs.is_empty() {
-            self.nonterminals.end = self.nonterminals.end.max(lhs + 1);
-
             self.productions.push(Production::new(lhs));
         } else {
-            self.nonterminals.end = self.nonterminals.end.max(lhs.max(rhs.iter().copied().max().unwrap()) + 1);
-
-            let prod = Production::new(lhs).with_rhs(rhs, self.terminals.len());
+            let prod = Production::new(lhs).with_rhs(rhs, self.num_terminals);
             self.productions.push(prod);
         }
     }
 
-    pub fn terminals(&self) -> std::slice::Iter<String> {
-        self.terminals.iter()
+    pub fn terminals(&self) -> std::iter::Take<std::slice::Iter<String>> {
+        self.symbols.iter().take(self.num_terminals)
     }
 
     pub fn terminal_ids(&self) -> Range<SymbolID> {
-        (0..self.terminals.len())
+        (0..self.num_terminals)
     }
 
     pub fn nonterminal_ids(&self) -> Range<SymbolID> {
-        self.nonterminals.clone()
+        (self.num_terminals..self.symbols.len())
     }
 
     pub fn len(&self) -> usize {
@@ -94,15 +122,5 @@ impl Grammar {
 
     pub fn get(&self, prod_id: usize) -> Option<&Production> {
         self.productions.get(prod_id)
-    }
-}
-
-impl Default for Grammar {
-    fn default() -> Self {
-        Self {
-            terminals:    Default::default(),
-            nonterminals: (0..0),
-            productions:  Default::default(),
-        }
     }
 }

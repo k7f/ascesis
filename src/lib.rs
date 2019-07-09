@@ -1,14 +1,18 @@
+#![feature(slice_partition_dedup)]
+
 #[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(pub cesar);
+lalrpop_mod!(pub cesar_grammar);
+lalrpop_mod!(pub bnf_grammar);
 
-pub(crate) mod grammar;
-pub(crate) mod sentence;
+pub mod bnf;
+pub mod grammar;
+pub mod sentence;
 
 use std::{fmt, collections::BTreeSet, iter::FromIterator, str::FromStr, error::Error};
 use enquote::unquote;
-use cesar::RexParser;
+use crate::cesar_grammar::RexParser;
 
 pub(crate) type ParsingError = lalrpop_util::ParseError<usize, String, String>;
 pub(crate) type ParsingResult<T> = Result<T, ParsingError>;
@@ -46,7 +50,7 @@ impl Rex {
         Rex { rule }
     }
 
-    pub(crate) fn with_rexlist(self, _rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
+    pub(crate) fn with_more(self, _rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
         self
     }
 
@@ -54,11 +58,11 @@ impl Rex {
         let spec = spec.as_ref();
         let mut errors = Vec::new();
 
-        let rex = RexParser::new().parse(&mut errors, spec).map_err(|err| {
+        let result = RexParser::new().parse(&mut errors, spec).map_err(|err| {
             err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned())
         })?;
 
-        Ok(rex)
+        Ok(result)
     }
 }
 
@@ -145,7 +149,7 @@ impl NodeList {
         NodeList { nodes: vec![node] }
     }
 
-    pub(crate) fn with_nodes(mut self, nodes: Vec<String>) -> Self {
+    pub(crate) fn with_more(mut self, nodes: Vec<String>) -> Self {
         self.nodes.extend(nodes.into_iter());
         self
     }
@@ -208,7 +212,7 @@ impl Literal {
     }
 
     pub(crate) fn from_quoted_str(quoted: &str) -> Result<Self, Box<dyn Error>> {
-        Ok(Literal::Name(unquote(quoted)?.to_owned()))
+        Ok(Literal::Name(unquote(quoted)?))
     }
 }
 

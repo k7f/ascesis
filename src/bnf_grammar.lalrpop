@@ -1,0 +1,32 @@
+use lalrpop_util::ErrorRecovery;
+use crate::bnf::{Syntax, Rule, Expression, List, Term};
+
+grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
+
+pub Syntax: Syntax = {
+    <Rule> => Syntax::from_rule(<>),
+    <head: Rule> <tail: Syntax> => Syntax::from_rule(head).with_more(tail),
+};
+
+Rule: Rule = {
+    "<" <lhs: RuleName> ">" "::=" <rhs: Expression> ";" => Rule::new(lhs, rhs),
+};
+
+Expression: Expression = {
+    <List> => Expression::from_list(<>),
+    <head: List> "|" <tail: Expression> => Expression::from_list(head).with_more(tail),
+};
+
+List: List = {
+    <Term> => List::from_term(<>),
+    <head: Term> <tail: List> => List::from_term(head).with_more(tail),
+};
+
+Term: Term = {
+    <Literal> => Term::new_literal(<>).unwrap(),
+    "<" <RuleName> ">" => Term::new_rule_name(<>),
+};
+
+Literal: String = r#""[^"]*""# => <>.to_owned();
+
+RuleName: String = r"[A-Za-z][A-Za-z0-9-]*" => <>.to_owned();

@@ -15,7 +15,7 @@ impl Sentence {
         self.symbols.push(symbol);
     }
 
-    pub fn pop(&mut self, symbol: SymbolID) -> Option<SymbolID> {
+    pub fn pop(&mut self) -> Option<SymbolID> {
         self.symbols.pop()
     }
 }
@@ -132,8 +132,9 @@ impl Generator {
         }
     }
 
-    pub fn generate(&mut self, grammar: &Grammar) -> Sentence {
-        let mut result = Sentence::new();
-        result
-    }
+    // pub fn generate(&mut self, grammar: &Grammar) -> Sentence {
+    //     let mut result = Sentence::new();
+
+    //     result
+    // }
 }

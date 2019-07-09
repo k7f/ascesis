@@ -9,7 +9,7 @@ grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static
 //     | "{" rex { [ "+" ] rex } "}" ;
 pub Rex: Rex = {
     "{" <Rule> "}" => Rex::from_rule(<>),
-    "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_rexlist(tail),
+    "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_more(tail),
 };
 
 // Rules
@@ -56,7 +56,7 @@ ThinRule: ThinRule = {
 
 // node_list = node_ident { "," node_ident } [ "," ] ;
 NodeList: NodeList = {
-    <head: NodeIdent> <tail: CommaNodeIdent*> ","? => NodeList::from_node(head).with_nodes(tail),
+    <head: NodeIdent> <tail: CommaNodeIdent*> ","? => NodeList::from_node(head).with_more(tail),
 };
 
 CommaNodeIdent: String = "," <NodeIdent>;
