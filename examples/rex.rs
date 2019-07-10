@@ -10,7 +10,13 @@ fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
     generator.set_axiom(&grammar, axiom)?;
     // println!("Axiom: <{}>", axiom);
 
-    Ok(generator.emit(&grammar))
+    generator.start_emission(&grammar);
+    let mut last_spec = None;
+    for spec in generator {
+        last_spec = Some(spec);
+    }
+
+    Ok(last_spec.unwrap())
 }
 
 fn process_parsing_error(err: ParsingError) -> CesarError {

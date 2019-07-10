@@ -45,7 +45,7 @@ impl Production {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct Grammar {
     /// Symbol table, immutable after grammar is constructed.
     ///

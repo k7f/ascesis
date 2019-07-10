@@ -11,12 +11,33 @@ impl Sentence {
         Self::default()
     }
 
+    pub fn clear(&mut self) {
+        self.symbols.clear();
+    }
+
     pub fn push(&mut self, symbol: SymbolID) {
         self.symbols.push(symbol);
     }
 
     pub fn pop(&mut self) -> Option<SymbolID> {
         self.symbols.pop()
+    }
+
+    pub fn as_string(&self, grammar: &Grammar) -> String {
+        let mut result = String::new();
+
+        let mut symbols = self.symbols.clone();
+        symbols.reverse();
+
+        for id in symbols {
+            let symbol = grammar.get_terminal(id).unwrap();
+
+            if !result.is_empty() {
+                result.push(' ');
+            }
+            result.push_str(symbol);
+        }
+        result
     }
 }
 
@@ -47,9 +68,14 @@ pub struct Generator {
     best_parent: HashMap<SymbolID, Option<usize>>, // nonterminal -> production index
 
     // state of emission
-    which_prod:  HashMap<SymbolID, ProductionUsed>, // nonterminal -> production used
-    on_stack:    HashMap<SymbolID, usize>,          // nonterminal -> #occurences on stack
-    prod_marked: Vec<bool>,                         // production index -> 'is used' flag
+    which_prod:   HashMap<SymbolID, ProductionUsed>, // nonterminal -> production used
+    on_stack:     HashMap<SymbolID, usize>,          // nonterminal -> #occurences on stack
+    prod_marked:  Vec<bool>,                         // production index -> 'is used' flag
+
+    in_sentence:  Sentence,
+    out_sentence: Sentence,
+    num_emitted:  u64,
+    grammar:      Option<Grammar>,  // FIXME use a smart pointer
 }
 
 impl Generator {
@@ -77,6 +103,10 @@ impl Generator {
         self.which_prod.clear();
         self.on_stack.clear();
         self.prod_marked.clear();
+        self.in_sentence.clear();
+        self.out_sentence.clear();
+        self.num_emitted = 0;
+        self.grammar = None;
     }
 
     /// Gathers axiom-independent derivation data.
@@ -183,11 +213,7 @@ impl Generator {
         Ok(())
     }
 
-    pub fn emit(&mut self, grammar: &Grammar) -> String {
-        let mut in_sentence = Sentence::new();
-        let mut out_sentence = Sentence::new();
-        let axiom_id = self.axiom_id.unwrap();
-
+    pub fn start_emission(&mut self, grammar: &Grammar) {
         self.clear_emission();
 
         for id in grammar.nonterminal_ids() {
@@ -196,103 +222,7 @@ impl Generator {
         }
 
         self.prod_marked.resize(grammar.len(), false);
-
-        let mut prod_id;
-
-        'outer: loop {
-            self.on_stack.insert(axiom_id, 1);
-            let mut nt_id = axiom_id;
-
-            loop {
-                match self.which_prod[&nt_id] {
-                    ProductionUsed::Finished => {
-                        if nt_id == axiom_id {
-                            break 'outer
-                        } else {
-                            prod_id = self.use_best_production(nt_id);
-                        }
-                    }
-
-                    ProductionUsed::ID(id) => {
-                        prod_id = id;
-                        self.which_prod.insert(nt_id, ProductionUsed::Ready);
-                    }
-
-                    _ => {
-                        self.choose_productions(grammar);
-
-                        for other_nt_id in grammar.nonterminal_ids() {
-                            if other_nt_id == axiom_id {
-                                continue
-                            }
-
-                            if let ProductionUsed::ID(_) = self.which_prod[&other_nt_id] {
-                                let mut best_lhs = other_nt_id;
-
-                                while let Some(best_prod_id) = self.best_parent[&best_lhs] {
-                                    best_lhs = grammar.get(best_prod_id).unwrap().lhs();
-
-                                    // FIXME why?
-                                    if self.on_stack[&best_lhs] == 0 {
-                                        // if let ProductionUsed::ID(_) = self.which_prod[&best_lhs] {
-                                        break
-                                    } else if self.on_stack[&other_nt_id] == 0 {
-                                        self.which_prod
-                                            .insert(best_lhs, ProductionUsed::ID(best_prod_id));
-                                        self.prod_marked[best_prod_id] = true;
-                                    } else {
-                                        self.which_prod.insert(best_lhs, ProductionUsed::Unsure);
-                                    }
-                                }
-                            }
-                        }
-
-                        for id in grammar.nonterminal_ids() {
-                            if self.which_prod[&id] == ProductionUsed::Ready {
-                                self.which_prod.insert(id, ProductionUsed::Finished);
-                            }
-                        }
-
-                        if nt_id == axiom_id
-                            && self.which_prod[&nt_id] == ProductionUsed::Finished
-                            && self.on_stack[&axiom_id] == 0
-                        {
-                            break 'outer
-                        } else if let ProductionUsed::ID(id) = self.which_prod[&nt_id] {
-                            prod_id = id;
-                            self.which_prod.insert(nt_id, ProductionUsed::Ready);
-                        } else {
-                            prod_id = self.use_best_production(nt_id);
-                        }
-                    }
-                }
-
-                let on_stack = self.on_stack[&nt_id];
-                self.on_stack.insert(nt_id, on_stack - 1);
-
-                if let Some(id) =
-                    self.update_sentence(grammar, &mut in_sentence, &mut out_sentence, prod_id)
-                {
-                    nt_id = id;
-                } else {
-                    break
-                }
-            }
-        }
-
-        out_sentence.symbols.reverse();
-
-        let mut result = String::new();
-
-        for id in out_sentence.symbols {
-            let symbol = grammar.get_terminal(id).unwrap();
-
-            if !result.is_empty() {
-                result.push(' ');
-            }
-            result.push_str(symbol);
-        }
-        result
+        self.grammar = Some(grammar.clone());
     }
 
     fn use_best_production(&mut self, nt_id: SymbolID) -> ProductionID {
@@ -324,27 +254,130 @@ impl Generator {
     fn update_sentence(
         &mut self,
         grammar: &Grammar,
-        in_sentence: &mut Sentence,
-        out_sentence: &mut Sentence,
         prod_id: ProductionID,
     ) -> Option<SymbolID> {
         let prod = grammar.get(prod_id).unwrap();
 
         for id in prod.rhs() {
-            in_sentence.push(*id);
+            self.in_sentence.push(*id);
             if !grammar.is_terminal(*id) {
                 let on_stack = self.on_stack[id];
                 self.on_stack.insert(*id, on_stack + 1);
             }
         }
 
-        while let Some(id) = in_sentence.pop() {
+        while let Some(id) = self.in_sentence.pop() {
             if grammar.is_terminal(id) {
-                out_sentence.push(id);
+                self.out_sentence.push(id);
             } else {
                 return Some(id)
             }
         }
         None
+    }
+}
+
+impl Iterator for Generator {
+    type Item = String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let grammar = self.grammar.take().unwrap();
+
+        let axiom_id = self.axiom_id.unwrap();
+
+        self.out_sentence.clear();
+        self.on_stack.insert(axiom_id, 1);
+        let mut nt_id = axiom_id;
+        let mut prod_id;
+
+        loop {
+            match self.which_prod[&nt_id] {
+                ProductionUsed::Finished => {
+                    if nt_id == axiom_id {
+                        self.grammar = Some(grammar);
+
+                        return None
+
+                    } else {
+                        prod_id = self.use_best_production(nt_id);
+                    }
+                }
+
+                ProductionUsed::ID(id) => {
+                    prod_id = id;
+                    self.which_prod.insert(nt_id, ProductionUsed::Ready);
+                }
+
+                _ => {
+                    self.choose_productions(&grammar);
+
+                    for other_nt_id in grammar.nonterminal_ids() {
+                        if other_nt_id == axiom_id {
+                            continue
+                        }
+
+                        if let ProductionUsed::ID(_) = self.which_prod[&other_nt_id] {
+                            let mut best_lhs = other_nt_id;
+
+                            while let Some(best_prod_id) = self.best_parent[&best_lhs] {
+                                best_lhs = grammar.get(best_prod_id).unwrap().lhs();
+
+                                // FIXME why?
+                                if self.on_stack[&best_lhs] == 0 {
+                                // if let ProductionUsed::ID(_) = self.which_prod[&best_lhs] {
+                                    break
+                                } else if self.on_stack[&other_nt_id] == 0 {
+                                    self.which_prod
+                                        .insert(best_lhs, ProductionUsed::ID(best_prod_id));
+                                    self.prod_marked[best_prod_id] = true;
+                                } else {
+                                    self.which_prod.insert(best_lhs, ProductionUsed::Unsure);
+                                }
+                            }
+                        }
+                    }
+
+                    for id in grammar.nonterminal_ids() {
+                        if self.which_prod[&id] == ProductionUsed::Ready {
+                            self.which_prod.insert(id, ProductionUsed::Finished);
+                        }
+                    }
+
+                    if nt_id == axiom_id
+                        && self.which_prod[&nt_id] == ProductionUsed::Finished
+                        && self.on_stack[&axiom_id] == 0
+                    {
+                        self.grammar = Some(grammar);
+
+                        return None
+
+                    } else if let ProductionUsed::ID(id) = self.which_prod[&nt_id] {
+                        prod_id = id;
+                        self.which_prod.insert(nt_id, ProductionUsed::Ready);
+
+                    } else {
+                        prod_id = self.use_best_production(nt_id);
+                    }
+                }
+            }
+
+            let on_stack = self.on_stack[&nt_id];
+            self.on_stack.insert(nt_id, on_stack - 1);
+
+            if let Some(id) =
+                self.update_sentence(&grammar, prod_id)
+            {
+                nt_id = id;
+            } else {
+                break
+            }
+        }
+
+        self.num_emitted += 1;
+        let result = self.out_sentence.as_string(&grammar);
+        println!("{}. {}", self.num_emitted, result);
+
+        self.grammar = Some(grammar);
+        Some(result)
     }
 }
