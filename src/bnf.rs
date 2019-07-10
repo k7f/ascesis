@@ -1,4 +1,4 @@
-use std::{str::FromStr, error::Error};
+use std::{collections::BTreeMap, iter::FromIterator, str::FromStr, error::Error};
 use enquote::unquote;
 use crate::{ParsingError, ParsingResult, bnf_parser::SyntaxParser};
 
@@ -28,6 +28,7 @@ fn first_unquoted_semi<S: AsRef<str>>(line: S) -> Option<usize> {
 /// Returns `spec` converted to a `String` after removing all
 /// substrings delimited with unquoted ";" on the left and the nearest
 /// end of line on the right (delimiters themselves are preserved).
+// FIXME spurious semis at eof
 pub fn without_comments<S: AsRef<str>>(spec: S) -> String {
     spec.as_ref().lines().fold(String::new(), |mut res, line| {
         if let Some(pos) = first_unquoted_semi(line) {
@@ -46,23 +47,29 @@ pub struct Syntax {
 }
 
 impl Syntax {
+    /// To be called only in the parser.
     pub(crate) fn from_rule(rule: Rule) -> Self {
         Self { rules: vec![rule] }
     }
 
-    // FIXME merge rules with equal lhs
+    /// To be called only in the parser.
     pub(crate) fn with_more(mut self, mut other: Self) -> Self {
         self.rules.append(&mut other.rules);
         self
     }
 
-    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+    pub fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
         let spec = without_comments(spec);
         let mut errors = Vec::new();
 
-        let result = SyntaxParser::new()
+        let mut result = SyntaxParser::new()
             .parse(&mut errors, &spec)
             .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        // Sort rules and merge these with common LHS.
+        // FIXME merging
+        let rules = BTreeMap::from_iter(result.rules.into_iter().map(|rule| (rule.lhs, rule.rhs)));
+        result.rules = rules.into_iter().map(|(lhs, rhs)| Rule { lhs, rhs }).collect();
 
         Ok(result)
     }
@@ -82,7 +89,8 @@ impl Syntax {
         }
     }
 
-    /// Returns all literal symbols (language terminals) as a sorted, deduplicated `Vec`.
+    /// Returns all literals (terminal symbols of the language) in an
+    /// alphabetically ordered, deduplicated `Vec`.
     pub fn get_literals(&self) -> Vec<String> {
         let mut result = Vec::new();
 
@@ -102,6 +110,9 @@ impl Syntax {
         result
     }
 
+    /// Returns all rules (each being a group of all productions with
+    /// a common LHS symbol) in a slice which is alphabetically
+    /// ordered by LHS symbols.
     pub fn get_rules(&self) -> &[Rule] {
         &self.rules
     }

@@ -1,18 +1,16 @@
 use std::error::Error;
 use cesar_lang::{Rex, ParsingError, CesarError, grammar::Grammar, sentence::Generator};
 
-fn random_spec() -> String {
+fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
     let grammar = Grammar::of_cesar();
-
-    println!("{:?}", grammar);
+    // println!("{:?}", grammar);
 
     let mut generator = Generator::new().with_grammar(&grammar);
 
-    let axiom = grammar.id_of_nonterminal("Rex").unwrap();
-    generator.set_axiom(&grammar, axiom);
-    generator.emit(&grammar);
+    generator.set_axiom(&grammar, axiom)?;
+    // println!("Axiom: <{}>", axiom);
 
-    r#"{ a => b }"#.to_owned()
+    Ok(generator.emit(&grammar))
 }
 
 fn process_parsing_error(err: ParsingError) -> CesarError {
@@ -43,7 +41,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         println!("Rex: {:?}", rex);
     } else {
-        let rex: Rex = random_spec().parse().map_err(process_parsing_error)?;
+        let axiom = "ThinRule";
+        let spec = random_spec(axiom)?;
+        println!("<{}> is \"{}\"", axiom, spec);
+
+        let rex: Rex = spec.parse().map_err(process_parsing_error)?;
 
         println!("Rex: {:?}", rex);
     }
