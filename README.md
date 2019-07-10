@@ -24,10 +24,10 @@ For now, see [implementation notes](spec/implementation-notes.md).
 
 ### Single arrow
 
-The simplest _fat rule_ defines a single arrow.  Such a rule,
-`a => b`, is in the body of the `Arrow` structure defined below.
-An instance of the `Arrow` structure is created in the body of the
-`Main` structure definition.
+The simplest _fat structural rule_ defines a single arrow, for
+example, `a => b`, as in the body of the `Arrow` structure defined
+below.  An instance of the `Arrow` structure is created in the body of
+the `Main` structure definition.
 
 ```rust
 ces Arrow { a => b }
@@ -92,14 +92,14 @@ ces Main { Arrow(a, z) }
 
 ### Arrow sequence
 
-A fat rule consists of two or more polynomials.  For example, a rule
-with four single-node polynomials results in three arrows,
+A fat rule consists of two or more polynomials.  For example, a fat
+rule with four single-node polynomials results in three arrows,
 
 ```rust
 ces ThreeArrowsInARow(w: Node, x: Node, y: Node, z: Node) { w => x => y => z }
 ```
 
-An atomic rule expression is a single rule or a structure
+An atomic rule expression is a single structural rule or a structure
 instantiation.  These are the two constructs allowed in leaves of an
 AST of a rule expression.
 
@@ -137,8 +137,8 @@ Like a fork, a choice structure may be defined with a single fat rule,
 ces Main { a => b + c } // equivalently, b <= a => c
 ```
 
-Node identifiers occuring in a rule need not be unique.  Next is a
-valid definition of a three-way choice,
+Node identifiers occuring in a structural rule need not be unique.
+Next is a valid definition of a three-way choice,
 
 ```rust
 ces Main { b <= a => c <= a => d } // equivalent to a => b + c + d

@@ -1,15 +1,14 @@
 ;; Rule expression
 
-<Rex> ::= "{" <FiringRule> "}"
+<Rex> ::= "{" <ThinRule> "}"
+        | "{" <FatRule> "}"
         | "{" <RexSeq> "}" ;
 
 <RexSeq> ::= <Rex>
            | <Rex> <RexSeq>
            | <Rex> "+" <RexSeq> ;
 
-;; Firing rules
-
-<FiringRule> ::= <ThinRule> | <FatRule> ;
+;; Structural rules (strules)
 
 <ThinRule> ::= <E-Rule> | <C-Rule> | <EC-Rule> | <CE-Rule> | <FW-Rule> | <BW-Rule> ;
 

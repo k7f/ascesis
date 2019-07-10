@@ -36,19 +36,33 @@ fn main() -> Result<(), Box<dyn Error>> {
         .args_from_usage("[REX] 'rule expression'")
         .get_matches();
 
-    if let Some(spec) = args.value_of("REX") {
-        let rex: Rex = spec.parse().map_err(process_parsing_error)?;
+    let spec = {
+        if let Some(axiom) = {
+            if let Some(arg) = args.value_of("REX") {
+                if arg.trim().starts_with('{') {
+                    None
+                } else {
+                    Some(arg)
+                }
+            } else {
+                Some("Rex")
+            }
+        } {
+            let spec = random_spec(axiom)?;
+            println!("<{}> is \"{}\"", axiom, spec);
 
-        println!("Rex: {:?}", rex);
-    } else {
-        let axiom = "ThinRule";
-        let spec = random_spec(axiom)?;
-        println!("<{}> is \"{}\"", axiom, spec);
+            if axiom == "Rex" {
+                spec
+            } else {
+                format!("{{ {} }}", spec)
+            }
+        } else {
+            args.value_of("REX").unwrap().to_owned()
+        }
+    };
 
-        let rex: Rex = spec.parse().map_err(process_parsing_error)?;
-
-        println!("Rex: {:?}", rex);
-    }
+    let rex: Rex = spec.parse().map_err(process_parsing_error)?;
+    println!("Rex: {:?}", rex);
 
     Ok(())
 }

@@ -35,12 +35,11 @@ arg_value = node_ident | ces_ident | size | string ;
 
 ## Rule expressions
 
-rex = "{" rule "}"
+rex = "{" thin_rule "}"
+    | "{" fat_rule "}"
     | "{" rex { [ "+" ] rex } "}" ;
 
-## Rules
-
-rule = thin_rule | fat_rule ;
+## Structural rules (strules)
 
 thin_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 

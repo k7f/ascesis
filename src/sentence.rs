@@ -270,7 +270,9 @@ impl Generator {
                 let on_stack = self.on_stack[&nt_id];
                 self.on_stack.insert(nt_id, on_stack - 1);
 
-                if let Some(id) = self.update_sentence(grammar, &mut in_sentence, &mut out_sentence, prod_id) {
+                if let Some(id) =
+                    self.update_sentence(grammar, &mut in_sentence, &mut out_sentence, prod_id)
+                {
                     nt_id = id;
                 } else {
                     break

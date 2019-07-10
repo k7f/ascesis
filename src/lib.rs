@@ -49,12 +49,16 @@ impl From<ParsingError> for CesarError {
 
 #[derive(Debug)]
 pub struct Rex {
-    rule: Rule,
+    strule: StructuralRule,
 }
 
 impl Rex {
-    pub(crate) fn from_rule(rule: Rule) -> Self {
-        Rex { rule }
+    pub(crate) fn from_thin_rule(thin_rule: ThinRule) -> Self {
+        Rex { strule: StructuralRule::Thin(thin_rule) }
+    }
+
+    pub(crate) fn from_fat_rule(fat_rule: FatRule) -> Self {
+        Rex { strule: StructuralRule::Fat(fat_rule) }
     }
 
     pub(crate) fn with_more(self, _rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
@@ -82,7 +86,7 @@ impl FromStr for Rex {
 }
 
 #[derive(Debug)]
-pub enum Rule {
+pub enum StructuralRule {
     Thin(ThinRule),
     Fat(FatRule),
 }

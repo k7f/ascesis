@@ -1,24 +1,20 @@
 use lalrpop_util::ErrorRecovery;
-use crate::{Rex, Rule, ThinRule, FatRule, NodeList, Polynomial, BinOp, Literal};
+use crate::{Rex, ThinRule, FatRule, NodeList, Polynomial, BinOp, Literal};
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
 // Rule expression
 
-// rex = "{" rule "}"
+// rex = "{" thin_rule "}"
+//     | "{" fat_rule "}"
 //     | "{" rex { [ "+" ] rex } "}" ;
 pub Rex: Rex = {
-    "{" <Rule> "}" => Rex::from_rule(<>),
+    "{" <ThinRule> "}" => Rex::from_thin_rule(<>),
+    "{" <FatRule> "}" => Rex::from_fat_rule(<>),
     "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_more(tail),
 };
 
-// Rules
-
-// rule = thin_rule | fat_rule ;
-Rule: Rule = {
-    <ThinRule> => Rule::Thin(<>),
-    <FatRule> => Rule::Fat(<>),
-};
+// Structural rules (strules)
 
 // thin_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 // e_rule = node_list "->" polynomial ;
