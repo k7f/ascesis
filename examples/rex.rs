@@ -1,22 +1,32 @@
-use std::error::Error;
+use std::{fmt, error::Error};
+use rand::{thread_rng, Rng};
 use cesar_lang::{Rex, ParsingError, CesarError, grammar::Grammar, sentence::Generator};
+
+#[derive(Debug)]
+struct RexError(String);
+
+impl fmt::Display for RexError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl Error for RexError {}
 
 fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
     let grammar = Grammar::of_cesar();
-    // println!("{:?}", grammar);
+    let generator = Generator::new(&grammar);
 
-    let mut generator = Generator::new().with_grammar(&grammar);
+    let mut all_specs: Vec<_> = generator.rooted(axiom)?.iter().collect();
 
-    generator.set_axiom(&grammar, axiom)?;
-    // println!("Axiom: <{}>", axiom);
+    if all_specs.is_empty() {
+        Err(Box::new(RexError(format!("Random spec generation failed for axiom \"{}\".", axiom))))
+    } else {
+        let mut rng = thread_rng();
+        let result = all_specs.remove(rng.gen_range(0, all_specs.len()));
 
-    generator.start_emission(&grammar);
-    let mut last_spec = None;
-    for spec in generator {
-        last_spec = Some(spec);
+        Ok(result)
     }
-
-    Ok(last_spec.unwrap())
 }
 
 fn process_parsing_error(err: ParsingError) -> CesarError {

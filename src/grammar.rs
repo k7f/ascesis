@@ -9,7 +9,7 @@ pub type SymbolID = usize;
 /// An integer used to identify a production.
 pub type ProductionID = usize;
 
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct Production {
     lhs:              SymbolID,
     rhs:              Vec<SymbolID>,
@@ -45,7 +45,7 @@ impl Production {
     }
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Default, Debug)]
 pub struct Grammar {
     /// Symbol table, immutable after grammar is constructed.
     ///

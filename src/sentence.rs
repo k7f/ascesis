@@ -55,79 +55,38 @@ impl Default for ProductionUsed {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct Generator {
-    // axiom-independent derivation data
+/// Axiom-independent derivation data.
+#[derive(Debug)]
+pub struct Generator<'a> {
+    grammar:    &'a Grammar,
     symbol_min: HashMap<SymbolID, Option<usize>>, // symbol -> shortest length
     prod_min:   Vec<Option<usize>>,               // production index -> shortest length
     best_prod:  HashMap<SymbolID, Option<usize>>, // nonterminal -> production index
-
-    // axiom-specific derivation data
-    axiom_id:    Option<SymbolID>,
-    min_through: HashMap<SymbolID, Option<usize>>, // nonterminal -> shortest length
-    best_parent: HashMap<SymbolID, Option<usize>>, // nonterminal -> production index
-
-    // state of emission
-    which_prod:   HashMap<SymbolID, ProductionUsed>, // nonterminal -> production used
-    on_stack:     HashMap<SymbolID, usize>,          // nonterminal -> #occurences on stack
-    prod_marked:  Vec<bool>,                         // production index -> 'is used' flag
-
-    in_sentence:  Sentence,
-    out_sentence: Sentence,
-    num_emitted:  u64,
-    grammar:      Option<Grammar>,  // FIXME use a smart pointer
 }
 
-impl Generator {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    fn clear_all(&mut self) {
-        self.symbol_min.clear();
-        self.prod_min.clear();
-        self.best_prod.clear();
-
-        self.clear_axiom();
-    }
-
-    fn clear_axiom(&mut self) {
-        self.axiom_id = None;
-        self.min_through.clear();
-        self.best_parent.clear();
-
-        self.clear_emission();
-    }
-
-    fn clear_emission(&mut self) {
-        self.which_prod.clear();
-        self.on_stack.clear();
-        self.prod_marked.clear();
-        self.in_sentence.clear();
-        self.out_sentence.clear();
-        self.num_emitted = 0;
-        self.grammar = None;
-    }
-
-    /// Gathers axiom-independent derivation data.
+impl<'a> Generator<'a> {
+    /// Creates a new `Generator` and gathers axiom-independent
+    /// derivation data.
     ///
     /// Computes shortest derivation paths from productions to
     /// sentences.  For each production stores the computed length.
     /// For each nonterminal stores the ID of its best production
     /// (where 'its' means having that nonterminal on the left).
-    pub fn with_grammar(mut self, grammar: &Grammar) -> Self {
-        self.clear_all();
+    pub fn new(grammar: &'a Grammar) -> Self {
+        let mut symbol_min = HashMap::new();
+        let mut prod_min = Vec::new();
+        let mut best_prod = HashMap::new();
 
         for t in grammar.terminal_ids() {
-            self.symbol_min.insert(t, Some(1));
+            symbol_min.insert(t, Some(1));
         }
 
         for nt in grammar.nonterminal_ids() {
-            self.symbol_min.insert(nt, None);
-            self.best_prod.insert(nt, None);
+            symbol_min.insert(nt, None);
+            best_prod.insert(nt, None);
         }
 
-        self.prod_min.resize(grammar.len(), None);
+        prod_min.resize(grammar.len(), None);
 
         loop {
             let mut no_change = true;
@@ -136,19 +95,19 @@ impl Generator {
                 let mut sum = 1;
 
                 for element in prod.rhs() {
-                    if let Some(bound) = self.symbol_min[&element] {
+                    if let Some(bound) = symbol_min[&element] {
                         sum += bound;
                     } else {
                         continue 'outer
                     }
                 }
 
-                if self.prod_min[prod_id].map_or(true, |v| sum < v) {
-                    self.prod_min[prod_id] = Some(sum);
+                if prod_min[prod_id].map_or(true, |v| sum < v) {
+                    prod_min[prod_id] = Some(sum);
 
-                    if self.symbol_min[&prod.lhs()].map_or(true, |v| sum < v) {
-                        self.symbol_min.insert(prod.lhs(), Some(sum));
-                        self.best_prod.insert(prod.lhs(), Some(prod_id));
+                    if symbol_min[&prod.lhs()].map_or(true, |v| sum < v) {
+                        symbol_min.insert(prod.lhs(), Some(sum));
+                        best_prod.insert(prod.lhs(), Some(prod_id));
                         no_change = false;
                     }
                 }
@@ -157,48 +116,65 @@ impl Generator {
                 break
             }
         }
-        self
+
+        Self { grammar, symbol_min, prod_min, best_prod }
     }
 
-    /// Gathers axiom-specific derivation data.
+    /// Returns a new `RootedGenerator` and gathers axiom-specific
+    /// derivation data.
     ///
     /// Computes shortest derivation paths from `axiom` through all
     /// nonterminals.  For each nonterminal stores the computed length
     /// and the ID of best parent production (where 'parent' means
     /// having that nonterminal on the right).
-    pub fn set_axiom<S: AsRef<str>>(&mut self, grammar: &Grammar, axiom: S) -> Result<(), String> {
-        self.clear_axiom();
+    pub fn rooted<S: AsRef<str>>(&self, axiom: S) -> Result<RootedGenerator, String> {
+        RootedGenerator::new(self, axiom)
+    }
+}
 
+/// Axiom-specific derivation data.
+#[derive(Debug)]
+pub struct RootedGenerator<'a> {
+    base:        &'a Generator<'a>,
+    axiom_id:    SymbolID,
+    min_through: HashMap<SymbolID, Option<usize>>, // nonterminal -> shortest length
+    best_parent: HashMap<SymbolID, Option<usize>>, // nonterminal -> production index
+}
+
+impl<'a> RootedGenerator<'a> {
+    fn new<S: AsRef<str>>(base: &'a Generator<'a>, axiom: S) -> Result<Self, String> {
         let axiom = axiom.as_ref();
         let axiom_id = {
-            if let Some(id) = grammar.id_of_nonterminal(axiom) {
-                self.axiom_id = Some(id);
+            if let Some(id) = base.grammar.id_of_nonterminal(axiom) {
                 id
             } else {
                 return Err(format!("No such nonterminal: <{}>", axiom))
             }
         };
 
-        for nt in grammar.nonterminal_ids() {
-            self.min_through.insert(nt, None);
-            self.best_parent.insert(nt, None);
+        let mut min_through = HashMap::new();
+        let mut best_parent = HashMap::new();
+
+        for nt in base.grammar.nonterminal_ids() {
+            min_through.insert(nt, None);
+            best_parent.insert(nt, None);
         }
 
-        self.min_through.insert(axiom_id, self.symbol_min[&axiom_id]);
+        min_through.insert(axiom_id, base.symbol_min[&axiom_id]);
 
         loop {
             let mut no_change = true;
 
-            for (prod_id, prod) in grammar.iter().enumerate() {
-                if let Some(rlen) = self.prod_min[prod_id] {
-                    if let Some(dlen) = self.min_through[&prod.lhs()] {
-                        if let Some(slen) = self.symbol_min[&prod.lhs()] {
+            for (prod_id, prod) in base.grammar.iter().enumerate() {
+                if let Some(rlen) = base.prod_min[prod_id] {
+                    if let Some(dlen) = min_through[&prod.lhs()] {
+                        if let Some(slen) = base.symbol_min[&prod.lhs()] {
                             let sum = dlen + rlen - slen;
 
                             for element in prod.rhs_nonterminals() {
-                                if self.min_through[element].map_or(true, |v| sum < v) {
-                                    self.min_through.insert(*element, Some(sum));
-                                    self.best_parent.insert(*element, Some(prod_id));
+                                if min_through[element].map_or(true, |v| sum < v) {
+                                    min_through.insert(*element, Some(sum));
+                                    best_parent.insert(*element, Some(prod_id));
                                     no_change = false;
                                 }
                             }
@@ -210,29 +186,48 @@ impl Generator {
                 break
             }
         }
-        Ok(())
+
+        Ok(Self { base, axiom_id, min_through, best_parent })
     }
 
-    pub fn start_emission(&mut self, grammar: &Grammar) {
-        self.clear_emission();
-
-        for id in grammar.nonterminal_ids() {
-            self.which_prod.insert(id, ProductionUsed::Ready);
-            self.on_stack.insert(id, 0);
-        }
-
-        self.prod_marked.resize(grammar.len(), false);
-        self.grammar = Some(grammar.clone());
+    pub fn iter(&'a self) -> Emitter<'a> {
+        Emitter::new(self)
     }
+}
 
-    fn use_best_production(&mut self, nt_id: SymbolID) -> ProductionID {
-        self.prod_marked[self.best_prod[&nt_id].unwrap()] = true;
+#[derive(Debug)]
+pub struct Emitter<'a> {
+    generator:    Option<&'a RootedGenerator<'a>>,
+    which_prod:   HashMap<SymbolID, ProductionUsed>, // nonterminal -> production used
+    on_stack:     HashMap<SymbolID, usize>,          // nonterminal -> #occurences on stack
+    prod_marked:  Vec<bool>,                         // production index -> 'is used' flag
+    in_sentence:  Sentence,
+    out_sentence: Sentence,
+    num_emitted:  u64,
+}
 
-        if self.which_prod[&nt_id] != ProductionUsed::Finished {
-            self.which_prod.insert(nt_id, ProductionUsed::Ready);
+impl<'a> Emitter<'a> {
+    fn new(generator: &'a RootedGenerator) -> Self {
+        let mut which_prod = HashMap::new();
+        let mut on_stack = HashMap::new();
+        let mut prod_marked = Vec::new();
+
+        for id in generator.base.grammar.nonterminal_ids() {
+            which_prod.insert(id, ProductionUsed::Ready);
+            on_stack.insert(id, 0);
         }
 
-        self.best_prod[&nt_id].unwrap()
+        prod_marked.resize(generator.base.grammar.len(), false);
+
+        Self {
+            generator: Some(generator),
+            which_prod,
+            on_stack,
+            prod_marked,
+            in_sentence: Sentence::new(),
+            out_sentence: Sentence::new(),
+            num_emitted: 0,
+        }
     }
 
     fn choose_productions(&mut self, grammar: &Grammar) {
@@ -277,13 +272,13 @@ impl Generator {
     }
 }
 
-impl Iterator for Generator {
+impl Iterator for Emitter<'_> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let grammar = self.grammar.take().unwrap();
-
-        let axiom_id = self.axiom_id.unwrap();
+        let generator = self.generator.take().unwrap();
+        let grammar = generator.base.grammar;
+        let axiom_id = generator.axiom_id;
 
         self.out_sentence.clear();
         self.on_stack.insert(axiom_id, 1);
@@ -294,12 +289,16 @@ impl Iterator for Generator {
             match self.which_prod[&nt_id] {
                 ProductionUsed::Finished => {
                     if nt_id == axiom_id {
-                        self.grammar = Some(grammar);
-
+                        self.generator = Some(generator);
                         return None
 
                     } else {
-                        prod_id = self.use_best_production(nt_id);
+                        prod_id = generator.base.best_prod[&nt_id].unwrap();
+                        self.prod_marked[prod_id] = true;
+
+                        if self.which_prod[&nt_id] != ProductionUsed::Finished {
+                            self.which_prod.insert(nt_id, ProductionUsed::Ready);
+                        }
                     }
                 }
 
@@ -309,7 +308,7 @@ impl Iterator for Generator {
                 }
 
                 _ => {
-                    self.choose_productions(&grammar);
+                    self.choose_productions(grammar);
 
                     for other_nt_id in grammar.nonterminal_ids() {
                         if other_nt_id == axiom_id {
@@ -319,7 +318,7 @@ impl Iterator for Generator {
                         if let ProductionUsed::ID(_) = self.which_prod[&other_nt_id] {
                             let mut best_lhs = other_nt_id;
 
-                            while let Some(best_prod_id) = self.best_parent[&best_lhs] {
+                            while let Some(best_prod_id) = generator.best_parent[&best_lhs] {
                                 best_lhs = grammar.get(best_prod_id).unwrap().lhs();
 
                                 // FIXME why?
@@ -347,8 +346,7 @@ impl Iterator for Generator {
                         && self.which_prod[&nt_id] == ProductionUsed::Finished
                         && self.on_stack[&axiom_id] == 0
                     {
-                        self.grammar = Some(grammar);
-
+                        self.generator = Some(generator);
                         return None
 
                     } else if let ProductionUsed::ID(id) = self.which_prod[&nt_id] {
@@ -356,7 +354,12 @@ impl Iterator for Generator {
                         self.which_prod.insert(nt_id, ProductionUsed::Ready);
 
                     } else {
-                        prod_id = self.use_best_production(nt_id);
+                        prod_id = generator.base.best_prod[&nt_id].unwrap();
+                        self.prod_marked[prod_id] = true;
+
+                        if self.which_prod[&nt_id] != ProductionUsed::Finished {
+                            self.which_prod.insert(nt_id, ProductionUsed::Ready);
+                        }
                     }
                 }
             }
@@ -365,7 +368,7 @@ impl Iterator for Generator {
             self.on_stack.insert(nt_id, on_stack - 1);
 
             if let Some(id) =
-                self.update_sentence(&grammar, prod_id)
+                self.update_sentence(grammar, prod_id)
             {
                 nt_id = id;
             } else {
@@ -374,10 +377,10 @@ impl Iterator for Generator {
         }
 
         self.num_emitted += 1;
-        let result = self.out_sentence.as_string(&grammar);
+        let result = self.out_sentence.as_string(grammar);
         println!("{}. {}", self.num_emitted, result);
 
-        self.grammar = Some(grammar);
+        self.generator = Some(generator);
         Some(result)
     }
 }

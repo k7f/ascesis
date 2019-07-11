@@ -17,6 +17,7 @@ build = "build.rs"
 
 clap = "2.33"
 regex = "1.1"
+rand = "0.7"
 enquote = "1.0"
 lalrpop-util = "0.17"
 
