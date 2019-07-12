@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{fmt, ops::Range};
 use crate::bnf;
 
 /// An integer used to identify a terminal or a nonterminal symbol.
@@ -43,9 +43,27 @@ impl Production {
     pub fn rhs_nonterminals(&self) -> &[SymbolID] {
         self.rhs_nonterminals.as_slice()
     }
+
+    pub fn as_string(&self, grammar: &Grammar) -> String {
+        let mut result = format!("<{}> ::= ", grammar.symbols[self.lhs]);
+
+        for id in self.rhs.iter() {
+            if *id >= grammar.num_terminals {
+                result.push('<');
+            }
+            result.push_str(&grammar.symbols[*id]);
+            if *id >= grammar.num_terminals {
+                result.push('>');
+            }
+            result.push(' ');
+        }
+        result.push(';');
+
+        result
+    }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Grammar {
     /// Symbol table, immutable after grammar is constructed.
     ///
@@ -85,7 +103,6 @@ impl Grammar {
         // the symbol table.
         let nonterminals = bnf.get_rules().iter().map(|rule| rule.get_lhs().to_owned());
         result.symbols.extend(nonterminals);
-        result.symbols[result.num_terminals..].sort();
 
         // Populate the list of productions.
         for (ndx, rule) in bnf.get_rules().iter().enumerate() {
@@ -210,22 +227,22 @@ impl Grammar {
     }
 
     pub fn get_as_string(&self, prod_id: ProductionID) -> Option<String> {
-        self.productions.get(prod_id).map(|prod| {
-            let mut result = format!("<{}> ::= ", self.symbols[prod.lhs]);
+        self.productions.get(prod_id).map(|prod| prod.as_string(&self))
+    }
+}
 
-            for id in prod.rhs.iter() {
-                if *id >= self.num_terminals {
-                    result.push('<');
-                }
-                result.push_str(&self.symbols[*id]);
-                if *id >= self.num_terminals {
-                    result.push('>');
-                }
-                result.push(' ');
+impl fmt::Debug for Grammar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Grammar {{ symbols: {:?}, productions: [", self.symbols)?;
+        let mut first = true;
+        for prod in self.productions.iter() {
+            if first {
+                first = false;
+            } else {
+                write!(f, ", ")?;
             }
-            result.push(';');
-
-            result
-        })
+            write!(f, "\"{}\"", prod.as_string(&self))?;
+        }
+        write!(f, "], num_terminals: {:?} }}", self.num_terminals)
     }
 }

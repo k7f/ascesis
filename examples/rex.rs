@@ -19,6 +19,8 @@ impl Error for RexError {}
 
 fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
     let grammar = Grammar::of_cesar();
+    debug!("{:?}", grammar);
+
     let generator = Generator::new(&grammar);
 
     let mut all_specs: Vec<_> = generator.rooted(axiom)?.iter().collect();

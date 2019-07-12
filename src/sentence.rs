@@ -247,7 +247,7 @@ impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
     /// Returns `SymbolID` of next unresolved nonterminal or `None` if
     /// none remained (end of sentence is reached).
     fn update_sentence(&mut self, grammar: &Grammar, prod_id: ProductionID) -> Option<SymbolID> {
-        debug!("PRE in {:?}, prod: {}", self.in_sentence, grammar.get_as_string(prod_id).unwrap());
+        debug!("PRE input {:?}, production: {}", self.in_sentence, grammar.get_as_string(prod_id).unwrap());
 
         let prod = grammar.get(prod_id).unwrap();
 
@@ -263,7 +263,7 @@ impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
             if grammar.is_terminal(id) {
                 self.out_sentence.push(id);
             } else {
-                debug!("POST in {:?}", self.in_sentence);
+                debug!("POST input {:?}", self.in_sentence);
                 return Some(id)
             }
         }
