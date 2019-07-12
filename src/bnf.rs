@@ -158,7 +158,7 @@ impl Rule {
                         }
                         Term::RuleName(name) => {
                             if let Ok(id) = nonterminals.binary_search(&name) {
-                                id
+                                id + terminals.len()
                             } else {
                                 panic!("Undefined nonterminal symbol <{}> in BNF grammar.", name);
                             }
