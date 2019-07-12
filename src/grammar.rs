@@ -143,14 +143,17 @@ impl Grammar {
         self.symbols.iter().take(self.num_terminals)
     }
 
+    #[inline]
     pub fn terminal_ids(&self) -> Range<SymbolID> {
         (0..self.num_terminals)
     }
 
+    #[inline]
     pub fn is_terminal(&self, symbol_id: SymbolID) -> bool {
         symbol_id < self.num_terminals
     }
 
+    #[inline]
     pub fn get_terminal(&self, symbol_id: SymbolID) -> Option<&str> {
         if symbol_id < self.num_terminals {
             Some(&self.symbols[symbol_id])
@@ -159,6 +162,7 @@ impl Grammar {
         }
     }
 
+    #[inline]
     pub fn nonterminal_ids(&self) -> Range<SymbolID> {
         (self.num_terminals..self.symbols.len())
     }
@@ -171,10 +175,12 @@ impl Grammar {
             .map(|id| id + self.num_terminals)
     }
 
+    #[inline]
     pub fn is_nonterminal(&self, symbol_id: SymbolID) -> bool {
         symbol_id >= self.num_terminals && symbol_id < self.symbols.len()
     }
 
+    #[inline]
     pub fn get_nonterminal(&self, symbol_id: SymbolID) -> Option<&str> {
         if symbol_id >= self.num_terminals && symbol_id < self.symbols.len() {
             Some(&self.symbols[symbol_id])
@@ -182,19 +188,44 @@ impl Grammar {
             None
         }
     }
+
+    #[inline]
     pub fn len(&self) -> usize {
         self.productions.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.productions.is_empty()
     }
 
+    #[inline]
     pub fn iter(&self) -> std::slice::Iter<Production> {
         self.productions.iter()
     }
 
+    #[inline]
     pub fn get(&self, prod_id: ProductionID) -> Option<&Production> {
         self.productions.get(prod_id)
+    }
+
+    pub fn get_as_string(&self, prod_id: ProductionID) -> Option<String> {
+        self.productions.get(prod_id).map(|prod| {
+            let mut result = format!("<{}> ::= ", self.symbols[prod.lhs]);
+
+            for id in prod.rhs.iter() {
+                if *id >= self.num_terminals {
+                    result.push('<');
+                }
+                result.push_str(&self.symbols[*id]);
+                if *id >= self.num_terminals {
+                    result.push('>');
+                }
+                result.push(' ');
+            }
+            result.push(';');
+
+            result
+        })
     }
 }

@@ -57,14 +57,14 @@ impl Default for ProductionUsed {
 
 /// Axiom-independent derivation data.
 #[derive(Debug)]
-pub struct Generator<'a> {
-    grammar:    &'a Grammar,
+pub struct Generator<'g> {
+    grammar:    &'g Grammar,
     symbol_min: HashMap<SymbolID, Option<usize>>, // symbol -> shortest length
     prod_min:   Vec<Option<usize>>,               // production index -> shortest length
     best_prod:  HashMap<SymbolID, Option<usize>>, // nonterminal -> production index
 }
 
-impl<'a> Generator<'a> {
+impl<'g> Generator<'g> {
     /// Creates a new `Generator` and gathers axiom-independent
     /// derivation data.
     ///
@@ -72,7 +72,7 @@ impl<'a> Generator<'a> {
     /// sentences.  For each production stores the computed length.
     /// For each nonterminal stores the ID of its best production
     /// (where 'its' means having that nonterminal on the left).
-    pub fn new(grammar: &'a Grammar) -> Self {
+    pub fn new(grammar: &'g Grammar) -> Self {
         let mut symbol_min = HashMap::new();
         let mut prod_min = Vec::new();
         let mut best_prod = HashMap::new();
@@ -134,15 +134,15 @@ impl<'a> Generator<'a> {
 
 /// Axiom-specific derivation data.
 #[derive(Debug)]
-pub struct RootedGenerator<'a> {
-    base:        &'a Generator<'a>,
+pub struct RootedGenerator<'b, 'g: 'b> {
+    base:        &'b Generator<'g>,
     axiom_id:    SymbolID,
     min_through: HashMap<SymbolID, Option<usize>>, // nonterminal -> shortest length
     best_parent: HashMap<SymbolID, Option<usize>>, // nonterminal -> production index
 }
 
-impl<'a> RootedGenerator<'a> {
-    fn new<S: AsRef<str>>(base: &'a Generator<'a>, axiom: S) -> Result<Self, String> {
+impl<'b, 'g: 'b> RootedGenerator<'b, 'g> {
+    fn new<S: AsRef<str>>(base: &'b Generator<'g>, axiom: S) -> Result<Self, String> {
         let axiom = axiom.as_ref();
         let axiom_id = {
             if let Some(id) = base.grammar.id_of_nonterminal(axiom) {
@@ -190,14 +190,14 @@ impl<'a> RootedGenerator<'a> {
         Ok(Self { base, axiom_id, min_through, best_parent })
     }
 
-    pub fn iter(&'a self) -> Emitter<'a> {
+    pub fn iter<'r>(&'r self) -> Emitter<'r, 'b, 'g> {
         Emitter::new(self)
     }
 }
 
 #[derive(Debug)]
-pub struct Emitter<'a> {
-    generator:    Option<&'a RootedGenerator<'a>>,
+pub struct Emitter<'r, 'b: 'r, 'g: 'b> {
+    generator:    Option<&'r RootedGenerator<'b, 'g>>,
     which_prod:   HashMap<SymbolID, ProductionUsed>, // nonterminal -> production used
     on_stack:     HashMap<SymbolID, usize>,          // nonterminal -> #occurences on stack
     prod_marked:  Vec<bool>,                         // production index -> 'is used' flag
@@ -206,8 +206,8 @@ pub struct Emitter<'a> {
     num_emitted:  u64,
 }
 
-impl<'a> Emitter<'a> {
-    fn new(generator: &'a RootedGenerator) -> Self {
+impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
+    fn new(generator: &'r RootedGenerator<'b, 'g>) -> Self {
         let mut which_prod = HashMap::new();
         let mut on_stack = HashMap::new();
         let mut prod_marked = Vec::new();
@@ -246,11 +246,9 @@ impl<'a> Emitter<'a> {
 
     /// Returns `SymbolID` of next unresolved nonterminal or `None` if
     /// none remained (end of sentence is reached).
-    fn update_sentence(
-        &mut self,
-        grammar: &Grammar,
-        prod_id: ProductionID,
-    ) -> Option<SymbolID> {
+    fn update_sentence(&mut self, grammar: &Grammar, prod_id: ProductionID) -> Option<SymbolID> {
+        debug!("PRE in {:?}, prod: {}", self.in_sentence, grammar.get_as_string(prod_id).unwrap());
+
         let prod = grammar.get(prod_id).unwrap();
 
         for id in prod.rhs() {
@@ -265,6 +263,7 @@ impl<'a> Emitter<'a> {
             if grammar.is_terminal(id) {
                 self.out_sentence.push(id);
             } else {
+                debug!("POST in {:?}", self.in_sentence);
                 return Some(id)
             }
         }
@@ -272,7 +271,7 @@ impl<'a> Emitter<'a> {
     }
 }
 
-impl Iterator for Emitter<'_> {
+impl Iterator for Emitter<'_, '_, '_> {
     type Item = String;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -291,7 +290,6 @@ impl Iterator for Emitter<'_> {
                     if nt_id == axiom_id {
                         self.generator = Some(generator);
                         return None
-
                     } else {
                         prod_id = generator.base.best_prod[&nt_id].unwrap();
                         self.prod_marked[prod_id] = true;
@@ -323,7 +321,7 @@ impl Iterator for Emitter<'_> {
 
                                 // FIXME why?
                                 if self.on_stack[&best_lhs] == 0 {
-                                // if let ProductionUsed::ID(_) = self.which_prod[&best_lhs] {
+                                    // if let ProductionUsed::ID(_) = self.which_prod[&best_lhs] {
                                     break
                                 } else if self.on_stack[&other_nt_id] == 0 {
                                     self.which_prod
@@ -348,11 +346,9 @@ impl Iterator for Emitter<'_> {
                     {
                         self.generator = Some(generator);
                         return None
-
                     } else if let ProductionUsed::ID(id) = self.which_prod[&nt_id] {
                         prod_id = id;
                         self.which_prod.insert(nt_id, ProductionUsed::Ready);
-
                     } else {
                         prod_id = generator.base.best_prod[&nt_id].unwrap();
                         self.prod_marked[prod_id] = true;
@@ -367,9 +363,7 @@ impl Iterator for Emitter<'_> {
             let on_stack = self.on_stack[&nt_id];
             self.on_stack.insert(nt_id, on_stack - 1);
 
-            if let Some(id) =
-                self.update_sentence(grammar, prod_id)
-            {
+            if let Some(id) = self.update_sentence(grammar, prod_id) {
                 nt_id = id;
             } else {
                 break
@@ -378,7 +372,7 @@ impl Iterator for Emitter<'_> {
 
         self.num_emitted += 1;
         let result = self.out_sentence.as_string(grammar);
-        println!("{}. {}", self.num_emitted, result);
+        debug!("{}. {}", self.num_emitted, result);
 
         self.generator = Some(generator);
         Some(result)
