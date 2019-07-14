@@ -198,9 +198,9 @@ impl<'b, 'g: 'b> RootedGenerator<'b, 'g> {
 #[derive(Debug)]
 pub struct Emitter<'r, 'b: 'r, 'g: 'b> {
     generator:    Option<&'r RootedGenerator<'b, 'g>>,
-    which_prod:   HashMap<SymbolID, ProductionUsed>, // nonterminal -> production used
+    which_prod:   HashMap<SymbolID, ProductionUsed>, // nonterminal -> production currently in use
     on_stack:     HashMap<SymbolID, usize>,          // nonterminal -> #occurences on stack
-    prod_marked:  Vec<bool>,                         // production index -> 'is used' flag
+    prod_marked:  Vec<bool>,                         // production index -> 'already used' flag
     in_sentence:  Sentence,
     out_sentence: Sentence,
     num_emitted:  u64,
@@ -230,6 +230,8 @@ impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
         }
     }
 
+    /// For each nonterminal with unassigned production, assign its
+    /// first unmarked production.
     fn choose_productions(&mut self, grammar: &Grammar) {
         for (prod_id, prod) in grammar.iter().enumerate() {
             if !self.prod_marked[prod_id] {
@@ -247,7 +249,7 @@ impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
     /// Returns `SymbolID` of next unresolved nonterminal or `None` if
     /// none remained (end of sentence is reached).
     fn update_sentence(&mut self, grammar: &Grammar, prod_id: ProductionID) -> Option<SymbolID> {
-        debug!(
+        trace!(
             "PRE input {:?}, production: {}",
             self.in_sentence,
             grammar.get_as_string(prod_id).unwrap()
@@ -257,7 +259,7 @@ impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
 
         for id in prod.rhs() {
             self.in_sentence.push(*id);
-            if !grammar.is_terminal(*id) {
+            if grammar.is_nonterminal(*id) {
                 let on_stack = self.on_stack[id];
                 self.on_stack.insert(*id, on_stack + 1);
             }
@@ -267,7 +269,7 @@ impl<'r, 'b: 'r, 'g: 'b> Emitter<'r, 'b, 'g> {
             if grammar.is_terminal(id) {
                 self.out_sentence.push(id);
             } else {
-                debug!("POST input {:?}", self.in_sentence);
+                trace!("POST input {:?}", self.in_sentence);
                 return Some(id)
             }
         }
@@ -297,10 +299,6 @@ impl Iterator for Emitter<'_, '_, '_> {
                     } else {
                         prod_id = generator.base.best_prod[&nt_id].unwrap();
                         self.prod_marked[prod_id] = true;
-
-                        if self.which_prod[&nt_id] != ProductionUsed::Finished {
-                            self.which_prod.insert(nt_id, ProductionUsed::Ready);
-                        }
                     }
                 }
 
@@ -309,30 +307,34 @@ impl Iterator for Emitter<'_, '_, '_> {
                     self.which_prod.insert(nt_id, ProductionUsed::Ready);
                 }
 
-                _ => {
+                ProductionUsed::Ready | ProductionUsed::Unsure => {
                     self.choose_productions(grammar);
 
-                    for other_nt_id in grammar.nonterminal_ids() {
-                        if other_nt_id == axiom_id {
+                    // For any non-axiom NT in use and not yet on
+                    // stack, use all its best ancestors up until
+                    // there is one already in use.  For any non-axiom
+                    // NT in use and on stack, mark all its best
+                    // ancestors as unsure up until there is one
+                    // already in use.
+                    for child_nt_id in grammar.nonterminal_ids() {
+                        if child_nt_id == axiom_id {
                             continue
                         }
 
-                        if let ProductionUsed::ID(_) = self.which_prod[&other_nt_id] {
-                            let mut best_lhs = other_nt_id;
+                        if let ProductionUsed::ID(_) = self.which_prod[&child_nt_id] {
+                            let mut parent_nt_id = child_nt_id;
 
-                            while let Some(best_prod_id) = generator.best_parent[&best_lhs] {
-                                best_lhs = grammar.get(best_prod_id).unwrap().lhs();
+                            while let Some(best_prod_id) = generator.best_parent[&parent_nt_id] {
+                                parent_nt_id = grammar.get(best_prod_id).unwrap().lhs();
 
-                                // FIXME why?
-                                if self.on_stack[&best_lhs] == 0 {
-                                    // if let ProductionUsed::ID(_) = self.which_prod[&best_lhs] {
+                                if let ProductionUsed::ID(_) = self.which_prod[&parent_nt_id] {
                                     break
-                                } else if self.on_stack[&other_nt_id] == 0 {
+                                } else if self.on_stack[&child_nt_id] == 0 {
                                     self.which_prod
-                                        .insert(best_lhs, ProductionUsed::ID(best_prod_id));
+                                        .insert(parent_nt_id, ProductionUsed::ID(best_prod_id));
                                     self.prod_marked[best_prod_id] = true;
                                 } else {
-                                    self.which_prod.insert(best_lhs, ProductionUsed::Unsure);
+                                    self.which_prod.insert(parent_nt_id, ProductionUsed::Unsure);
                                 }
                             }
                         }

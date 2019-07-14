@@ -14,7 +14,7 @@ This is part of the [_aces_](https://github.com/k7f/aces) project.
 
 ## Syntax
 
-See [the specification in EBNF](spec/cesar.ebnf).
+See [the specification in EBNF](spec/cesar-syntax.ebnf).
 
 ## Semantics
 
