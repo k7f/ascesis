@@ -35,8 +35,8 @@
 <NodeList> ::= <PlainNodeList>
              | <PlainNodeList> "," ;
 
-<PlainNodeList> ::= <NodeIdent>
-                  | <NodeIdent> "," <PlainNodeList> ;
+<PlainNodeList> ::= <Identifier>
+                  | <Identifier> "," <PlainNodeList> ;
 
 ; multi-polynomial rule with implicit node lists
 <FatRule> ::= <Polynomial> <FatArrow> <FatRuleTail> ;
@@ -57,14 +57,11 @@
 <PolyTermSeq> ::= <PolyTerm>
                 | <PolyTerm> <PolyTermSeq> ;
 
-<PolyTerm> ::= <NodeIdent>
+<PolyTerm> ::= <Identifier>
              | "(" <Polynomial> ")" ;
 
 ;; Identifiers
 
-; <CESIdent> ::= "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M"
-;              | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" ;
-
 ; FIXME
-<NodeIdent> ::= "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m"
-              | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
+<Identifier> ::= "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m"
+               | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;

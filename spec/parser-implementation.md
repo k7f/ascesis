@@ -1,34 +1,5 @@
-Implementation notes for _cesar_
-================================
-
-## Optional pre-processing step
-
-The syntax defined in the first draft of the surface language as
-
-```ebnf
-fw_rule = polynomial "->" node_list "->" polynomial ;
-bw_rule = polynomial "<-" node_list "<-" polynomial ;
-```
-
-was later replaced with
-
-```ebnf
-fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
-bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
-```
-
-This change was necessary to make the grammar of _cesar_ LR-parsable.
-Nevertheless, support for the surface language might still be possible
-by pre-processing the input and prefixing some or all of the plain
-polynomials with the addition operator.  This would probably involve
-right-to-left scanning of the input string, custom lexer
-implementation, etc.
-
-### Do we need thin forward rules?
-
-Probably not.  The formula `cause -> state -> effect` might have some
-iconic value as a hint to the flow of time (a left-to-right timeline),
-but it complicates the implementation and, probably, mental parsing.
+Implementation notes for _cesar_ parser
+=======================================
 
 ## _Thin_ rules
 
@@ -161,3 +132,32 @@ simple triangle structure shows:
 ```rust
 { a -> b c } + { b <- a c } + { c <- a -> b }
 ```
+
+## Optional pre-processing step
+
+The syntax defined in the first draft of the surface language as
+
+```ebnf
+fw_rule = polynomial "->" node_list "->" polynomial ;
+bw_rule = polynomial "<-" node_list "<-" polynomial ;
+```
+
+was later replaced with
+
+```ebnf
+fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
+bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
+```
+
+This change was necessary to make the grammar of _cesar_ LR-parsable.
+Nevertheless, support for the surface language might still be possible
+by pre-processing the input and prefixing some or all of the plain
+polynomials with the addition operator.  This would probably involve
+right-to-left scanning of the input string, custom lexer
+implementation, etc.
+
+### Do we need thin forward rules?
+
+Probably not.  The formula `cause -> state -> effect` might have some
+iconic value as a hint to the flow of time (a left-to-right timeline),
+but it complicates the implementation and, probably, mental parsing.

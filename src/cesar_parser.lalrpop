@@ -50,12 +50,12 @@ ThinRule: ThinRule = {
     },
 };
 
-// node_list = node_ident { "," node_ident } [ "," ] ;
+// node_list = identifier { "," identifier } [ "," ] ;
 NodeList: NodeList = {
-    <head: NodeIdent> <tail: CommaNodeIdent*> ","? => NodeList::from_node(head).with_more(tail),
+    <head: Identifier> <tail: CommaThenIdentifier*> ","? => NodeList::from_node(head).with_more(tail),
 };
 
-CommaNodeIdent: String = "," <NodeIdent>;
+CommaThenIdentifier: String = "," <Identifier>;
 
 // fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
 FatRule: FatRule =
@@ -73,9 +73,9 @@ PlainPolynomial: Polynomial = {
     <head: PlainPolynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
 };
 
-// poly_term = node_ident | "(" polynomial ")" ;
+// poly_term = identifier | "(" polynomial ")" ;
 PolyTerm: Polynomial = {
-    <NodeIdent> => Polynomial::from_node(<>),
+    <Identifier> => Polynomial::from_node(<>),
     "(" <Polynomial> ")",
 };
 
@@ -87,14 +87,10 @@ FatOp: BinOp = { "=>" => BinOp::FatTx, "<=" => BinOp::FatRx };
 
 // Identifiers
 
-CesIdent: String = r"[A-Z][A-Za-z0-9_]*" => <>.to_owned();
-NodeIdent: String = r"[a-z][A-Za-z0-9_]*" => <>.to_owned();
-UnderIdent: String = r"_[A-Za-z0-9_]*" => <>.to_owned();
+Identifier: String = r"[A-Za-z_][A-Za-z0-9_]*" => <>.to_owned();
 
 // Literals
 
-// size = digit { digit } ;
-// string = "\"" { any_char } "\"" ;
 Literal: Literal = {
     r"[0-9]+" => Literal::from_digits(<>).unwrap(),
     r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap(),

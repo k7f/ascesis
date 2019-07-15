@@ -18,7 +18,7 @@ See [the specification in EBNF](spec/cesar-syntax.ebnf).
 
 ## Semantics
 
-For now, see [implementation notes](spec/implementation-notes.md).
+For now, see [implementation notes](spec/parser-implementation.md).
 
 ## Examples
 
@@ -36,13 +36,13 @@ ces Main { Arrow() }
 
 Structure `Main` cannot be instantiated explicitly.  Instead, the
 instantiation of `Main` is performed when a `.ces` file containing its
-definition is being interpreted.  All structures defined in a file
-must have unique names.
+definition is being interpreted.  All structure identifiers defined in
+a file must be unique.
 
 Any fat rule is equivalent to a rule expression consisting of a
 sequence of _thin rules_ separated with (infix) addition operator.
 The fat-into-thin (_FIT_) transformation steps are sketched out in
-[implementation notes](spec/implementation-notes.md#fat-rules).  The
+[implementation notes](spec/parser-implementation.md#fat-rules).  The
 arrow above is thus equivalent to
 
 ```rust
@@ -67,28 +67,33 @@ Indeed, in this case we get `b` &bullet; _&theta;_ for effect
 polynomial of node `a`, and _&theta;_ &bullet; `a` for cause
 polynomial of node `b`.
 
-By default, node names are equal to node identifiers and node
-capacities are equal to 1.  Therefore, in all previous examples they are
-declared implicitly as
+### Context
+
+By default, node labels are equal to node identifiers and node
+capacities are equal to 1.  Therefore, in all previous examples they
+are declared implicitly as
 
 ```rust
-nodes { a: { name: "a", cap: 1 }, b: { name: "b", cap: 1 } }
+labels { a: "a", b: "b" }
+caps { a: 1, b: 1 }
 ```
 
-Below is a parameterized definition of a single arrow, which is
-instantiated in the context providing explicitly specified node names
+What follows is a parameterized definition of a single arrow, which is
+instantiated in the context providing explicitly specified node labels
 and increased capacity of node `a`.
 
 ```rust
-nodes {
-    a: { name: "Source", cap: 3 },
-    z: { name: "Sink" },
-}
+labels { a: "Source", z: "Sink" }
+caps { a: 3 }
 
 ces Arrow(x: Node, y: Node) { x => y }
 
 ces Main { Arrow(a, z) }
 ```
+
+### Immediate and template definitions
+
+FIXME
 
 ### Arrow sequence
 

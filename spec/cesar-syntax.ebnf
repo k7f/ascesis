@@ -1,37 +1,39 @@
-# cesar syntax in EBNF
+# Cesar syntax in EBNF
 
-# White space is optional anywhere between tokens, except inside
-# identifiers and literals.
+# Some aspects of the language are described informally in files
+# lexer-implementation.md and parser-implementation.md.
 
-ces_file = { ces_def | ces_inst | meta_block } ;
+ces_file = { ces_immediate_def | ces_template_def | ces_template_inst | meta_block } ;
 
 ## Structure definition
 
-ces_def = ces_sig rex ;
-ces_sig = "ces" ces_ident [ "(" [ arg_list_decl ] ")" ] ;
+ces_immediate_def = ces_immediate_sig rex ;
+ces_immediate_sig = "ces" identifier ;
+
+ces_template_def = ces_template_sig rex ;
+
+# empty argument list is disallowed
+ces_template_sig = "ces" identifier "(" arg_list_decl ")" ;
 
 ## Structure instantiation
 
-ces_inst = ces_ident "(" [ arg_list ] ")" ;
+# empty argument list is disallowed
+ces_template_inst = identifier "(" arg_list ")" ;
 
 ## Context
 
-meta_block = nodes_block ; # | ...
-nodes_block = nodes_sig "{" node_spec { "," node_spec } [ "," ] "}" ;
-nodes_sig = "nodes" [ "(" [ arg_list_decl ] ")" ] ;
-node_spec = node_ident ":" "{" node_attr { "," node_attr } [ "," ] "}" ;
-node_attr = name_spec | cap_spec ;
-name_spec = "name" ":" name_expr ;
-name_expr = string ; # | ...
-cap_spec = "cap" ":" cap_expr ;
-cap_expr = size ; # | ...
+meta_block = labels_block | caps_block ;
+labels_block = "labels" "{" label_spec { "," label_spec } [ "," ] "}" ;
+label_spec = identifier ":" string ;
+caps_block = "caps" "{" cap_spec { "," cap_spec } [ "," ] "}" ;
+cap_spec = identifier ":" size ;
 
 ## Argument declarations and values
 
 arg_list_decl = arg_spec { "," arg_spec } [ "," ] ;
-arg_spec = arg_ident ":" ( "Node" | "CES" | "Size" | "String" ) ;
+arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 arg_list = arg_value { ","  arg_value } [ "," ] ;
-arg_value = node_ident | ces_ident | size | string ;
+arg_value = identifier | size | string ;
 
 ## Rule expressions
 
@@ -63,7 +65,7 @@ fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 # middle
 bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 
-node_list = node_ident { "," node_ident } [ "," ] ;
+node_list = identifier { ","  | identifier } [ "," ] ;
 
 # multi-polynomial rule with implicit node lists
 fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
@@ -72,28 +74,4 @@ fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } 
 
 polynomial = [ "+" ] plain_polynomial ;
 plain_polynomial = [ plain_polynomial "+" ] poly_term { poly_term } ;
-poly_term = node_ident | "(" polynomial ")" ;
-
-## Identifiers
-
-# FIXME whitespace
-ces_ident = uppercase_letter { alphanum_char } ;
-node_ident = lowercase_letter { alphanum_char } ;
-arg_ident = ( "_" | letter ) { alphanum_char } ;
-
-## Literals
-
-# FIXME whitespace
-size = digit { digit } ;
-string = "\"" { any_char } "\"" ;
-
-## Character classes
-
-alphanum_char = letter | digit | "_" ;
-letter = uppercase_letter | lowercase_letter ;
-uppercase_letter = "A".."Z" ;
-lowercase_letter = "a".."z" ;
-digit = "0".."9" ;
-any_char = plain_char | escaped_char ;
-plain_char = "\x20".."\x7F" | "\x80".."\xFF" ;
-escaped_char = "\\" ( "\"" | "\\" | "a" | "b" | "n" | "r" | "t" ) ;
+poly_term = identifier | "(" polynomial ")" ;

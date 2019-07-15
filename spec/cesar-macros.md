@@ -8,7 +8,7 @@ invocation are interpreted as literal `Gnid`s.  All symbols used in
 the body of `cesar_rules!` invocation have to be first declared in its
 signature.
 
-There are two forms of c-e structure definitions:
+There are two forms of a c-e structure definition:
 
   - plain `cesar!` macro, without suffix, is the immediate definition
     of a `CES` object;
@@ -45,7 +45,7 @@ let (x, y) = cesar_nodes![x, y];
 arrow[y].capacity(3);
 arrow[x] = 3;
 
-while arrow.fire() {
+while arrow.shoot() {
     println!("x = {}, y = {}", ces[x], ces[y]);
 }
 println!("deadlock!");
