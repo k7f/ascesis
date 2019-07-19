@@ -24,10 +24,10 @@ For now, see [implementation notes](spec/parser-implementation.md).
 
 ### Single arrow
 
-The simplest _fat structural rule_ defines a single arrow, for
-example, `a => b`, as in the body of the `Arrow` structure defined
-below.  An instance of the `Arrow` structure is created in the body of
-the `Main` structure definition.
+The simplest _fat arrow rule_ defines a single arrow, for example, `a
+=> b`, as in the body of the `Arrow` structure defined below.  An
+instance of the `Arrow` structure is created in the body of the `Main`
+structure definition.
 
 ```rust
 ces Arrow { a => b }
@@ -39,11 +39,12 @@ instantiation of `Main` is performed when a `.ces` file containing its
 definition is being interpreted.  All structure identifiers defined in
 a file must be unique.
 
-Any fat rule is equivalent to a rule expression consisting of a
-sequence of _thin rules_ separated with (infix) addition operator.
-The fat-into-thin (_FIT_) transformation steps are sketched out in
-[implementation notes](spec/parser-implementation.md#fat-rules).  The
-arrow above is thus equivalent to
+Any fat arrow rule is equivalent to a rule expression consisting of a
+sequence of _thin arrow rules_ separated with (infix) addition
+operator.  The fat-into-thin (_FIT_) transformation steps are sketched
+out in [implementation
+notes](spec/parser-implementation.md#fat-arrow-rules).  The arrow
+above is thus equivalent to
 
 ```rust
 ces Arrow { { a -> b } + { b <- a } }
@@ -55,9 +56,9 @@ their syntactic concatenation will be interpreted as _multiplication_
 of corresponding polynomials.
 
 In case of arrow definition, the result of multiplication of the two
-thin rules is the same as the result of their addition.  For example,
-next is the same arrow as above (for brevity, defined directly in
-`Main`),
+thin arrow rules is the same as the result of their addition.  For
+example, next is the same arrow as above (for brevity, defined
+directly in `Main`),
 
 ```rust
 ces Main { { a -> b } { b <- a } }
@@ -97,14 +98,15 @@ FIXME
 
 ### Arrow sequence
 
-A fat rule consists of two or more polynomials.  For example, a fat
-rule with four single-node polynomials results in three arrows,
+A fat arrow rule consists of two or more polynomials.  For example, a
+fat arrow rule with four single-node polynomials results in three
+arrows,
 
 ```rust
 ces ThreeArrowsInARow(w: Node, x: Node, y: Node, z: Node) { w => x => y => z }
 ```
 
-An atomic rule expression is a single structural rule or a structure
+An atomic rule expression is a single arrow rule or a structure
 instantiation.  These are the two constructs allowed in leaves of an
 AST of a rule expression.
 
@@ -115,7 +117,7 @@ ces Main { ThreeArrowsInARow(a, b, c, d) + { d => e } + ThreeArrowsInARow(e, f, 
 
 ### Fork
 
-A fork structure may be defined with a single fat rule,
+A fork structure may be defined with a single fat arrow rule,
 
 ```rust
 ces Main { a => b c }
@@ -136,14 +138,15 @@ ces Main {
 
 ### Choice
 
-Like a fork, a choice structure may be defined with a single fat rule,
+Like a fork, a choice structure may be defined with a single fat arrow
+rule,
 
 ```rust
 ces Main { a => b + c } // equivalently, b <= a => c
 ```
 
-Node identifiers occuring in a structural rule need not be unique.
-Next is a valid definition of a three-way choice,
+Node identifiers occuring in an arrow rule need not be unique.  Next
+is a valid definition of a three-way choice,
 
 ```rust
 ces Main { b <= a => c <= a => d } // equivalent to a => b + c + d

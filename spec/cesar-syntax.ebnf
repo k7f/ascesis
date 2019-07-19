@@ -1,9 +1,11 @@
 # Cesar syntax in EBNF
 
-# Some aspects of the language are described informally in files
-# lexer-implementation.md and parser-implementation.md.
+# Some aspects of the language are described informally in other
+# files: lexer-implementation.md, parser-implementation.md.
 
-ces_file = { ces_immediate_def | ces_template_def | ces_template_inst | meta_block } ;
+ces_file = {
+           ces_immediate_def
+         | ces_template_def | context_block } ;
 
 ## Structure definition
 
@@ -22,28 +24,35 @@ ces_template_inst = identifier "(" arg_list ")" ;
 
 ## Context
 
-meta_block = labels_block | caps_block ;
-labels_block = "labels" "{" label_spec { "," label_spec } [ "," ] "}" ;
-label_spec = identifier ":" string ;
-caps_block = "caps" "{" cap_spec { "," cap_spec } [ "," ] "}" ;
-cap_spec = identifier ":" size ;
+context_block = lab_block | cap_block | mul_block | inh_block ;
+lab_block = "lab" "{" lab_spec { "," lab_spec } [ "," ] "}" ;
+lab_spec = identifier ":" string ;
+cap_block = "cap" "{" cap_spec { "," cap_spec } [ "," ] "}" ;
+cap_spec = size monomial ;
+mul_block = "mul" "{" mul_spec { "," mul_spec } [ "," ] "}" ;
+mul_spec = size monomial ( "->" | "<-" ) monomial ;
+inh_block = "inh" "{" inh_spec { "," inh_spec } [ "," ] "}" ;
+inh_spec = monomial ( "->" | "<-" ) monomial ;
+monomial = identifier | { identifier } ;
 
-## Argument declarations and values
+## Argument list
 
 arg_list_decl = arg_spec { "," arg_spec } [ "," ] ;
 arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 arg_list = arg_value { ","  arg_value } [ "," ] ;
 arg_value = identifier | size | string ;
 
-## Rule expressions
+## Rule expression
 
-rex = "{" thin_rule "}"
-    | "{" fat_rule "}"
-    | "{" rex { [ "+" ] rex } "}" ;
+rex = thin_arrow_rule
+    | fat_arrow_rule
+    | rex_term { [ "+" ] rex_term } ;
 
-## Structural rules (strules)
+rex_term = ces_instantiation | "{" rex "}" ;
 
-thin_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
+## Arrow rules
+
+thin_arrow_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 
 # effect polynomial with explicit node list on the left
 e_rule = node_list "->" polynomial ;
@@ -68,7 +77,7 @@ bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 node_list = identifier { ","  | identifier } [ "," ] ;
 
 # multi-polynomial rule with implicit node lists
-fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
+fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
 
 ## Polynomial
 

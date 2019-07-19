@@ -1,16 +1,27 @@
+<InhibitorBlock> ::= "inh" "{" <InhibitorList> "}" ;
+
+<InhibitorList> ::= <PlainInhibitorList>
+                  | <PlainInhibitorList> "," ;
+
+<PlainInhibitorList> ::= <Inhibitor>
+                       | <Inhibitor> "," <PlainInhibitorList> ;
+
+<Inhibitor> ::= <NodeList> "->" <NodeList>
+              | <NodeList> "<-" <NodeList>;
+
 ;; Rule expression
 
-<Rex> ::= "{" <ThinRule> "}"
-        | "{" <FatRule> "}"
+<Rex> ::= "{" <ThinArrowRule> "}"
+        | "{" <FatArrowRule> "}"
         | "{" <RexSeq> "}" ;
 
 <RexSeq> ::= <Rex>
            | <Rex> <RexSeq>
            | <Rex> "+" <RexSeq> ;
 
-;; Structural rules (strules)
+;; Arrow rules
 
-<ThinRule> ::= <E-Rule> | <C-Rule> | <EC-Rule> | <CE-Rule> | <FW-Rule> | <BW-Rule> ;
+<ThinArrowRule> ::= <E-Rule> | <C-Rule> | <EC-Rule> | <CE-Rule> | <FW-Rule> | <BW-Rule> ;
 
 ; effect polynomial with explicit node list on the left
 <E-Rule> ::= <NodeList> "->" <Polynomial> ;
@@ -26,33 +37,25 @@
 
 ; cause-then-effect pair of polynomials with explicit node list in the
 ; middle
-<FW-Rule> ::= "+" <PlainPolynomial> "->" <NodeList> "->" <Polynomial> ;
+<FW-Rule> ::= <Polynomial> "->" <NodeList> "->" <Polynomial> ;
 
 ; effect-then-cause pair of polynomials with explicit node list in the
 ; middle
-<BW-Rule> ::= "+" <PlainPolynomial> "<-" <NodeList> "<-" <Polynomial> ;
-
-<NodeList> ::= <PlainNodeList>
-             | <PlainNodeList> "," ;
-
-<PlainNodeList> ::= <Identifier>
-                  | <Identifier> "," <PlainNodeList> ;
+<BW-Rule> ::= <Polynomial> "<-" <NodeList> "<-" <Polynomial> ;
 
 ; multi-polynomial rule with implicit node lists
-<FatRule> ::= <Polynomial> <FatArrow> <FatRuleTail> ;
+<FatArrowRule> ::= <Polynomial> <FatArrow> <FatArrowRuleTail> ;
 
-<FatRuleTail> ::= <Polynomial>
-                | <Polynomial> <FatArrow> <FatRuleTail> ;
+<FatArrowRuleTail> ::= <Polynomial>
+                     | <Polynomial> <FatArrow> <FatArrowRuleTail> ;
 
 <FatArrow> ::= "=>" | "<=" ;
 
 ;; Polynomial
 
-<Polynomial> ::= <PlainPolynomial>
-               | "+" <PlainPolynomial> ;
-
-<PlainPolynomial> ::= <PolyTermSeq>
-                    | <PlainPolynomial> "+" <PolyTermSeq> ;
+<Polynomial> ::= <PolyTermSeq>
+               | "+" <PolyTermSeq>
+               | <Polynomial> "+" <PolyTermSeq> ;
 
 <PolyTermSeq> ::= <PolyTerm>
                 | <PolyTerm> <PolyTermSeq> ;
@@ -60,8 +63,13 @@
 <PolyTerm> ::= <Identifier>
              | "(" <Polynomial> ")" ;
 
+<NodeList> ::= <Polynomial> ;
+
 ;; Identifiers
 
 ; FIXME
 <Identifier> ::= "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m"
                | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
+
+; FIXME
+<Size> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;

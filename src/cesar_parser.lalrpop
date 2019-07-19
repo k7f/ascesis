@@ -1,83 +1,124 @@
 use lalrpop_util::ErrorRecovery;
-use crate::{Rex, ThinRule, FatRule, NodeList, Polynomial, BinOp, Literal};
+use crate::{
+    CapacityBlock, MultiplierBlock, InhibitorBlock,
+    Rex, ThinArrowRule, FatArrowRule, Polynomial, BinOp, Literal,
+};
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
+// Context
+
+// context_block = cap_block | mul_block | inh_block | vis_block ;
+
+// cap_block = "cap" "{" capacities { "," capacities } [ "," ] "}" ;
+pub CapacityBlock: CapacityBlock =
+    "cap" "{" <head: Capacities> <tail: CommaThenCapacities*> ","? "}" =>
+        head.with_more(tail);
+
+CommaThenCapacities: CapacityBlock = "," <Capacities>;
+
+// capacities = size node_list ;
+Capacities: CapacityBlock =
+    <size: Size> <nodes: NodeList> =>
+        CapacityBlock::new(size, nodes).unwrap();
+
+// mul_block = "mul" "{" multipliers { "," multipliers } [ "," ] "}" ;
+pub MultiplierBlock: MultiplierBlock =
+    "mul" "{" <head: Multipliers> <tail: CommaThenMultipliers*> ","? "}" =>
+        head.with_more(tail);
+
+CommaThenMultipliers: MultiplierBlock = "," <Multipliers>;
+
+// multipliers = size node_list ( "->" | "<-" ) node_list ;
+Multipliers: MultiplierBlock = {
+    <size: Size> <pre_nodes: NodeList> "->" <post_set: Polynomial> =>
+        MultiplierBlock::new_effects(size, pre_nodes, post_set).unwrap(),
+    <size: Size> <post_nodes: NodeList> "<-" <pre_set: Polynomial> =>
+        MultiplierBlock::new_causes(size, post_nodes, pre_set).unwrap(),
+};
+
+// inh_block = "inh" "{" inhibitors { "," inhibitors } [ "," ] "}" ;
+pub InhibitorBlock: InhibitorBlock =
+    "inh" "{" <head: Inhibitors> <tail: CommaThenInhibitors*> ","? "}" =>
+        head.with_more(tail);
+
+CommaThenInhibitors: InhibitorBlock = "," <Inhibitors>;
+
+// inhibitors = node_list ( "->" | "<-" ) node_list ;
+Inhibitors: InhibitorBlock = {
+    <pre_nodes: NodeList> "->" <post_set: Polynomial> =>
+        InhibitorBlock::new_effects(pre_nodes, post_set).unwrap(),
+    <post_nodes: NodeList> "<-" <pre_set: Polynomial> =>
+        InhibitorBlock::new_causes(post_nodes, pre_set).unwrap(),
+};
+
 // Rule expression
 
-// rex = "{" thin_rule "}"
-//     | "{" fat_rule "}"
+// rex = "{" thin_arrow_rule "}"
+//     | "{" fat_arrow_rule "}"
 //     | "{" rex { [ "+" ] rex } "}" ;
 pub Rex: Rex = {
-    "{" <ThinRule> "}" => Rex::from_thin_rule(<>),
-    "{" <FatRule> "}" => Rex::from_fat_rule(<>),
+    "{" <ThinArrowRule> "}" => Rex::from_thin_rule(<>),
+    "{" <FatArrowRule> "}" => Rex::from_fat_rule(<>),
     "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_more(tail),
 };
 
-// Structural rules (strules)
+// Arrow rules
 
-// thin_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
+// thin_arrow_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 // e_rule = node_list "->" polynomial ;
 // c_rule = node_list "<-" polynomial ;
 // ec_rule = node_list "->" polynomial "<-" polynomial ;
 // ce_rule = node_list "<-" polynomial "->" polynomial ;
 // fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 // bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
-ThinRule: ThinRule = {
+ThinArrowRule: ThinArrowRule = {
     // effect-only rule
-    <nodes: NodeList> "->" <effect: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_effect(effect)
+    <nodes: Polynomial> "->" <effect: Polynomial> => {
+        ThinArrowRule::new().with_nodes(nodes).unwrap().with_effect(effect)
     },
     // cause-only rule
-    <nodes: NodeList> "<-" <cause: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause)
+    <nodes: Polynomial> "<-" <cause: Polynomial> => {
+        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause)
     },
     // effect-then-cause rule
-    <nodes: NodeList> "->" <effect: Polynomial> "<-" <cause: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    <nodes: Polynomial> "->" <effect: Polynomial> "<-" <cause: Polynomial> => {
+        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
     },
     // cause-then-effect rule
-    <nodes: NodeList> "<-" <cause: Polynomial> "->" <effect: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    <nodes: Polynomial> "<-" <cause: Polynomial> "->" <effect: Polynomial> => {
+        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
     },
     // forward rule
-    "+" <cause: PlainPolynomial> "->" <nodes: NodeList> "->" <effect: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    <cause: Polynomial> "->" <nodes: Polynomial> "->" <effect: Polynomial> => {
+        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
     },
     // backward rule
-    "+" <effect: PlainPolynomial> "<-" <nodes: NodeList> "<-" <cause: Polynomial> => {
-        ThinRule::new().with_nodes(nodes).with_cause(cause).with_effect(effect)
+    <effect: Polynomial> "<-" <nodes: Polynomial> "<-" <cause: Polynomial> => {
+        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
     },
 };
 
-// node_list = identifier { "," identifier } [ "," ] ;
-NodeList: NodeList = {
-    <head: Identifier> <tail: CommaThenIdentifier*> ","? => NodeList::from_node(head).with_more(tail),
-};
-
-CommaThenIdentifier: String = "," <Identifier>;
-
-// fat_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
-FatRule: FatRule =
+// fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
+FatArrowRule: FatArrowRule =
     <head: Polynomial> <tail: (<FatOp> <Polynomial>)+> =>
-        FatRule::from_parts(head, tail);
+        FatArrowRule::from_parts(head, tail);
 
 // Polynomial
 
-// polynomial = [ "+" ] plain_polynomial ;
-Polynomial: Polynomial = "+"? <PlainPolynomial>;
-
-// plain_polynomial = [ plain_polynomial "+" ] poly_term { poly_term } ;
-PlainPolynomial: Polynomial = {
-    <head: PolyTerm> <tail: PolyTerm*> => head.with_product_multiplied(tail),
-    <head: PlainPolynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
+// polynomial = [ [ polynomial ] "+" ] poly_term { poly_term } ;
+Polynomial: Polynomial = {
+    AddOp? <head: PolyTerm> <tail: PolyTerm*> => head.with_product_multiplied(tail),
+    <head: Polynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
 };
 
 // poly_term = identifier | "(" polynomial ")" ;
 PolyTerm: Polynomial = {
-    <Identifier> => Polynomial::from_node(<>),
+    <Identifier> => Polynomial::from(<>),
     "(" <Polynomial> ")",
 };
+
+NodeList: Polynomial = <Polynomial>;
 
 // Operators
 
@@ -91,7 +132,5 @@ Identifier: String = r"[A-Za-z_][A-Za-z0-9_]*" => <>.to_owned();
 
 // Literals
 
-Literal: Literal = {
-    r"[0-9]+" => Literal::from_digits(<>).unwrap(),
-    r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap(),
-};
+Size: Literal = r"[0-9]+" => Literal::from_digits(<>).unwrap();
+Name: Literal = r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap();
