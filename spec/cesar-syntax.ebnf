@@ -3,9 +3,7 @@
 # Some aspects of the language are described informally in other
 # files: lexer-implementation.md, parser-implementation.md.
 
-ces_file = {
-           ces_immediate_def
-         | ces_template_def | context_block } ;
+ces_file = { ces_immediate_def | ces_template_def | context_block } ;
 
 ## Structure definition
 
@@ -22,25 +20,30 @@ ces_template_sig = "ces" identifier "(" arg_list_decl ")" ;
 # empty argument list is disallowed
 ces_template_inst = identifier "(" arg_list ")" ;
 
-## Context
-
-context_block = lab_block | cap_block | mul_block | inh_block ;
-lab_block = "lab" "{" lab_spec { "," lab_spec } [ "," ] "}" ;
-lab_spec = identifier ":" string ;
-cap_block = "cap" "{" cap_spec { "," cap_spec } [ "," ] "}" ;
-cap_spec = size monomial ;
-mul_block = "mul" "{" mul_spec { "," mul_spec } [ "," ] "}" ;
-mul_spec = size monomial ( "->" | "<-" ) monomial ;
-inh_block = "inh" "{" inh_spec { "," inh_spec } [ "," ] "}" ;
-inh_spec = monomial ( "->" | "<-" ) monomial ;
-monomial = identifier | { identifier } ;
-
 ## Argument list
 
 arg_list_decl = arg_spec { "," arg_spec } [ "," ] ;
 arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 arg_list = arg_value { ","  arg_value } [ "," ] ;
 arg_value = identifier | size | string ;
+
+## Context
+
+context_block = vis_block | cap_block | mul_block | inh_block ;
+
+vis_block = "vis" "{" ron_spec "}" ;
+
+cap_block = "cap" "{" cap_list "}" ;
+cap_list = cap_spec { "," cap_spec } [ "," ] ;
+cap_spec ::= size node_list ;
+
+mul_block = "mul" "{" mul_list "}" ;
+mul_list = mul_spec { "," mul_spec } [ "," ] ;
+mul_spec = size node_list ( "->" | "<-" ) node_list ;
+
+inh_block = "inh" "{" inh_list "}" ;
+inh_list = inh_spec { "," inh_spec } [ "," ] ;
+inh_spec = node_list ( "->" | "<-" ) node_list ;
 
 ## Rule expression
 
@@ -74,7 +77,7 @@ fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 # middle
 bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 
-node_list = identifier { ","  | identifier } [ "," ] ;
+node_list = identifier { identifier } ;
 
 # multi-polynomial rule with implicit node lists
 fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;

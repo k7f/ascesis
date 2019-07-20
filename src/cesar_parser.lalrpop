@@ -8,47 +8,50 @@ grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static
 
 // Context
 
-// context_block = cap_block | mul_block | inh_block | vis_block ;
+// context_block = vis_block | cap_block | mul_block | inh_block ;
 
-// cap_block = "cap" "{" capacities { "," capacities } [ "," ] "}" ;
-pub CapacityBlock: CapacityBlock =
-    "cap" "{" <head: Capacities> <tail: CommaThenCapacities*> ","? "}" =>
+// cap_block = "cap" "{" cap_list "}" ;
+pub CapBlock: CapacityBlock =
+    "cap" "{" <head: CapSpec> <tail: CommaThenCapSpec*> ","? "}" =>
         head.with_more(tail);
 
-CommaThenCapacities: CapacityBlock = "," <Capacities>;
+// cap_list = cap_spec { "," cap_spec } [ "," ] ;
+CommaThenCapSpec: CapacityBlock = "," <CapSpec>;
 
-// capacities = size node_list ;
-Capacities: CapacityBlock =
+// cap_spec ::= size node_list ;
+CapSpec: CapacityBlock =
     <size: Size> <nodes: NodeList> =>
         CapacityBlock::new(size, nodes).unwrap();
 
-// mul_block = "mul" "{" multipliers { "," multipliers } [ "," ] "}" ;
-pub MultiplierBlock: MultiplierBlock =
-    "mul" "{" <head: Multipliers> <tail: CommaThenMultipliers*> ","? "}" =>
+// mul_block = "mul" "{" mul_list "}" ;
+pub MulBlock: MultiplierBlock =
+    "mul" "{" <head: MulSpec> <tail: CommaThenMulSpec*> ","? "}" =>
         head.with_more(tail);
 
-CommaThenMultipliers: MultiplierBlock = "," <Multipliers>;
+// mul_list = mul_spec { "," mul_spec } [ "," ] ;
+CommaThenMulSpec: MultiplierBlock = "," <MulSpec>;
 
-// multipliers = size node_list ( "->" | "<-" ) node_list ;
-Multipliers: MultiplierBlock = {
-    <size: Size> <pre_nodes: NodeList> "->" <post_set: Polynomial> =>
+// mul_spec = size node_list ( "->" | "<-" ) node_list ;
+MulSpec: MultiplierBlock = {
+    <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>
         MultiplierBlock::new_effects(size, pre_nodes, post_set).unwrap(),
-    <size: Size> <post_nodes: NodeList> "<-" <pre_set: Polynomial> =>
+    <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
         MultiplierBlock::new_causes(size, post_nodes, pre_set).unwrap(),
 };
 
-// inh_block = "inh" "{" inhibitors { "," inhibitors } [ "," ] "}" ;
-pub InhibitorBlock: InhibitorBlock =
-    "inh" "{" <head: Inhibitors> <tail: CommaThenInhibitors*> ","? "}" =>
+// inh_block = "inh" "{" inh_list "}" ;
+pub InhBlock: InhibitorBlock =
+    "inh" "{" <head: InhSpec> <tail: CommaThenInhSpec*> ","? "}" =>
         head.with_more(tail);
 
-CommaThenInhibitors: InhibitorBlock = "," <Inhibitors>;
+// inh_list = inh_spec { "," inh_spec } [ "," ] ;
+CommaThenInhSpec: InhibitorBlock = "," <InhSpec>;
 
-// inhibitors = node_list ( "->" | "<-" ) node_list ;
-Inhibitors: InhibitorBlock = {
-    <pre_nodes: NodeList> "->" <post_set: Polynomial> =>
+// inh_spec = node_list ( "->" | "<-" ) node_list ;
+InhSpec: InhibitorBlock = {
+    <pre_nodes: NodeList> "->" <post_set: NodeList> =>
         InhibitorBlock::new_effects(pre_nodes, post_set).unwrap(),
-    <post_nodes: NodeList> "<-" <pre_set: Polynomial> =>
+    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
         InhibitorBlock::new_causes(post_nodes, pre_set).unwrap(),
 };
 

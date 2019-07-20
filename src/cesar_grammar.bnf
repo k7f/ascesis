@@ -1,13 +1,40 @@
-<InhibitorBlock> ::= "inh" "{" <InhibitorList> "}" ;
+;; Capacities
 
-<InhibitorList> ::= <PlainInhibitorList>
-                  | <PlainInhibitorList> "," ;
+<CapBlock> ::= "cap" "{" <CapList> "}" ;
 
-<PlainInhibitorList> ::= <Inhibitor>
-                       | <Inhibitor> "," <PlainInhibitorList> ;
+<CapList> ::= <PlainCapList>
+            | <PlainCapList> "," ;
 
-<Inhibitor> ::= <NodeList> "->" <NodeList>
-              | <NodeList> "<-" <NodeList>;
+<PlainCapList> ::= <CapSpec>
+                 | <CapSpec> "," <PlainCapList> ;
+
+<CapSpec> ::= <Size> <NodeList>
+
+;; Multipliers
+
+<MulBlock> ::= "mul" "{" <MulList> "}" ;
+
+<MulList> ::= <PlainMulList>
+            | <PlainMulList> "," ;
+
+<PlainMulList> ::= <MulSpec>
+                 | <MulSpec> "," <PlainMulList> ;
+
+<MulSpec> ::= <Size> <NodeList> "->" <NodeList>
+            | <Size> <NodeList> "<-" <NodeList>;
+
+;; Inhibitors
+
+<InhBlock> ::= "inh" "{" <InhList> "}" ;
+
+<InhList> ::= <PlainInhList>
+            | <PlainInhList> "," ;
+
+<PlainInhList> ::= <InhSpec>
+                 | <InhSpec> "," <PlainInhList> ;
+
+<InhSpec> ::= <NodeList> "->" <NodeList>
+            | <NodeList> "<-" <NodeList>;
 
 ;; Rule expression
 
@@ -72,4 +99,4 @@
                | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
 
 ; FIXME
-<Size> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+<Size> ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
