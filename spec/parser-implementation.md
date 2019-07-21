@@ -26,7 +26,7 @@ This rule specifies an effect `polynomial` for all nodes in the
   - set of thin, effect-only links, one for each pair in _T_ &times;
     _R_.
 
-For example, `a, b -> c d` generates ports `[a >]`, `[b >]`, `[c <]`,
+For example, `a b -> c d` generates ports `[a >]`, `[b >]`, `[c <]`,
 `[d <]`, and effect-only links `(a >? c)`, `(a >? d)`, `(b >? c)`, `(b
 >? d)`.  Cause polynomials of nodes `c` and `d` are _&theta;_, hence
 this rule doesn't unfold to a proper c-e structure.
@@ -82,7 +82,7 @@ For example, `a -> b -> a` generates ports `[a >]`, `[a <]`, `[b >]`,
 This rule doesn't unfold to a proper c-e structure, because both
 polynomials of node `a` are _&theta;_.
 
-However, since `a b -> a, b -> a b` generates the same ports as above
+However, since `a b -> a b -> a b` generates the same ports as above
 and four fat links, `(a > a)`, `(b > b)`, `(a > b)`, `(b > a)`, it
 unfolds to a proper c-e structure.
 
@@ -117,7 +117,7 @@ to by the same cause polynomials.
 For example, `a b c => d e f` is transformed to
 
 ```rust
-{ a, b, c -> d e f } + { d, e, f <- a b c }
+{ a b c -> d e f } + { d e f <- a b c }
 ```
 
 `b <= a => c` is transformed to
@@ -134,31 +134,27 @@ rules only, as a simple triangle structure shows:
 { a -> b c } + { b <- a c } + { c <- a -> b }
 ```
 
-## Optional pre-processing step
+## What is a `node_list`?
 
-The syntax defined in the first draft of the surface language as
+In the files [`cesar_grammar.bnf`](../src/cesar_grammar.bnf) and
+[`cesar_parser.lalrpop`](../src/cesar_parser.lalrpop) `node_list` is
+defined as an alias of the `polynomial` nonterminal.  If, instead,
+`node_list` was defined as a separate nonterminal with a narrower
+sublanguage than that of `polynomial`, then the current grammar of
+_cesar_ couldn't be transformed directly into an LR parser.
 
-```ebnf
-fw_rule = polynomial "->" node_list "->" polynomial ;
-bw_rule = polynomial "<-" node_list "<-" polynomial ;
-```
+Therefore, an object of type `Polynomial` carries a flag indicating
+whether it is a monomial which was constructed from a syntactically
+flat list of node identifiers, without parentheses or an addition
+operator &mdash; node lists can't ne notated with a leading plus sign,
+nor as expressions reducible by idempotence of addition.
 
-was later replaced with
+## Do we need thin forward rules?
 
-```ebnf
-fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
-bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
-```
-
-This change was necessary to make the grammar of _cesar_ LR-parsable.
-Nevertheless, support for the surface language might still be possible
-by pre-processing the input and prefixing some or all of the plain
-polynomials with the addition operator.  This would probably involve
-right-to-left scanning of the input string, custom lexer
-implementation, etc.
-
-### Do we need thin forward rules?
-
-Probably not.  The formula `cause -> state -> effect` might have some
-iconic value as a hint to the flow of time (a left-to-right timeline),
-but it complicates the implementation and, probably, mental parsing.
+Probably not, and they may be removed from future versions of the
+language, once it is clear that pushing `node_list` from the front of
+a thin arrow rule, to the middle, will cause confussion or make
+_mental_ parsing harder.  On the other hand, they may stay in the
+language, if it turns out that more important will be the iconic value
+of the formula `cause -> state -> effect` as a hint to the flow of
+time: a left-to-right timeline.

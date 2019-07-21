@@ -75,7 +75,7 @@ pub Rex: Rex = {
 // ce_rule = node_list "<-" polynomial "->" polynomial ;
 // fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 // bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
-ThinArrowRule: ThinArrowRule = {
+pub ThinArrowRule: ThinArrowRule = {
     // effect-only rule
     <nodes: Polynomial> "->" <effect: Polynomial> => {
         ThinArrowRule::new().with_nodes(nodes).unwrap().with_effect(effect)
@@ -103,14 +103,14 @@ ThinArrowRule: ThinArrowRule = {
 };
 
 // fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
-FatArrowRule: FatArrowRule =
+pub FatArrowRule: FatArrowRule =
     <head: Polynomial> <tail: (<FatOp> <Polynomial>)+> =>
         FatArrowRule::from_parts(head, tail);
 
 // Polynomial
 
 // polynomial = [ [ polynomial ] "+" ] poly_term { poly_term } ;
-Polynomial: Polynomial = {
+pub Polynomial: Polynomial = {
     AddOp? <head: PolyTerm> <tail: PolyTerm*> => head.with_product_multiplied(tail),
     <head: Polynomial> AddOp <tail: PolyTerm+> => head.with_product_added(tail),
 };

@@ -28,7 +28,9 @@ use std::{
     error::Error,
 };
 use enquote::unquote;
-use crate::cesar_parser::RexParser;
+use crate::cesar_parser::{
+    CapBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
+};
 
 pub type ParsingError = lalrpop_util::ParseError<usize, String, String>;
 pub type ParsingResult<T> = Result<T, ParsingError>;
@@ -80,6 +82,25 @@ impl CapacityBlock {
             self.capacities.append(&mut block.capacities);
         }
         self
+    }
+
+    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = CapBlockParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
+
+impl FromStr for CapacityBlock {
+    type Err = ParsingError;
+
+    fn from_str(s: &str) -> ParsingResult<Self> {
+        CapacityBlock::from_spec(s)
     }
 }
 
@@ -419,6 +440,25 @@ impl ThinArrowRule {
         self.effect = effect;
         self
     }
+
+    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = ThinArrowRuleParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
+
+impl FromStr for ThinArrowRule {
+    type Err = ParsingError;
+
+    fn from_str(s: &str) -> ParsingResult<Self> {
+        ThinArrowRule::from_spec(s)
+    }
 }
 
 #[derive(Default, Debug)]
@@ -449,6 +489,25 @@ impl FatArrowRule {
             prev = poly;
         }
         rule
+    }
+
+    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = FatArrowRuleParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
+
+impl FromStr for FatArrowRule {
+    type Err = ParsingError;
+
+    fn from_str(s: &str) -> ParsingResult<Self> {
+        FatArrowRule::from_spec(s)
     }
 }
 
@@ -558,6 +617,25 @@ impl Polynomial {
     fn add_assign(&mut self, other: &mut Self) {
         self.is_flat = false;
         self.monomials.append(&mut other.monomials);
+    }
+
+    pub(crate) fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = PolynomialParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
+
+impl FromStr for Polynomial {
+    type Err = ParsingError;
+
+    fn from_str(s: &str) -> ParsingResult<Self> {
+        Polynomial::from_spec(s)
     }
 }
 

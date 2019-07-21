@@ -4,7 +4,9 @@ extern crate log;
 use std::{fmt, error::Error};
 use rand::{thread_rng, Rng};
 use fern::colors::{Color, ColoredLevelConfig};
-use cesar_lang::{Rex, ParsingError, CesarError, grammar::Grammar, sentence::Generator};
+use cesar_lang::{
+    CapacityBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
+    ParsingError, CesarError, grammar::Grammar, sentence::Generator};
 
 #[derive(Debug)]
 struct RexError(String);
@@ -32,6 +34,32 @@ fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
         let result = all_specs.remove(rng.gen_range(0, all_specs.len()));
 
         Ok(result)
+    }
+}
+
+fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(String, String), Box<dyn Error>> {
+    if let Some(axiom) = {
+        if let Some(arg) = maybe_arg {
+            if arg.trim().starts_with('{') {
+                None
+            } else {
+                Some(arg)
+            }
+        } else {
+            Some("Rex")
+        }
+    } {
+        let spec = random_spec(axiom)?;
+        println!("<{}> is \"{}\"", axiom, spec);
+
+        Ok((axiom.to_owned(), spec))
+    } else {
+        let spec = maybe_arg.unwrap().to_owned();
+
+        // FIXME
+        let axiom = "Rex";
+        
+        Ok((axiom.to_owned(), spec))
     }
 }
 
@@ -84,33 +112,34 @@ fn main() -> Result<(), Box<dyn Error>> {
         .args_from_usage("[REX] 'rule expression'")
         .get_matches();
 
-    let spec = {
-        if let Some(axiom) = {
-            if let Some(arg) = args.value_of("REX") {
-                if arg.trim().starts_with('{') {
-                    None
-                } else {
-                    Some(arg)
-                }
-            } else {
-                Some("Rex")
-            }
-        } {
-            let spec = random_spec(axiom)?;
-            println!("<{}> is \"{}\"", axiom, spec);
+    let maybe_arg = args.value_of("REX");
+    let (axiom, spec) = get_axiom_and_spec(maybe_arg)?;
 
-            if axiom == "Rex" {
-                spec
-            } else {
-                format!("{{ {} }}", spec)
-            }
-        } else {
-            args.value_of("REX").unwrap().to_owned()
+    match axiom.as_str() {
+        "CapBlock" => {
+            let caps: CapacityBlock = spec.parse().map_err(process_parsing_error)?;
+            println!("Caps: {:?}", caps);
         }
-    };
-
-    let rex: Rex = spec.parse().map_err(process_parsing_error)?;
-    println!("Rex: {:?}", rex);
+        "Rex" => {
+            let rex: Rex = spec.parse().map_err(process_parsing_error)?;
+            println!("Rex: {:?}", rex);
+        }
+        "ThinArrowRule" => {
+            let tar: ThinArrowRule = spec.parse().map_err(process_parsing_error)?;
+            println!("TAR: {:?}", tar);
+        }
+        "FatArrowRule" => {
+            let far: FatArrowRule = spec.parse().map_err(process_parsing_error)?;
+            println!("FAR: {:?}", far);
+        }
+        "Polynomial" => {
+            let poly: Polynomial = spec.parse().map_err(process_parsing_error)?;
+            println!("Poly: {:?}", poly);
+        }
+        _ => {
+            return Err(Box::new(RexError(format!("Unknown axiom, \"{}\".", axiom))))
+        }
+    }
 
     Ok(())
 }
