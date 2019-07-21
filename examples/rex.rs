@@ -5,7 +5,7 @@ use std::{fmt, error::Error};
 use rand::{thread_rng, Rng};
 use fern::colors::{Color, ColoredLevelConfig};
 use cesar_lang::{
-    CapacityBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
+    CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
     ParsingError, CesarError, grammar::Grammar, sentence::Generator};
 
 #[derive(Debug)]
@@ -120,6 +120,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             let caps: CapacityBlock = spec.parse().map_err(process_parsing_error)?;
             println!("Caps: {:?}", caps);
         }
+        "MulBlock" => {
+            let muls: MultiplierBlock = spec.parse().map_err(process_parsing_error)?;
+            println!("Muls: {:?}", muls);
+        }
+        "InhBlock" => {
+            let inhs: InhibitorBlock = spec.parse().map_err(process_parsing_error)?;
+            println!("inhs: {:?}", inhs);
+        }
         "Rex" => {
             let rex: Rex = spec.parse().map_err(process_parsing_error)?;
             println!("Rex: {:?}", rex);
@@ -137,7 +145,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("Poly: {:?}", poly);
         }
         _ => {
-            return Err(Box::new(RexError(format!("Unknown axiom, \"{}\".", axiom))))
+            return Err(Box::new(RexError(format!("Unknown axiom, <{}>.", axiom))))
         }
     }
 

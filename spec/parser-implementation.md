@@ -134,27 +134,36 @@ rules only, as a simple triangle structure shows:
 { a -> b c } + { b <- a c } + { c <- a -> b }
 ```
 
-## What is a `node_list`?
+## What is a node list?
 
-In the files [`cesar_grammar.bnf`](../src/cesar_grammar.bnf) and
-[`cesar_parser.lalrpop`](../src/cesar_parser.lalrpop) `node_list` is
-defined as an alias of the `polynomial` nonterminal.  If, instead,
-`node_list` was defined as a separate nonterminal with a narrower
-sublanguage than that of `polynomial`, then the current grammar of
+A node list is defined in [the specification](cesar-syntax.ebnf) as a
+sequence of node identifiers,
+
+```ebnf
+node_list = identifier { identifier } ;
+```
+
+However, in the files [`cesar_grammar.bnf`](../src/cesar_grammar.bnf)
+and [`cesar_parser.lalrpop`](../src/cesar_parser.lalrpop) `NodeList`
+is defined as an alias of the `Polynomial` nonterminal.  If, instead,
+`NodeList` was implemented as a separate nonterminal with a narrower
+sublanguage than that of `Polynomial`, then the current grammar of
 _cesar_ couldn't be transformed directly into an LR parser.
 
 Therefore, an object of type `Polynomial` carries a flag indicating
 whether it is a monomial which was constructed from a syntactically
-flat list of node identifiers, without parentheses or an addition
-operator &mdash; node lists can't ne notated with a leading plus sign,
-nor as expressions reducible by idempotence of addition.
+flat list of node identifiers, and thus it qualifies as a valid node
+list following the specification.  Node lists are to be notated
+without parentheses or an addition operator &mdash; leading plus sign
+is not allowed, nor an expression reducible by idempotence of
+addition.
 
 ## Do we need thin forward rules?
 
 Probably not, and they may be removed from future versions of the
-language, once it is clear that pushing `node_list` from the front of
-a thin arrow rule, to the middle, will cause confussion or make
-_mental_ parsing harder.  On the other hand, they may stay in the
-language, if it turns out that more important will be the iconic value
-of the formula `cause -> state -> effect` as a hint to the flow of
-time: a left-to-right timeline.
+language, once it is clear that pushing node list from the front of a
+thin arrow rule, to the middle, will cause confussion or make _mental_
+parsing harder.  On the other hand, they may stay in the language, if
+it turns out that more important will be the iconic value of the
+formula `cause -> state -> effect` as a hint to the flow of time: a
+left-to-right timeline.
