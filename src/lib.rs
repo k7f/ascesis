@@ -3,6 +3,8 @@
 #[macro_use]
 extern crate log;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate lalrpop_util;
 
 lalrpop_mod!(
@@ -27,6 +29,7 @@ use std::{
     str::FromStr,
     error::Error,
 };
+use regex::Regex;
 use enquote::unquote;
 use crate::cesar_parser::{
     CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
@@ -90,15 +93,54 @@ pub type CesarResult<T> = Result<T, CesarError>;
 pub struct Axiom(String);
 
 impl Axiom {
-    pub fn new<S: AsRef<str>>(symbol: S) -> Self {
-        Axiom(symbol.as_ref().to_owned())
+    pub fn from_known_symbol<S: AsRef<str>>(symbol: S) -> Option<Self> {
+        let symbol = symbol.as_ref();
+
+        match symbol {
+            | "CapBlock"
+            | "MulBlock"
+            | "InhBlock"
+            | "Rex"
+            | "ThinArrowRule"
+            | "FatArrowRule"
+            | "Polynomial" => Some(Axiom(symbol.to_owned())),
+            _ => None
+        }
+    }
+
+    pub fn guess_from_spec<S: AsRef<str>>(spec: S) -> Self {
+        lazy_static! {
+            static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
+            static ref MUL_RE: Regex = Regex::new(r"^mul\s*\{").unwrap();
+            static ref INH_RE: Regex = Regex::new(r"^inh\s*\{").unwrap();
+            static ref TAR_RE: Regex = Regex::new(r"(->|<-)").unwrap();
+            static ref FAR_RE: Regex = Regex::new(r"(=>|<=)").unwrap();
+        }
+
+        let spec = spec.as_ref().trim();
+
+        if CAP_RE.is_match(spec) {
+            Axiom("CapBlock".to_owned())
+        } else if MUL_RE.is_match(spec) {
+            Axiom("MulBlock".to_owned())
+        } else if INH_RE.is_match(spec) {
+            Axiom("InhBlock".to_owned())
+        } else if spec.contains("{") {
+            Axiom("Rex".to_owned())
+        } else if TAR_RE.is_match(spec) {
+            Axiom("ThinArrowRule".to_owned())
+        } else if FAR_RE.is_match(spec) {
+            Axiom("FatArrowRule".to_owned())
+        } else {
+            Axiom("Polynomial".to_owned())
+        }
     }
 
     pub fn symbol(&self) -> &str {
         self.0.as_str()
     }
 
-    pub fn as_from_spec<S: AsRef<str>>(&self, spec: S) -> CesarResult<Box<dyn FromSpec>> {
+    pub fn parse<S: AsRef<str>>(&self, spec: S) -> CesarResult<Box<dyn FromSpec>> {
         macro_rules! from_spec_as {
             ($typ:ty, $spec:expr) => {
                 {

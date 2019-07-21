@@ -38,24 +38,25 @@ fn random_spec(axiom: &Axiom) -> Result<String, Box<dyn Error>> {
 fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dyn Error>> {
     if let Some(axiom) = {
         if let Some(arg) = maybe_arg {
-            if arg.trim().starts_with('{') {
-                None
+            let arg = arg.trim();
+            if arg.starts_with(|c: char| c.is_uppercase()) {
+                Axiom::from_known_symbol(arg)
             } else {
-                Some(Axiom::new(arg))
+                None
             }
         } else {
-            Some(Axiom::new("Rex"))
+            Axiom::from_known_symbol("Rex")
         }
     } {
         let spec = random_spec(&axiom)?;
         println!("{:?} is \"{}\"", axiom, spec);
 
         Ok((axiom, spec))
-    } else {
-        let spec = maybe_arg.unwrap().to_owned();
 
-        // FIXME guess
-        let axiom = Axiom::new("Rex");
+    } else {
+        let arg = maybe_arg.unwrap();
+        let axiom = Axiom::guess_from_spec(arg);
+        let spec = arg.to_owned();
         
         Ok((axiom, spec))
     }
@@ -98,7 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let maybe_arg = args.value_of("REX");
     let (axiom, spec) = get_axiom_and_spec(maybe_arg)?;
 
-    let result = axiom.as_from_spec(spec)?;
+    let result = axiom.parse(spec)?;
     println!("{:?}", result);
 
     Ok(())
