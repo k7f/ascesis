@@ -37,29 +37,96 @@ pub type ParsingResult<T> = Result<T, ParsingError>;
 
 #[derive(Clone, Debug)]
 pub enum CesarError {
-    ParsingError(String),
+    ParsingError(ParsingError),
+    UnknownAxiom(String),
 }
 
 impl Error for CesarError {
     fn description(&self) -> &str {
-        "cesar error"
+        use CesarError::*;
+
+        match self {
+            ParsingError(_) => "cesar parsing error",
+            UnknownAxiom(_) => "unknown axiom",
+        }
     }
 }
 
 impl fmt::Display for CesarError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
+        use CesarError::*;
+
+        match self {
+            ParsingError(err) => {
+                let message = format!("{}", err);
+                let mut lines = message.lines();
+
+                if let Some(line) = lines.next() {
+                    writeln!(f, "{}", line)?;
+                }
+
+                for line in lines {
+                    writeln!(f, "\t{}", line)?;
+                }
+
+                Ok(())
+            }
+            UnknownAxiom(symbol) => {
+                write!(f, "Unknown axiom '{}'", symbol)
+            }
+        }
     }
 }
 
 impl From<ParsingError> for CesarError {
-    fn from(_err: ParsingError) -> Self {
-        CesarError::ParsingError("parsing error".to_owned())
+    fn from(err: ParsingError) -> Self {
+        CesarError::ParsingError(err)
     }
 }
 
-pub(crate) trait FromSpec where Self: Sized {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self>;
+pub type CesarResult<T> = Result<T, CesarError>;
+
+#[derive(Clone, Debug)]
+pub struct Axiom(String);
+
+impl Axiom {
+    pub fn new<S: AsRef<str>>(symbol: S) -> Self {
+        Axiom(symbol.as_ref().to_owned())
+    }
+
+    pub fn symbol(&self) -> &str {
+        self.0.as_str()
+    }
+
+    pub fn as_from_spec<S: AsRef<str>>(&self, spec: S) -> CesarResult<Box<dyn FromSpec>> {
+        macro_rules! from_spec_as {
+            ($typ:ty, $spec:expr) => {
+                {
+                    let object: $typ = $spec.parse()?;
+                    Ok(Box::new(object))
+                }
+            }
+        }
+
+        let spec = spec.as_ref();
+
+        match self.0.as_str() {
+            "CapBlock"      => from_spec_as!(CapacityBlock, spec),
+            "MulBlock"      => from_spec_as!(MultiplierBlock, spec),
+            "InhBlock"      => from_spec_as!(InhibitorBlock, spec),
+            "Rex"           => from_spec_as!(Rex, spec),
+            "ThinArrowRule" => from_spec_as!(ThinArrowRule, spec),
+            "FatArrowRule"  => from_spec_as!(FatArrowRule, spec),
+            "Polynomial"    => from_spec_as!(Polynomial, spec),
+            _ => Err(CesarError::UnknownAxiom(self.0.clone())),
+        }
+    }
+}
+
+pub trait FromSpec: fmt::Debug {
+    fn from_spec<S>(spec: S) -> ParsingResult<Self>
+    where S: AsRef<str>,
+          Self: Sized;
 }
 
 macro_rules! impl_from_str_for {

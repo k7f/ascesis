@@ -4,9 +4,7 @@ extern crate log;
 use std::{fmt, error::Error};
 use rand::{thread_rng, Rng};
 use fern::colors::{Color, ColoredLevelConfig};
-use cesar_lang::{
-    CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
-    ParsingError, CesarError, grammar::Grammar, sentence::Generator};
+use cesar_lang::{Axiom, grammar::Grammar, sentence::Generator};
 
 #[derive(Debug)]
 struct RexError(String);
@@ -19,16 +17,16 @@ impl fmt::Display for RexError {
 
 impl Error for RexError {}
 
-fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
+fn random_spec(axiom: &Axiom) -> Result<String, Box<dyn Error>> {
     let grammar = Grammar::of_cesar();
     debug!("{:?}", grammar);
 
     let generator = Generator::new(&grammar);
 
-    let mut all_specs: Vec<_> = generator.rooted(axiom)?.iter().collect();
+    let mut all_specs: Vec<_> = generator.rooted(axiom.symbol())?.iter().collect();
 
     if all_specs.is_empty() {
-        Err(Box::new(RexError(format!("Random spec generation failed for axiom \"{}\".", axiom))))
+        Err(Box::new(RexError(format!("Random spec generation failed for {:?}.", axiom))))
     } else {
         let mut rng = thread_rng();
         let result = all_specs.remove(rng.gen_range(0, all_specs.len()));
@@ -37,45 +35,30 @@ fn random_spec(axiom: &str) -> Result<String, Box<dyn Error>> {
     }
 }
 
-fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(String, String), Box<dyn Error>> {
+fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dyn Error>> {
     if let Some(axiom) = {
         if let Some(arg) = maybe_arg {
             if arg.trim().starts_with('{') {
                 None
             } else {
-                Some(arg)
+                Some(Axiom::new(arg))
             }
         } else {
-            Some("Rex")
+            Some(Axiom::new("Rex"))
         }
     } {
-        let spec = random_spec(axiom)?;
-        println!("<{}> is \"{}\"", axiom, spec);
+        let spec = random_spec(&axiom)?;
+        println!("{:?} is \"{}\"", axiom, spec);
 
-        Ok((axiom.to_owned(), spec))
+        Ok((axiom, spec))
     } else {
         let spec = maybe_arg.unwrap().to_owned();
 
-        // FIXME
-        let axiom = "Rex";
+        // FIXME guess
+        let axiom = Axiom::new("Rex");
         
-        Ok((axiom.to_owned(), spec))
+        Ok((axiom, spec))
     }
-}
-
-fn process_parsing_error(err: ParsingError) -> CesarError {
-    let message = format!("{}", err);
-    let mut lines = message.lines();
-
-    if let Some(line) = lines.next() {
-        error!("{}", line);
-    }
-
-    for line in lines {
-        error!("\t{}", line);
-    }
-
-    CesarError::from(err)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -115,39 +98,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let maybe_arg = args.value_of("REX");
     let (axiom, spec) = get_axiom_and_spec(maybe_arg)?;
 
-    match axiom.as_str() {
-        "CapBlock" => {
-            let caps: CapacityBlock = spec.parse().map_err(process_parsing_error)?;
-            println!("Caps: {:?}", caps);
-        }
-        "MulBlock" => {
-            let muls: MultiplierBlock = spec.parse().map_err(process_parsing_error)?;
-            println!("Muls: {:?}", muls);
-        }
-        "InhBlock" => {
-            let inhs: InhibitorBlock = spec.parse().map_err(process_parsing_error)?;
-            println!("inhs: {:?}", inhs);
-        }
-        "Rex" => {
-            let rex: Rex = spec.parse().map_err(process_parsing_error)?;
-            println!("Rex: {:?}", rex);
-        }
-        "ThinArrowRule" => {
-            let tar: ThinArrowRule = spec.parse().map_err(process_parsing_error)?;
-            println!("TAR: {:?}", tar);
-        }
-        "FatArrowRule" => {
-            let far: FatArrowRule = spec.parse().map_err(process_parsing_error)?;
-            println!("FAR: {:?}", far);
-        }
-        "Polynomial" => {
-            let poly: Polynomial = spec.parse().map_err(process_parsing_error)?;
-            println!("Poly: {:?}", poly);
-        }
-        _ => {
-            return Err(Box::new(RexError(format!("Unknown axiom, <{}>.", axiom))))
-        }
-    }
+    let result = axiom.as_from_spec(spec)?;
+    println!("{:?}", result);
 
     Ok(())
 }
