@@ -19,7 +19,7 @@ impl Error for RexError {}
 
 fn random_spec(axiom: &Axiom) -> Result<String, Box<dyn Error>> {
     let grammar = Grammar::of_cesar();
-    debug!("{:?}", grammar);
+    trace!("{:?}", grammar);
 
     let generator = Generator::new(&grammar);
 
@@ -49,7 +49,7 @@ fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dy
         }
     } {
         let spec = random_spec(&axiom)?;
-        println!("{:?} is \"{}\"", axiom, spec);
+        info!("{:?} generated \"{}\"", axiom, spec);
 
         Ok((axiom, spec))
 
@@ -57,6 +57,7 @@ fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dy
         let arg = maybe_arg.unwrap();
         let axiom = Axiom::guess_from_spec(arg);
         let spec = arg.to_owned();
+        info!("{:?} guessed from \"{}\"", axiom, spec);
         
         Ok((axiom, spec))
     }
@@ -92,11 +93,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = clap::App::new("Rex")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Rule Expression Parsing Demo")
-        .args_from_usage("[REX] 'rule expression'")
+        .about("Cesar Parsing Demo")
+        .args_from_usage("[SENTENCE_OR_AXIOM] 'Cesar sentence or axiom'")
         .get_matches();
 
-    let maybe_arg = args.value_of("REX");
+    let maybe_arg = args.value_of("SENTENCE_OR_AXIOM");
     let (axiom, spec) = get_axiom_and_spec(maybe_arg)?;
 
     let result = axiom.parse(spec)?;

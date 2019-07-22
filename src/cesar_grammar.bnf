@@ -1,3 +1,28 @@
+<CesFile> ::= <CesFileBlock>
+            | <CesFileBlock> <CesFile> ;
+
+<CesFileBlock> ::= <ImmediateDef>
+                 | <CapBlock>
+                 | <MulBlock>
+                 | <InhBlock> ;
+
+;; Structure definition, immediate form
+
+<ImmediateDef> ::= <ImmediateSig> <Rex> ;
+<ImmediateSig> ::= "ces" <Identifier> ;
+
+;; Structure instantiation
+
+<CesInstance> ::= <Identifier> "(" <InstanceArgs> ")" ;
+
+<InstanceArgs> ::= <PlainInstanceArgs>
+                 | <PlainInstanceArgs> "," ;
+
+<PlainInstanceArgs> ::= <ArgValue>
+                      | <ArgValue> "," <PlainInstanceArgs> ;
+
+<ArgValue> ::= <Identifier> ;
+
 ;; Capacities
 
 <CapBlock> ::= "cap" "{" <CapList> "}" ;

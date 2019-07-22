@@ -3,28 +3,29 @@
 # Some aspects of the language are described informally in other
 # files: lexer-implementation.md, parser-implementation.md.
 
-ces_file = { ces_immediate_def | ces_template_def | context_block } ;
+ces_file = { immediate_def | template_def | context_block } ;
 
-## Structure definition
+## Structure definition, immediate form
 
-ces_immediate_def = ces_immediate_sig rex ;
-ces_immediate_sig = "ces" identifier ;
+immediate_def = immediate_sig rex ;
+immediate_sig = "ces" identifier ;
 
-ces_template_def = ces_template_sig rex ;
+## Structure definition, template form
 
-# empty argument list is disallowed
-ces_template_sig = "ces" identifier "(" arg_list_decl ")" ;
+# Empty argument list is disallowed.
+
+template_def = template_sig rex ;
+template_sig = "ces" identifier "(" template_args ")" ;
+template_args = arg_spec { "," arg_spec } [ "," ] ;
+arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 
 ## Structure instantiation
 
-# empty argument list is disallowed
-ces_template_inst = identifier "(" arg_list ")" ;
+# Empty argument list is syntactically valid, but used only for
+# instantiating immediate definitions.
 
-## Argument list
-
-arg_list_decl = arg_spec { "," arg_spec } [ "," ] ;
-arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
-arg_list = arg_value { ","  arg_value } [ "," ] ;
+ces_instance = identifier "(" instance_args ")" ;
+instance_args = { arg_value { ","  arg_value } [ "," ] } ;
 arg_value = identifier | size | string ;
 
 ## Context
@@ -51,7 +52,7 @@ rex = thin_arrow_rule
     | fat_arrow_rule
     | rex_term { [ "+" ] rex_term } ;
 
-rex_term = ces_instantiation | "{" rex "}" ;
+rex_term = ces_instance | "{" rex "}" ;
 
 ## Arrow rules
 

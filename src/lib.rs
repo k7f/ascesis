@@ -32,7 +32,7 @@ use std::{
 use regex::Regex;
 use enquote::unquote;
 use crate::cesar_parser::{
-    CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
+    CesFileBlockParser, ImmediateDefParser, CesInstanceParser, CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
 };
 
 pub type ParsingError = lalrpop_util::ParseError<usize, String, String>;
@@ -97,6 +97,9 @@ impl Axiom {
         let symbol = symbol.as_ref();
 
         match symbol {
+            | "CesFileBlock"
+            | "ImmediateDef"
+            | "CesInstance"
             | "CapBlock"
             | "MulBlock"
             | "InhBlock"
@@ -110,6 +113,8 @@ impl Axiom {
 
     pub fn guess_from_spec<S: AsRef<str>>(spec: S) -> Self {
         lazy_static! {
+            static ref IMM_RE: Regex = Regex::new(r"^ces\s+[[:alpha:]][[:word:]]*\s*\{").unwrap();
+            static ref INS_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*\(").unwrap();
             static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
             static ref MUL_RE: Regex = Regex::new(r"^mul\s*\{").unwrap();
             static ref INH_RE: Regex = Regex::new(r"^inh\s*\{").unwrap();
@@ -119,7 +124,11 @@ impl Axiom {
 
         let spec = spec.as_ref().trim();
 
-        if CAP_RE.is_match(spec) {
+        if IMM_RE.is_match(spec) {
+            Axiom("ImmediateDef".to_owned())
+        } else if INS_RE.is_match(spec) {
+            Axiom("CesInstance".to_owned())
+        } else if CAP_RE.is_match(spec) {
             Axiom("CapBlock".to_owned())
         } else if MUL_RE.is_match(spec) {
             Axiom("MulBlock".to_owned())
@@ -153,6 +162,9 @@ impl Axiom {
         let spec = spec.as_ref();
 
         match self.0.as_str() {
+            "CesFileBlock"  => from_spec_as!(CesFileBlock, spec),
+            "ImmediateDef"  => from_spec_as!(ImmediateDef, spec),
+            "CesInstance"   => from_spec_as!(CesInstance, spec),
             "CapBlock"      => from_spec_as!(CapacityBlock, spec),
             "MulBlock"      => from_spec_as!(MultiplierBlock, spec),
             "InhBlock"      => from_spec_as!(InhibitorBlock, spec),
@@ -183,6 +195,9 @@ macro_rules! impl_from_str_for {
     }
 }
 
+impl_from_str_for!(CesFileBlock);
+impl_from_str_for!(ImmediateDef);
+impl_from_str_for!(CesInstance);
 impl_from_str_for!(CapacityBlock);
 impl_from_str_for!(MultiplierBlock);
 impl_from_str_for!(InhibitorBlock);
@@ -190,6 +205,110 @@ impl_from_str_for!(Rex);
 impl_from_str_for!(ThinArrowRule);
 impl_from_str_for!(FatArrowRule);
 impl_from_str_for!(Polynomial);
+
+#[derive(Debug)]
+pub enum CesFileBlock {
+    Imm(ImmediateDef),
+    Cap(CapacityBlock),
+    Mul(MultiplierBlock),
+    Inh(InhibitorBlock),
+}
+
+impl CesFileBlock {
+    pub fn new_immediate_def(imm: ImmediateDef) -> Self {
+        CesFileBlock::Imm(imm)
+    }
+
+    pub fn new_cap_block(cap: CapacityBlock) -> Self {
+        CesFileBlock::Cap(cap)
+    }
+
+    pub fn new_mul_block(mul: MultiplierBlock) -> Self {
+        CesFileBlock::Mul(mul)
+    }
+
+    pub fn new_inh_block(inh: InhibitorBlock) -> Self {
+        CesFileBlock::Inh(inh)
+    }
+}
+
+impl FromSpec for CesFileBlock {
+    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = CesFileBlockParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
+
+#[derive(Debug)]
+pub struct ImmediateDef {
+    name: String,
+    rex: Rex,
+}
+
+impl ImmediateDef {
+    pub fn new(name: String, rex: Rex) -> Self {
+        ImmediateDef { name, rex }
+    }
+}
+
+impl FromSpec for ImmediateDef {
+    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = ImmediateDefParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
+
+#[derive(Debug)]
+pub struct CesInstance {
+    name: String,
+    args: Vec<String>,
+}
+
+impl CesInstance {
+    pub(crate) fn from_args(args: Vec<String>) -> Self {
+        CesInstance {
+            name: String::new(),
+            args,
+        }
+    }
+
+    pub(crate) fn with_maybe(mut self, maybe_arg: Option<String>) -> Self {
+        if let Some(arg) = maybe_arg {
+            self.args.push(arg);
+        }
+        self
+    }
+
+    pub(crate) fn with_name(mut self, name: String) -> Self {
+        self.name = name;
+        self
+    }
+}
+
+impl FromSpec for CesInstance {
+    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+        let spec = spec.as_ref();
+        let mut errors = Vec::new();
+
+        let result = CesInstanceParser::new()
+            .parse(&mut errors, spec)
+            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+
+        Ok(result)
+    }
+}
 
 /// A map from nodes to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]

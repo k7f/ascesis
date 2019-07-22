@@ -1,10 +1,60 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
+    CesFileBlock, ImmediateDef, CesInstance,
     CapacityBlock, MultiplierBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, BinOp, Literal,
 };
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
+
+// ces_file = { immediate_def | template_def | context_block } ;
+pub CesFile: Vec<CesFileBlock> = <CesFileBlock*>;
+
+pub CesFileBlock: CesFileBlock = {
+    <ImmediateDef> =>
+        CesFileBlock::new_immediate_def(<>),
+    <CapBlock> =>
+        CesFileBlock::new_cap_block(<>),
+    <MulBlock> =>
+        CesFileBlock::new_mul_block(<>),
+    <InhBlock> =>
+        CesFileBlock::new_inh_block(<>),
+};
+
+// Structure definition, template form
+
+// FIXME
+// template_def = template_sig rex ;
+// template_sig = "ces" identifier "(" template_args ")" ;
+// template_args = arg_spec { "," arg_spec } [ "," ] ;
+// arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
+
+// Structure definition, immediate form
+
+// immediate_def = immediate_sig rex ;
+pub ImmediateDef: ImmediateDef =
+    <sig: ImmediateSig> <rex: Rex> =>
+        ImmediateDef::new(sig, rex);
+
+// immediate_sig = "ces" identifier ;
+ImmediateSig: String = "ces" <Identifier>;
+
+// Structure instantiation
+
+// ces_instance = identifier "(" instance_args ")" ;
+pub CesInstance: CesInstance =
+    <name: Identifier> "(" <args: InstanceArgs> ")" =>
+        args.with_name(name);
+
+// instance_args = { arg_value { ","  arg_value } [ "," ] } ;
+InstanceArgs: CesInstance =
+    <head: ArgValueThenComma*> <tail: ArgValue?> =>
+        CesInstance::from_args(head).with_maybe(tail);
+
+ArgValueThenComma: String = <ArgValue> ",";
+
+// arg_value = identifier | size | string ;
+ArgValue: String = <Identifier>;
 
 // Context
 
