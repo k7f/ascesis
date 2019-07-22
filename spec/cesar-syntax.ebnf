@@ -7,14 +7,14 @@ ces_file = { immediate_def | template_def | context_block } ;
 
 ## Structure definition, immediate form
 
-immediate_def = immediate_sig rex ;
+immediate_def = immediate_sig "{" rex "}" ;
 immediate_sig = "ces" identifier ;
 
 ## Structure definition, template form
 
 # Empty argument list is disallowed.
 
-template_def = template_sig rex ;
+template_def = template_sig "{" rex "}" ;
 template_sig = "ces" identifier "(" template_args ")" ;
 template_args = arg_spec { "," arg_spec } [ "," ] ;
 arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
@@ -22,10 +22,14 @@ arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 ## Structure instantiation
 
 # Empty argument list is syntactically valid, but used only for
-# instantiating immediate definitions.
+# instantiating immediate definitions.  Trailing comma is obligatory
+# in a single-argument list.
 
-ces_instance = identifier "(" instance_args ")" ;
-instance_args = { arg_value { ","  arg_value } [ "," ] } ;
+ces_instance = identifier "(" ")"
+             | identifier "(" instance_args ")" ;
+
+instance_args = arg_value "," [ arg_value { ","  arg_value } [ "," ] ] ;
+
 arg_value = identifier | size | string ;
 
 ## Context
@@ -85,6 +89,5 @@ fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynom
 
 ## Polynomial
 
-polynomial = [ "+" ] plain_polynomial ;
-plain_polynomial = [ plain_polynomial "+" ] poly_term { poly_term } ;
+polynomial = [ [ polynomial ] "+" ] poly_term { poly_term } ;
 poly_term = identifier | "(" polynomial ")" ;

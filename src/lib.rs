@@ -114,10 +114,11 @@ impl Axiom {
     pub fn guess_from_spec<S: AsRef<str>>(spec: S) -> Self {
         lazy_static! {
             static ref IMM_RE: Regex = Regex::new(r"^ces\s+[[:alpha:]][[:word:]]*\s*\{").unwrap();
-            static ref INS_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*\(").unwrap();
             static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
             static ref MUL_RE: Regex = Regex::new(r"^mul\s*\{").unwrap();
             static ref INH_RE: Regex = Regex::new(r"^inh\s*\{").unwrap();
+            static ref INS_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*\((\s*\)|[^\)]*,[^\)]*\))\s*$").unwrap();
+            static ref REX_RE: Regex = Regex::new(r"(\{|,|[[:alpha:]][[:word:]]*\s*\(\s*\))").unwrap();
             static ref TAR_RE: Regex = Regex::new(r"(->|<-)").unwrap();
             static ref FAR_RE: Regex = Regex::new(r"(=>|<=)").unwrap();
         }
@@ -126,21 +127,23 @@ impl Axiom {
 
         if IMM_RE.is_match(spec) {
             Axiom("ImmediateDef".to_owned())
-        } else if INS_RE.is_match(spec) {
-            Axiom("CesInstance".to_owned())
         } else if CAP_RE.is_match(spec) {
             Axiom("CapBlock".to_owned())
         } else if MUL_RE.is_match(spec) {
             Axiom("MulBlock".to_owned())
         } else if INH_RE.is_match(spec) {
             Axiom("InhBlock".to_owned())
-        } else if spec.contains("{") {
+        } else if INS_RE.is_match(spec) {
+            Axiom("CesInstance".to_owned())
+        } else if REX_RE.is_match(spec) {
             Axiom("Rex".to_owned())
         } else if TAR_RE.is_match(spec) {
             Axiom("ThinArrowRule".to_owned())
         } else if FAR_RE.is_match(spec) {
             Axiom("FatArrowRule".to_owned())
         } else {
+            // FIXME into tests: `a(b)` is a Polynomial, `a()`,
+            // `a(b,)` are instantiations.
             Axiom("Polynomial".to_owned())
         }
     }
@@ -214,20 +217,26 @@ pub enum CesFileBlock {
     Inh(InhibitorBlock),
 }
 
-impl CesFileBlock {
-    pub fn new_immediate_def(imm: ImmediateDef) -> Self {
+impl From<ImmediateDef> for CesFileBlock {
+    fn from(imm: ImmediateDef) -> Self {
         CesFileBlock::Imm(imm)
     }
+}
 
-    pub fn new_cap_block(cap: CapacityBlock) -> Self {
+impl From<CapacityBlock> for CesFileBlock {
+    fn from(cap: CapacityBlock) -> Self {
         CesFileBlock::Cap(cap)
     }
+}
 
-    pub fn new_mul_block(mul: MultiplierBlock) -> Self {
+impl From<MultiplierBlock> for CesFileBlock {
+    fn from(mul: MultiplierBlock) -> Self {
         CesFileBlock::Mul(mul)
     }
+}
 
-    pub fn new_inh_block(inh: InhibitorBlock) -> Self {
+impl From<InhibitorBlock> for CesFileBlock {
+    fn from(inh: InhibitorBlock) -> Self {
         CesFileBlock::Inh(inh)
     }
 }
@@ -277,22 +286,15 @@ pub struct CesInstance {
 }
 
 impl CesInstance {
-    pub(crate) fn from_args(args: Vec<String>) -> Self {
+    pub(crate) fn new(name: String) -> Self {
         CesInstance {
-            name: String::new(),
-            args,
+            name,
+            args: Vec::new(),
         }
     }
 
-    pub(crate) fn with_maybe(mut self, maybe_arg: Option<String>) -> Self {
-        if let Some(arg) = maybe_arg {
-            self.args.push(arg);
-        }
-        self
-    }
-
-    pub(crate) fn with_name(mut self, name: String) -> Self {
-        self.name = name;
+    pub(crate) fn with_args(mut self, mut args: Vec<String>) -> Self {
+        self.args.append(&mut args);
         self
     }
 }
@@ -644,20 +646,30 @@ impl cmp::PartialOrd for TxInhibitor {
 
 #[derive(Debug)]
 pub struct Rex {
-    rule: ArrowRule,
+    kind: RexKind,
 }
 
 impl Rex {
-    pub(crate) fn from_thin_rule(thin_rule: ThinArrowRule) -> Self {
-        Rex { rule: ArrowRule::Thin(thin_rule) }
-    }
-
-    pub(crate) fn from_fat_rule(fat_rule: FatArrowRule) -> Self {
-        Rex { rule: ArrowRule::Fat(fat_rule) }
-    }
-
     pub(crate) fn with_more(self, _rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
         self
+    }
+}
+
+impl From<ThinArrowRule> for Rex {
+    fn from(rule: ThinArrowRule) -> Self {
+        Rex { kind: RexKind::Thin(rule) }
+    }
+}
+
+impl From<FatArrowRule> for Rex {
+    fn from(rule: FatArrowRule) -> Self {
+        Rex { kind: RexKind::Fat(rule) }
+    }
+}
+
+impl From<CesInstance> for Rex {
+    fn from(instance: CesInstance) -> Self {
+        Rex { kind: RexKind::Instance(instance) }
     }
 }
 
@@ -675,9 +687,10 @@ impl FromSpec for Rex {
 }
 
 #[derive(Debug)]
-pub enum ArrowRule {
+pub enum RexKind {
     Thin(ThinArrowRule),
     Fat(FatArrowRule),
+    Instance(CesInstance),
 }
 
 #[derive(Default, Debug)]

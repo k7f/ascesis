@@ -11,47 +11,62 @@ grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static
 pub CesFile: Vec<CesFileBlock> = <CesFileBlock*>;
 
 pub CesFileBlock: CesFileBlock = {
-    <ImmediateDef> =>
-        CesFileBlock::new_immediate_def(<>),
-    <CapBlock> =>
-        CesFileBlock::new_cap_block(<>),
-    <MulBlock> =>
-        CesFileBlock::new_mul_block(<>),
-    <InhBlock> =>
-        CesFileBlock::new_inh_block(<>),
+    <ImmediateDef> => <>.into(),
+    <CapBlock> => <>.into(),
+    <MulBlock> => <>.into(),
+    <InhBlock> => <>.into(),
 };
-
-// Structure definition, template form
-
-// FIXME
-// template_def = template_sig rex ;
-// template_sig = "ces" identifier "(" template_args ")" ;
-// template_args = arg_spec { "," arg_spec } [ "," ] ;
-// arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 
 // Structure definition, immediate form
 
-// immediate_def = immediate_sig rex ;
+// immediate_def = immediate_sig "{" rex "}" ;
 pub ImmediateDef: ImmediateDef =
-    <sig: ImmediateSig> <rex: Rex> =>
+    <sig: ImmediateSig> "{" <rex: Rex> "}" =>
         ImmediateDef::new(sig, rex);
 
 // immediate_sig = "ces" identifier ;
 ImmediateSig: String = "ces" <Identifier>;
 
+// Structure definition, template form
+
+// FIXME
+// template_def = template_sig "{" rex "}" ;
+// template_sig = "ces" identifier "(" template_args ")" ;
+// template_args = arg_spec { "," arg_spec } [ "," ] ;
+// arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
+
 // Structure instantiation
 
-// ces_instance = identifier "(" instance_args ")" ;
-pub CesInstance: CesInstance =
+// ces_instance = identifier "(" ")"
+//              | identifier "(" instance_args ")" ;
+pub CesInstance: CesInstance = {
+    <name: Identifier> "(" ")" =>
+        CesInstance::new(name),
     <name: Identifier> "(" <args: InstanceArgs> ")" =>
-        args.with_name(name);
+        CesInstance::new(name).with_args(args),
+};
 
-// instance_args = { arg_value { ","  arg_value } [ "," ] } ;
-InstanceArgs: CesInstance =
-    <head: ArgValueThenComma*> <tail: ArgValue?> =>
-        CesInstance::from_args(head).with_maybe(tail);
+// instance_args = arg_value "," [ arg_value { ","  arg_value } [ "," ] ] ;
+InstanceArgs: Vec<String> = {
+    <head: ArgValue> "," => vec![head],
+    <head: ArgValue> "," <tail: MoreInstanceArgs> => {
+        let mut tail = tail;
+        let mut result = vec![head];
+        result.append(&mut tail);
+        result
+    }
+};
 
-ArgValueThenComma: String = <ArgValue> ",";
+MoreInstanceArgs: Vec<String> = {
+    <head: ArgValue> <tail: CommaThenArgValue*> ","? => {
+        let mut tail = tail;
+        let mut result = vec![head];
+        result.append(&mut tail);
+        result
+    }
+};
+
+CommaThenArgValue: String = "," <ArgValue>;
 
 // arg_value = identifier | size | string ;
 ArgValue: String = <Identifier>;
@@ -107,13 +122,19 @@ InhSpec: InhibitorBlock = {
 
 // Rule expression
 
-// rex = "{" thin_arrow_rule "}"
-//     | "{" fat_arrow_rule "}"
-//     | "{" rex { [ "+" ] rex } "}" ;
+// rex = thin_arrow_rule
+//     | fat_arrow_rule
+//     | rex_term { [ "+" ] rex_term } ;
 pub Rex: Rex = {
-    "{" <ThinArrowRule> "}" => Rex::from_thin_rule(<>),
-    "{" <FatArrowRule> "}" => Rex::from_fat_rule(<>),
-    "{" <head: Rex> <tail: (<AddOp?> <Rex>)*> "}" => head.with_more(tail),
+    <ThinArrowRule> => <>.into(),
+    <FatArrowRule> => <>.into(),
+    <head: RexTerm> <tail: (<AddOp?> <RexTerm>)*> => head.with_more(tail),
+};
+
+// rex_term = ces_instance | "{" rex "}" ;
+RexTerm: Rex = {
+    <CesInstance> => <>.into(),
+    "{" <Rex> "}",
 };
 
 // Arrow rules
@@ -166,6 +187,7 @@ pub Polynomial: Polynomial = {
 };
 
 // poly_term = identifier | "(" polynomial ")" ;
+#[inline]
 PolyTerm: Polynomial = {
     <Identifier> => Polynomial::from(<>),
     "(" <Polynomial> ")",

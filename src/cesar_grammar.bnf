@@ -8,15 +8,18 @@
 
 ;; Structure definition, immediate form
 
-<ImmediateDef> ::= <ImmediateSig> <Rex> ;
+<ImmediateDef> ::= <ImmediateSig> "{" <Rex> "}" ;
+
 <ImmediateSig> ::= "ces" <Identifier> ;
 
 ;; Structure instantiation
 
-<CesInstance> ::= <Identifier> "(" <InstanceArgs> ")" ;
+<CesInstance> ::= <Identifier> "(" ")"
+                | <Identifier> "(" <InstanceArgs> ")" ;
 
-<InstanceArgs> ::= <PlainInstanceArgs>
-                 | <PlainInstanceArgs> "," ;
+<InstanceArgs> ::= <ArgValue> ","
+                 | <ArgValue> "," <PlainInstanceArgs>
+                 | <ArgValue> "," <PlainInstanceArgs> "," ;
 
 <PlainInstanceArgs> ::= <ArgValue>
                       | <ArgValue> "," <PlainInstanceArgs> ;
@@ -63,13 +66,16 @@
 
 ;; Rule expression
 
-<Rex> ::= "{" <ThinArrowRule> "}"
-        | "{" <FatArrowRule> "}"
-        | "{" <RexSeq> "}" ;
+<Rex> ::= <ThinArrowRule>
+        | <FatArrowRule>
+        | <RexTermSeq> ;
 
-<RexSeq> ::= <Rex>
-           | <Rex> <RexSeq>
-           | <Rex> "+" <RexSeq> ;
+<RexTermSeq> ::= <RexTerm>
+               | <RexTerm> <RexTermSeq>
+               | <RexTerm> "+" <RexTermSeq> ;
+
+<RexTerm> ::= <CesInstance>
+            | "{" <Rex> "}" ;
 
 ;; Arrow rules
 

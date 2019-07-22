@@ -14,7 +14,11 @@ This is part of the [_aces_](https://github.com/k7f/aces) project.
 
 ## Syntax
 
-See [the specification in EBNF](spec/cesar-syntax.ebnf).
+The primary reference of _Cesar_ syntax definition is the
+[specification in EBNF](spec/cesar-syntax.ebnf).  Besides, there are
+two, mostly conformant implementation files, one used for [sentence
+generation](src/cesar_grammar.bnf), and another for
+[parsing](cesar_parser.lalrpop).
 
 ## Semantics
 

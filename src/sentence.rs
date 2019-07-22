@@ -70,8 +70,8 @@ impl<'g> Generator<'g> {
     ///
     /// Computes shortest derivation paths from productions to
     /// sentences.  For each production stores the computed length.
-    /// For each nonterminal stores the ID of its best production
-    /// (where 'its' means having that nonterminal on the left).
+    /// For each nonterminal stores the ID of the best production
+    /// having that nonterminal on the left.
     pub fn new(grammar: &'g Grammar) -> Self {
         let mut symbol_min = HashMap::new();
         let mut prod_min = Vec::new();
@@ -117,6 +117,12 @@ impl<'g> Generator<'g> {
             }
         }
 
+        for nt in grammar.nonterminal_ids() {
+            if best_prod[&nt].is_none() {
+                warn!("EMPTY {} (missing base case?)", grammar.get_nonterminal(nt).unwrap());
+            }
+        }
+
         Self { grammar, symbol_min, prod_min, best_prod }
     }
 
@@ -125,8 +131,8 @@ impl<'g> Generator<'g> {
     ///
     /// Computes shortest derivation paths from `axiom` through all
     /// nonterminals.  For each nonterminal stores the computed length
-    /// and the ID of best parent production (where 'parent' means
-    /// having that nonterminal on the right).
+    /// and the ID of the best production having that nonterminal on
+    /// the right (best parent production).
     pub fn rooted<S: AsRef<str>>(&self, axiom: S) -> Result<RootedGenerator, String> {
         RootedGenerator::new(self, axiom)
     }
