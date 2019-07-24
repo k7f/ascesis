@@ -14,11 +14,14 @@ This is part of the [_aces_](https://github.com/k7f/aces) project.
 
 ## Syntax
 
-The primary reference of _Cesar_ syntax definition is the
-[specification in EBNF](spec/cesar-syntax.ebnf).  Besides, there are
-two, mostly conformant implementation files, one used for [sentence
-generation](src/cesar_grammar.bnf), and another for
-[parsing](cesar_parser.lalrpop).
+_Cesar_ syntax is almost fully covered by formal definition.  The
+primary reference is the [specification in
+EBNF](spec/cesar-syntax.ebnf).  Some details concerning lexing are
+left to the [implementation notes](spec/lexer-implementation.md).
+There are also two, mostly conformant implementation files, which may
+serve as a secondary reference &mdash; one is used for [sentence
+generation](src/cesar_grammar.bnf) and another for
+[parsing](src/cesar_parser.lalrpop).
 
 ## Semantics
 
@@ -28,17 +31,17 @@ For now, see [implementation notes](spec/parser-implementation.md).
 
 ### Single arrow
 
-The simplest _fat arrow rule_ defines a single arrow, for example, `a
-=> b`, as in the body of the `Arrow` structure defined below.  An
-instance of the `Arrow` structure is created in the body of the `Main`
-structure definition.
+The simplest _fat arrow rule_ defines a single-arrow structure.  For
+example, below is the rule `a => b`, which is the entire contents of
+the `Arrow` structure definition.  The `Arrow` structure is in turn
+instantiated in the body of the `Main` structure definition.
 
 ```rust
 ces Arrow { a => b }
 ces Main { Arrow() }
 ```
 
-Structure `Main` cannot be instantiated explicitly.  Instead, the
+The `Main` structure cannot be instantiated explicitly.  Instead, the
 instantiation of `Main` is performed when a `.ces` file containing its
 definition is being interpreted.  All structure identifiers defined in
 a file must be unique.
@@ -55,14 +58,14 @@ ces Arrow { { a -> b } + { b <- a } }
 ces Main { Arrow() }
 ```
 
-If the addition operator is missing between rule expressions, then
-their syntactic concatenation will be interpreted as _multiplication_
-of corresponding polynomials.
+If the addition operator was missing between rule expressions, then
+their syntactic concatenation would be interpreted as _multiplication_
+of corresponding polynomials.  However, when two thin arrow rules are
+used for defining a single-arrow structure, the result of their
+multiplication is the same as the result of addition.
 
-In case of arrow definition, the result of multiplication of the two
-thin arrow rules is the same as the result of their addition.  For
-example, next is the same arrow as above (for brevity, defined
-directly in `Main`),
+For example, next fragment will be interpreted as the same arrow as
+above (for brevity, here defined directly in `Main`),
 
 ```rust
 ces Main { { a -> b } { b <- a } }
@@ -76,8 +79,8 @@ polynomial of node `b`.
 
 By default, node labels are equal to node identifiers, node capacities
 are equal to 1, all node-to-monomial multiplicities are equal to 1,
-and there are no inhibitors.  Therefore, in all previous examples they
-are declared implicitly as
+and there are no inhibitors.  Therefore, in all previous examples
+these mappings are declared implicitly as
 
 ```rust
 vis { labels { a: "a", b: "b" } }
@@ -85,9 +88,9 @@ cap { 1 a b }
 mul { 1 a -> b, 1 b <- a }
 ```
 
-What follows is a parameterized definition of a single arrow, which is
-instantiated in the context providing explicitly specified node labels
-and increased capacity of node `a`.
+What follows is a parameterized definition of a single-arrow
+structure, which is instantiated in the context providing explicitly
+specified node labels and increased capacity of node `a`.
 
 ```rust
 ces Arrow(x: Node, y: Node) { x => y }
@@ -95,7 +98,7 @@ ces Arrow(x: Node, y: Node) { x => y }
 vis { labels { a: "Source", z: "Sink" } }
 cap { 3 a }
 
-ces Main { Arrow(a, z) }
+ces Main { Arrow!(a, z) }
 ```
 
 ### Immediate and template definitions
@@ -104,22 +107,22 @@ FIXME
 
 ### Arrow sequence
 
-A fat arrow rule consists of two or more polynomials.  For example, a
-fat arrow rule with four single-node polynomials results in three
+A fat arrow rule may consist of two or more polynomials.  For example,
+a fat arrow rule with four single-node polynomials results in three
 arrows,
 
 ```rust
 ces ThreeArrowsInARow(w: Node, x: Node, y: Node, z: Node) { w => x => y => z }
-```
 
-An atomic rule expression is a single arrow rule or a structure
-instantiation.  These are the two constructs allowed in leaves of an
-AST of a rule expression.
-
-```rust
 // seven arrows in a row
-ces Main { ThreeArrowsInARow(a, b, c, d) + { d => e } + ThreeArrowsInARow(e, f, g, h) }
+ces Main {
+    ThreeArrowsInARow!(a, b, c, d) + { d => e } + ThreeArrowsInARow!(e, f, g, h)
+}
 ```
+
+There are four kinds of atomic rule expressions (constructs allowed in
+the leaves of rule expression AST): a single thin or single fat arrow
+rule, an immediate instantiation, or a template instantiation.
 
 ### Fork
 

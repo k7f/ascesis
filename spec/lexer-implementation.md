@@ -11,7 +11,7 @@ as a rule, longer token always wins.
 ## Token categories
 
 _Cesar_ terminal symbols are keywords, identifiers, literals,
-operators, separators and delimiters.
+operators, separators, delimiters and modifiers.
 
   - Keywords are `ces`, `vis`, `cap`, `mul`, `inh`, `Node`, `CES`,
     `Size` and `String`.
@@ -27,6 +27,8 @@ operators, separators and delimiters.
   - Separators are colon and comma.
 
   - Delimiters are parentheses and curly braces.
+
+  - Exclamation mark is the only modifier.
 
 ## Rules for token recognition
 
@@ -47,4 +49,6 @@ operator = "->" | "<-" | "=>" | "<=" | "+" ;
 separator = ":" | "," ;
 
 delimiter = "(" | ")" | "{" | "}" ;
+
+modifier = "!" ;
 ```

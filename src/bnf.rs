@@ -78,7 +78,7 @@ impl Syntax {
         macro_rules! FILE_NAME {
             () => {
                 "cesar_grammar.bnf"
-            }
+            };
         }
 
         let spec = include_str!(FILE_NAME!());

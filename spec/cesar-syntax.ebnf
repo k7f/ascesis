@@ -22,13 +22,12 @@ arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 ## Structure instantiation
 
 # Empty argument list is syntactically valid, but used only for
-# instantiating immediate definitions.  Trailing comma is obligatory
-# in a single-argument list.
+# instantiating immediate definitions.
 
 ces_instance = identifier "(" ")"
-             | identifier "(" instance_args ")" ;
+             | identifier "!" "(" instance_args ")" ;
 
-instance_args = arg_value "," [ arg_value { ","  arg_value } [ "," ] ] ;
+instance_args = arg_value { ","  arg_value } [ "," ] ;
 
 arg_value = identifier | size | string ;
 

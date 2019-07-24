@@ -38,26 +38,16 @@ ImmediateSig: String = "ces" <Identifier>;
 // Structure instantiation
 
 // ces_instance = identifier "(" ")"
-//              | identifier "(" instance_args ")" ;
+//              | identifier "!" "(" instance_args ")" ;
 pub CesInstance: CesInstance = {
     <name: Identifier> "(" ")" =>
         CesInstance::new(name),
-    <name: Identifier> "(" <args: InstanceArgs> ")" =>
+    <name: Identifier> "!" "(" <args: InstanceArgs> ")" =>
         CesInstance::new(name).with_args(args),
 };
 
-// instance_args = arg_value "," [ arg_value { ","  arg_value } [ "," ] ] ;
+// instance_args = arg_value { ","  arg_value } [ "," ] ;
 InstanceArgs: Vec<String> = {
-    <head: ArgValue> "," => vec![head],
-    <head: ArgValue> "," <tail: MoreInstanceArgs> => {
-        let mut tail = tail;
-        let mut result = vec![head];
-        result.append(&mut tail);
-        result
-    }
-};
-
-MoreInstanceArgs: Vec<String> = {
     <head: ArgValue> <tail: CommaThenArgValue*> ","? => {
         let mut tail = tail;
         let mut result = vec![head];

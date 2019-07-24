@@ -134,6 +134,30 @@ rules only, as a simple triangle structure shows:
 { a -> b c } + { b <- a c } + { c <- a -> b }
 ```
 
+## Two forms of c-e structure instantiation
+
+Template instantiations are syntactically distinguished from immediate
+instantiations, similarly to Rust macro invocations, which differ from
+Rust function calls.  When a c-e structure name is used in a template
+instantiation, it must be followed by the exclamation mark.  [The
+specification](cesar-syntax.ebnf) defines two productions,
+
+```ebnf
+ces_instance = identifier "(" ")"
+             | identifier "!" "(" instance_args ")" ;
+```
+
+where `instance_args` expects a nonempty list of arguments,
+
+```ebnf
+instance_args = arg_value { ","  arg_value } [ "," ] ;
+```
+
+The reason for including exclamation mark in template instantiations
+is twofold.  First, the standalone language is consistent with
+[Rust-embedded DSL](cesar-macros.md).  Second, grammar is LR-parsable
+without resorting to .
+
 ## What is a node list?
 
 A node list is defined in [the specification](cesar-syntax.ebnf) as a
@@ -148,7 +172,7 @@ and [`cesar_parser.lalrpop`](../src/cesar_parser.lalrpop) `NodeList`
 is defined as an alias of the `Polynomial` nonterminal.  If, instead,
 `NodeList` was implemented as a separate nonterminal with a narrower
 sublanguage than that of `Polynomial`, then the current grammar of
-_cesar_ couldn't be transformed directly into an LR parser.
+_Cesar_ couldn't be transformed directly into an LR parser.
 
 Therefore, an object of type `Polynomial` carries a flag indicating
 whether it is a monomial which was constructed from a syntactically

@@ -52,13 +52,12 @@ fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dy
         info!("{:?} generated \"{}\"", axiom, spec);
 
         Ok((axiom, spec))
-
     } else {
         let arg = maybe_arg.unwrap();
         let axiom = Axiom::guess_from_spec(arg);
         let spec = arg.to_owned();
         info!("{:?} guessed from \"{}\"", axiom, spec);
-        
+
         Ok((axiom, spec))
     }
 }

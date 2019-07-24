@@ -32,7 +32,8 @@ use std::{
 use regex::Regex;
 use enquote::unquote;
 use crate::cesar_parser::{
-    CesFileBlockParser, ImmediateDefParser, CesInstanceParser, CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
+    CesFileBlockParser, ImmediateDefParser, CesInstanceParser, CapBlockParser, MulBlockParser,
+    InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
 };
 
 pub type ParsingError = lalrpop_util::ParseError<usize, String, String>;
@@ -74,9 +75,7 @@ impl fmt::Display for CesarError {
 
                 Ok(())
             }
-            UnknownAxiom(symbol) => {
-                write!(f, "Unknown axiom '{}'", symbol)
-            }
+            UnknownAxiom(symbol) => write!(f, "Unknown axiom '{}'", symbol),
         }
     }
 }
@@ -97,17 +96,11 @@ impl Axiom {
         let symbol = symbol.as_ref();
 
         match symbol {
-            | "CesFileBlock"
-            | "ImmediateDef"
-            | "CesInstance"
-            | "CapBlock"
-            | "MulBlock"
-            | "InhBlock"
-            | "Rex"
-            | "ThinArrowRule"
-            | "FatArrowRule"
-            | "Polynomial" => Some(Axiom(symbol.to_owned())),
-            _ => None
+            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "CapBlock" | "MulBlock"
+            | "InhBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => {
+                Some(Axiom(symbol.to_owned()))
+            }
+            _ => None,
         }
     }
 
@@ -117,8 +110,10 @@ impl Axiom {
             static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
             static ref MUL_RE: Regex = Regex::new(r"^mul\s*\{").unwrap();
             static ref INH_RE: Regex = Regex::new(r"^inh\s*\{").unwrap();
-            static ref INS_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*\((\s*\)|[^\)]*,[^\)]*\))\s*$").unwrap();
-            static ref REX_RE: Regex = Regex::new(r"(\{|,|[[:alpha:]][[:word:]]*\s*\(\s*\))").unwrap();
+            static ref TIN_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*!\s*\(").unwrap();
+            static ref IIN_RE: Regex =
+                Regex::new(r"^[[:alpha:]][[:word:]]*\s*\(\s*\)\s*$").unwrap();
+            static ref REX_RE: Regex = Regex::new(r"(\{|,|!|\(\s*\))").unwrap();
             static ref TAR_RE: Regex = Regex::new(r"(->|<-)").unwrap();
             static ref FAR_RE: Regex = Regex::new(r"(=>|<=)").unwrap();
         }
@@ -133,7 +128,7 @@ impl Axiom {
             Axiom("MulBlock".to_owned())
         } else if INH_RE.is_match(spec) {
             Axiom("InhBlock".to_owned())
-        } else if INS_RE.is_match(spec) {
+        } else if TIN_RE.is_match(spec) || IIN_RE.is_match(spec) {
             Axiom("CesInstance".to_owned())
         } else if REX_RE.is_match(spec) {
             Axiom("Rex".to_owned())
@@ -154,27 +149,25 @@ impl Axiom {
 
     pub fn parse<S: AsRef<str>>(&self, spec: S) -> CesarResult<Box<dyn FromSpec>> {
         macro_rules! from_spec_as {
-            ($typ:ty, $spec:expr) => {
-                {
-                    let object: $typ = $spec.parse()?;
-                    Ok(Box::new(object))
-                }
-            }
+            ($typ:ty, $spec:expr) => {{
+                let object: $typ = $spec.parse()?;
+                Ok(Box::new(object))
+            }};
         }
 
         let spec = spec.as_ref();
 
         match self.0.as_str() {
-            "CesFileBlock"  => from_spec_as!(CesFileBlock, spec),
-            "ImmediateDef"  => from_spec_as!(ImmediateDef, spec),
-            "CesInstance"   => from_spec_as!(CesInstance, spec),
-            "CapBlock"      => from_spec_as!(CapacityBlock, spec),
-            "MulBlock"      => from_spec_as!(MultiplierBlock, spec),
-            "InhBlock"      => from_spec_as!(InhibitorBlock, spec),
-            "Rex"           => from_spec_as!(Rex, spec),
+            "CesFileBlock" => from_spec_as!(CesFileBlock, spec),
+            "ImmediateDef" => from_spec_as!(ImmediateDef, spec),
+            "CesInstance" => from_spec_as!(CesInstance, spec),
+            "CapBlock" => from_spec_as!(CapacityBlock, spec),
+            "MulBlock" => from_spec_as!(MultiplierBlock, spec),
+            "InhBlock" => from_spec_as!(InhibitorBlock, spec),
+            "Rex" => from_spec_as!(Rex, spec),
             "ThinArrowRule" => from_spec_as!(ThinArrowRule, spec),
-            "FatArrowRule"  => from_spec_as!(FatArrowRule, spec),
-            "Polynomial"    => from_spec_as!(Polynomial, spec),
+            "FatArrowRule" => from_spec_as!(FatArrowRule, spec),
+            "Polynomial" => from_spec_as!(Polynomial, spec),
             _ => Err(CesarError::UnknownAxiom(self.0.clone())),
         }
     }
@@ -182,8 +175,9 @@ impl Axiom {
 
 pub trait FromSpec: fmt::Debug {
     fn from_spec<S>(spec: S) -> ParsingResult<Self>
-    where S: AsRef<str>,
-          Self: Sized;
+    where
+        S: AsRef<str>,
+        Self: Sized;
 }
 
 macro_rules! impl_from_str_for {
@@ -195,7 +189,7 @@ macro_rules! impl_from_str_for {
                 Self::from_spec(s)
             }
         }
-    }
+    };
 }
 
 impl_from_str_for!(CesFileBlock);
@@ -257,7 +251,7 @@ impl FromSpec for CesFileBlock {
 #[derive(Debug)]
 pub struct ImmediateDef {
     name: String,
-    rex: Rex,
+    rex:  Rex,
 }
 
 impl ImmediateDef {
@@ -287,10 +281,7 @@ pub struct CesInstance {
 
 impl CesInstance {
     pub(crate) fn new(name: String) -> Self {
-        CesInstance {
-            name,
-            args: Vec::new(),
-        }
+        CesInstance { name, args: Vec::new() }
     }
 
     pub(crate) fn with_args(mut self, mut args: Vec<String>) -> Self {
@@ -513,10 +504,7 @@ pub struct InhibitorBlock {
 }
 
 impl InhibitorBlock {
-    pub fn new_causes(
-        post_nodes: Polynomial,
-        pre_set: Polynomial,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
 
