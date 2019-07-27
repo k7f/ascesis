@@ -118,8 +118,8 @@ impl Grammar {
         result
     }
 
-    pub fn of_cesar() -> Self {
-        Self::from_bnf(bnf::Syntax::of_cesar())
+    pub fn of_ascesis() -> Self {
+        Self::from_bnf(bnf::Syntax::of_ascesis())
     }
 
     pub fn with_symbols<I, J>(mut self, terminals: I, nonterminals: J) -> Self

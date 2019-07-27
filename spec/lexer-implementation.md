@@ -10,7 +10,7 @@ as a rule, longer token always wins.
 
 ## Token categories
 
-_Cesar_ terminal symbols are keywords, identifiers, literals,
+_Ascesis_ terminal symbols are keywords, identifiers, literals,
 operators, separators, delimiters and modifiers.
 
   - Keywords are `ces`, `vis`, `cap`, `mul`, `inh`, `Node`, `CES`,

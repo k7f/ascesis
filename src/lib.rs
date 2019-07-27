@@ -9,7 +9,7 @@ extern crate lalrpop_util;
 
 lalrpop_mod!(
     #[allow(clippy::all)]
-    pub cesar_parser
+    pub ascesis_parser
 );
 
 lalrpop_mod!(
@@ -31,7 +31,7 @@ use std::{
 };
 use regex::Regex;
 use enquote::unquote;
-use crate::cesar_parser::{
+use crate::ascesis_parser::{
     CesFileBlockParser, ImmediateDefParser, CesInstanceParser, CapBlockParser, MulBlockParser,
     InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
 };
@@ -40,25 +40,25 @@ pub type ParsingError = lalrpop_util::ParseError<usize, String, String>;
 pub type ParsingResult<T> = Result<T, ParsingError>;
 
 #[derive(Clone, Debug)]
-pub enum CesarError {
+pub enum AscesisError {
     ParsingError(ParsingError),
     UnknownAxiom(String),
 }
 
-impl Error for CesarError {
+impl Error for AscesisError {
     fn description(&self) -> &str {
-        use CesarError::*;
+        use AscesisError::*;
 
         match self {
-            ParsingError(_) => "cesar parsing error",
+            ParsingError(_) => "ascesis parsing error",
             UnknownAxiom(_) => "unknown axiom",
         }
     }
 }
 
-impl fmt::Display for CesarError {
+impl fmt::Display for AscesisError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use CesarError::*;
+        use AscesisError::*;
 
         match self {
             ParsingError(err) => {
@@ -80,13 +80,11 @@ impl fmt::Display for CesarError {
     }
 }
 
-impl From<ParsingError> for CesarError {
+impl From<ParsingError> for AscesisError {
     fn from(err: ParsingError) -> Self {
-        CesarError::ParsingError(err)
+        AscesisError::ParsingError(err)
     }
 }
-
-pub type CesarResult<T> = Result<T, CesarError>;
 
 #[derive(Clone, Debug)]
 pub struct Axiom(String);
@@ -147,7 +145,7 @@ impl Axiom {
         self.0.as_str()
     }
 
-    pub fn parse<S: AsRef<str>>(&self, spec: S) -> CesarResult<Box<dyn FromSpec>> {
+    pub fn parse<S: AsRef<str>>(&self, spec: S) -> Result<Box<dyn FromSpec>, AscesisError> {
         macro_rules! from_spec_as {
             ($typ:ty, $spec:expr) => {{
                 let object: $typ = $spec.parse()?;
@@ -168,7 +166,7 @@ impl Axiom {
             "ThinArrowRule" => from_spec_as!(ThinArrowRule, spec),
             "FatArrowRule" => from_spec_as!(FatArrowRule, spec),
             "Polynomial" => from_spec_as!(Polynomial, spec),
-            _ => Err(CesarError::UnknownAxiom(self.0.clone())),
+            _ => Err(AscesisError::UnknownAxiom(self.0.clone())),
         }
     }
 }
@@ -632,32 +630,44 @@ impl cmp::PartialOrd for TxInhibitor {
     }
 }
 
+pub type RexID = usize;
+
 #[derive(Debug)]
 pub struct Rex {
-    kind: RexKind,
+    root:  RexID,
+    kinds: Vec<RexKind>,
 }
 
 impl Rex {
-    pub(crate) fn with_more(self, _rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
+    pub(crate) fn with_more(self, rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
+        let mut sum_pos = Vec::new();
+        for (ndx, (op, _)) in rexlist.iter().enumerate() {
+            if let Some(op) = op {
+                if *op == BinOp::Add {
+                    sum_pos.push(ndx);
+                }
+            }
+        }
+
         self
     }
 }
 
 impl From<ThinArrowRule> for Rex {
     fn from(rule: ThinArrowRule) -> Self {
-        Rex { kind: RexKind::Thin(rule) }
+        Rex { root: 0, kinds: vec![RexKind::Thin(rule)] }
     }
 }
 
 impl From<FatArrowRule> for Rex {
     fn from(rule: FatArrowRule) -> Self {
-        Rex { kind: RexKind::Fat(rule) }
+        Rex { root: 0, kinds: vec![RexKind::Fat(rule)] }
     }
 }
 
 impl From<CesInstance> for Rex {
     fn from(instance: CesInstance) -> Self {
-        Rex { kind: RexKind::Instance(instance) }
+        Rex { root: 0, kinds: vec![RexKind::Instance(instance)] }
     }
 }
 
@@ -679,6 +689,18 @@ pub enum RexKind {
     Thin(ThinArrowRule),
     Fat(FatArrowRule),
     Instance(CesInstance),
+    Product(RexProduct),
+    Sum(RexSum),
+}
+
+#[derive(Debug)]
+pub struct RexProduct {
+    ids: Vec<RexID>,
+}
+
+#[derive(Debug)]
+pub struct RexSum {
+    ids: Vec<RexID>,
 }
 
 #[derive(Default, Debug)]

@@ -74,10 +74,10 @@ impl Syntax {
         Ok(result)
     }
 
-    pub fn of_cesar() -> Self {
+    pub fn of_ascesis() -> Self {
         macro_rules! FILE_NAME {
             () => {
-                "cesar_grammar.bnf"
+                "ascesis_grammar.bnf"
             };
         }
 

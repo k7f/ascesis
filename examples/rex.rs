@@ -4,7 +4,7 @@ extern crate log;
 use std::{fmt, error::Error};
 use rand::{thread_rng, Rng};
 use fern::colors::{Color, ColoredLevelConfig};
-use cesar_lang::{Axiom, grammar::Grammar, sentence::Generator};
+use ascesis::{Axiom, grammar::Grammar, sentence::Generator};
 
 #[derive(Debug)]
 struct RexError(String);
@@ -18,7 +18,7 @@ impl fmt::Display for RexError {
 impl Error for RexError {}
 
 fn random_spec(axiom: &Axiom) -> Result<String, Box<dyn Error>> {
-    let grammar = Grammar::of_cesar();
+    let grammar = Grammar::of_ascesis();
     trace!("{:?}", grammar);
 
     let generator = Generator::new(&grammar);
@@ -92,8 +92,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = clap::App::new("Rex")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Cesar Parsing Demo")
-        .args_from_usage("[SENTENCE_OR_AXIOM] 'Cesar sentence or axiom'")
+        .about("Ascesis parsing demo")
+        .args_from_usage("[SENTENCE_OR_AXIOM] 'sentence or axiom to parse (default: \'Rex\')'")
         .get_matches();
 
     let maybe_arg = args.value_of("SENTENCE_OR_AXIOM");

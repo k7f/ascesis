@@ -1,5 +1,5 @@
-Implementation notes for _cesar_ parser
-=======================================
+Implementation notes for the _Ascesis_ parser
+=============================================
 
 ## _Thin arrow_ rules
 
@@ -140,7 +140,8 @@ Template instantiations are syntactically distinguished from immediate
 instantiations, similarly to Rust macro invocations, which differ from
 Rust function calls.  When a c-e structure name is used in a template
 instantiation, it must be followed by the exclamation mark.  [The
-specification](cesar-syntax.ebnf) defines two productions,
+specification](ascesis-syntax.ebnf) therefore defines two productions
+for the `ces_instance` nonterminal,
 
 ```ebnf
 ces_instance = identifier "(" ")"
@@ -153,26 +154,31 @@ where `instance_args` expects a nonempty list of arguments,
 instance_args = arg_value { ","  arg_value } [ "," ] ;
 ```
 
-The reason for including exclamation mark in template instantiations
-is twofold.  First, the standalone language is consistent with
-[Rust-embedded DSL](cesar-macros.md).  Second, grammar is LR-parsable
-without resorting to .
+The reason for decorating template instantiations with exclamation
+mark is twofold.  Without,
+
+  - the standalone _Ascesis_ language would be less consistent with
+    [Rust-embedded `ascetic` DSL](ascetic-macros.md), and
+
+  - it would contain LR-unparsable sentences, hence requiring to
+    precede proper parsing with a disambiguation pass.
 
 ## What is a node list?
 
-A node list is defined in [the specification](cesar-syntax.ebnf) as a
-sequence of node identifiers,
+A node list is defined in [the specification](ascesis-syntax.ebnf) as
+a sequence of node identifiers,
 
 ```ebnf
 node_list = identifier { identifier } ;
 ```
 
-However, in the files [`cesar_grammar.bnf`](../src/cesar_grammar.bnf)
-and [`cesar_parser.lalrpop`](../src/cesar_parser.lalrpop) `NodeList`
+However, in the files
+[`ascesis_grammar.bnf`](../src/ascesis_grammar.bnf) and
+[`ascesis_parser.lalrpop`](../src/ascesis_parser.lalrpop) `NodeList`
 is defined as an alias of the `Polynomial` nonterminal.  If, instead,
 `NodeList` was implemented as a separate nonterminal with a narrower
 sublanguage than that of `Polynomial`, then the current grammar of
-_Cesar_ couldn't be transformed directly into an LR parser.
+_Ascesis_ couldn't be transformed directly into an LR parser.
 
 Therefore, an object of type `Polynomial` carries a flag indicating
 whether it is a monomial which was constructed from a syntactically
@@ -188,6 +194,11 @@ Probably not, and they may be removed from future versions of the
 language, once it is clear that pushing node list from the front of a
 thin arrow rule, to the middle, will cause confussion or make _mental_
 parsing harder.  On the other hand, they may stay in the language, if
-it turns out that more important will be the iconic value of the
-formula `cause -> state -> effect` as a hint to the flow of time: a
-left-to-right timeline.
+it turns out that the more important factor will be the iconic value
+of the formula `cause -> state -> effect` as a hint to the flow of
+time, a left-to-right timeline.
+
+## How to support incremental construction?
+
+The idea is to be able to declare template arguments as `Hybrid`, so
+that they would accept passing nodes as well as structures.

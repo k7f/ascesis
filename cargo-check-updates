@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CRATES="log fern clap regex rand enquote lalrpop-util lalrpop"
+CRATES="log fern clap regex lazy_static rand enquote lalrpop-util lalrpop"
 
 for crate in $CRATES ; do
     echo -n "$crate = "

@@ -1,27 +1,25 @@
-cesar
-=====
-[![Latest version](https://img.shields.io/crates/v/cesar-lang.svg)](https://crates.io/crates/cesar-lang)
-[![docs](https://docs.rs/cesar-lang/badge.svg)](https://docs.rs/cesar-lang)
+Ascesis
+=======
+[![Latest version](https://img.shields.io/crates/v/ascesis.svg)](https://crates.io/crates/ascesis)
+[![docs](https://docs.rs/ascesis/badge.svg)](https://docs.rs/ascesis)
 ![Rust](https://img.shields.io/badge/rust-nightly-brightgreen.svg)
 ![CC-BY-4.0](https://img.shields.io/badge/license-CC-blue.svg)
 ![MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
-A language for [cause-effect
-structural](https://link.springer.com/book/10.1007/978-3-030-20461-7)
-algebraic representation of systems.
-
-This is part of the [_aces_](https://github.com/k7f/aces) project.
+A language for analysis and synthesis of [cause-effect
+synchronised](https://link.springer.com/book/10.1007/978-3-030-20461-7)
+interacting systems.
 
 ## Syntax
 
-_Cesar_ syntax is almost fully covered by formal definition.  The
+_Ascesis_ syntax is almost fully covered by formal definition.  The
 primary reference is the [specification in
-EBNF](spec/cesar-syntax.ebnf).  Some details concerning lexing are
+EBNF](spec/ascesis-syntax.ebnf).  Some details concerning lexing are
 left to the [implementation notes](spec/lexer-implementation.md).
 There are also two, mostly conformant implementation files, which may
 serve as a secondary reference &mdash; one is used for [sentence
-generation](src/cesar_grammar.bnf) and another for
-[parsing](src/cesar_parser.lalrpop).
+generation](src/ascesis_grammar.bnf) and another for
+[parsing](src/ascesis_parser.lalrpop).
 
 ## Semantics
 
@@ -170,8 +168,8 @@ ces Main { a => b c + b } // equivalent to { a => b c } + { a => b }
 
 ## License
 
-The specification of `cesar` is licensed under the Creative Commons
-Attribution 4.0 license.  This implementation of `cesar` is licensed
+The specification of _Ascesis_ language is licensed under the Creative
+Commons Attribution 4.0 license.  This implementation is licensed
 under the MIT license.  Please read the [LICENSE-CC](LICENSE-CC) and
 [LICENSE-MIT](LICENSE-MIT) files in this repository for more
 information.

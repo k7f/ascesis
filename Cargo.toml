@@ -2,13 +2,13 @@
 
 [package]
 
-name = "cesar-lang"
+name = "ascesis"
 version = "0.0.1"
-description = "Cause-effect structural algebraic representation language"
+description = "A language for analysis and synthesis of cause-effect synchronised interacting systems"
 authors = ["k7f"]
 edition = "2018"
 license = "MIT"
-repository = "https://github.com/k7f/cesar-lang"
+repository = "https://github.com/k7f/ascesis"
 readme = "README.md"
 
 build = "build.rs"
@@ -18,7 +18,7 @@ build = "build.rs"
 log = "0.4"
 fern = { version = "0.5", features = ["colored"] }
 clap = "2.33"
-regex = "1.1"
+regex = "1.2"
 lazy_static = "1.3"
 rand = "0.7"
 enquote = "1.0"
