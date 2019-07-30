@@ -178,6 +178,34 @@ pub trait FromSpec: fmt::Debug {
         Self: Sized;
 }
 
+macro_rules! impl_from_spec_for {
+    ($nt:ty, $parser:ty) => {
+        impl FromSpec for $nt {
+            fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
+                let spec = spec.as_ref();
+                let mut errors = Vec::new();
+
+                let result = <$parser>::new().parse(&mut errors, spec).map_err(|err| {
+                    err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned())
+                })?;
+
+                Ok(result)
+            }
+        }
+    };
+}
+
+impl_from_spec_for!(CesFileBlock, CesFileBlockParser);
+impl_from_spec_for!(ImmediateDef, ImmediateDefParser);
+impl_from_spec_for!(CesInstance, CesInstanceParser);
+impl_from_spec_for!(CapacityBlock, CapBlockParser);
+impl_from_spec_for!(MultiplierBlock, MulBlockParser);
+impl_from_spec_for!(InhibitorBlock, InhBlockParser);
+impl_from_spec_for!(Rex, RexParser);
+impl_from_spec_for!(ThinArrowRule, ThinArrowRuleParser);
+impl_from_spec_for!(FatArrowRule, FatArrowRuleParser);
+impl_from_spec_for!(Polynomial, PolynomialParser);
+
 macro_rules! impl_from_str_for {
     ($nt:ty) => {
         impl FromStr for $nt {
@@ -233,19 +261,6 @@ impl From<InhibitorBlock> for CesFileBlock {
     }
 }
 
-impl FromSpec for CesFileBlock {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = CesFileBlockParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
-    }
-}
-
 #[derive(Debug)]
 pub struct ImmediateDef {
     name: String,
@@ -258,20 +273,7 @@ impl ImmediateDef {
     }
 }
 
-impl FromSpec for ImmediateDef {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = ImmediateDefParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
-    }
-}
-
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct CesInstance {
     name: String,
     args: Vec<String>,
@@ -285,19 +287,6 @@ impl CesInstance {
     pub(crate) fn with_args(mut self, mut args: Vec<String>) -> Self {
         self.args.append(&mut args);
         self
-    }
-}
-
-impl FromSpec for CesInstance {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = CesInstanceParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
     }
 }
 
@@ -325,19 +314,6 @@ impl CapacityBlock {
             self.capacities.append(&mut block.capacities);
         }
         self
-    }
-}
-
-impl FromSpec for CapacityBlock {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = CapBlockParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
     }
 }
 
@@ -400,19 +376,6 @@ impl MultiplierBlock {
         self.multipliers.truncate(len);
 
         self
-    }
-}
-
-impl FromSpec for MultiplierBlock {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = MulBlockParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
     }
 }
 
@@ -546,19 +509,6 @@ impl InhibitorBlock {
     }
 }
 
-impl FromSpec for InhibitorBlock {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = InhBlockParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
-    }
-}
-
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Inhibitor {
     Rx(RxInhibitor),
@@ -632,78 +582,152 @@ impl cmp::PartialOrd for TxInhibitor {
 
 pub type RexID = usize;
 
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Rex {
-    root:  RexID,
     kinds: Vec<RexKind>,
 }
 
 impl Rex {
     pub(crate) fn with_more(self, rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
-        let mut sum_pos = Vec::new();
-        for (ndx, (op, _)) in rexlist.iter().enumerate() {
-            if let Some(op) = op {
-                if *op == BinOp::Add {
-                    sum_pos.push(ndx);
-                }
-            }
+        if rexlist.is_empty() {
+            return self
         }
 
-        self
+        let plusless = rexlist.iter().all(|(op, _)| op.is_none());
+
+        if plusless {
+            let mut kinds = vec![RexKind::Product(RexNode::default())];
+
+            let mut ids = vec![1];
+            let mut offset = kinds.append_with_offset(self.kinds, 1);
+
+            for (_, rex) in rexlist.into_iter() {
+                ids.push(offset);
+                offset = kinds.append_with_offset(rex.kinds, offset);
+            }
+
+            kinds[0] = RexKind::Product(RexNode { ids });
+
+            Rex { kinds }
+        } else {
+            // this is used for pruning single-factor products
+            let followed_by_product: Vec<bool> =
+                rexlist.iter().map(|(op, _)| op.is_none()).collect();
+            let mut followed_by_product = followed_by_product.into_iter();
+
+            let mut kinds = vec![RexKind::Sum(RexNode::default())];
+
+            let mut sum_ids = Vec::new();
+            let mut product_ids = Vec::new();
+            let mut anchor = 1; // index in `kinds` of next addend
+            let mut offset = 1; // index in `kinds` of next factor
+
+            if followed_by_product.next().unwrap() {
+                kinds.push(RexKind::Product(RexNode::default()));
+                offset += 1;
+                // `offset` points to first factor of first addend, i.e. to the `self`
+                product_ids.push(offset);
+            }
+
+            offset = kinds.append_with_offset(self.kinds, offset);
+            // `offset` points to expected second factor of first addend or to a second addend
+
+            for (op, rex) in rexlist.into_iter() {
+                let is_followed_by_product = followed_by_product.next().unwrap_or(false);
+
+                if let Some(op) = op {
+                    if op == BinOp::Add {
+                        if !product_ids.is_empty() {
+                            if let RexKind::Product(node) = &mut kinds[anchor] {
+                                node.ids.append(&mut product_ids);
+                            } else {
+                                panic!()
+                            }
+                        }
+
+                        sum_ids.push(anchor);
+                        anchor = offset;
+
+                        if is_followed_by_product {
+                            kinds.push(RexKind::Product(RexNode::default()));
+                            offset += 1;
+                            product_ids.push(offset);
+                        }
+
+                        offset = kinds.append_with_offset(rex.kinds, offset);
+                    } else {
+                        panic!()
+                    }
+                } else {
+                    product_ids.push(offset);
+                    offset = kinds.append_with_offset(rex.kinds, offset);
+                }
+            }
+
+            if !product_ids.is_empty() {
+                kinds[anchor] = RexKind::Product(RexNode { ids: product_ids });
+            }
+            sum_ids.push(anchor);
+            kinds[0] = RexKind::Sum(RexNode { ids: sum_ids });
+
+            Rex { kinds }
+        }
     }
 }
 
 impl From<ThinArrowRule> for Rex {
     fn from(rule: ThinArrowRule) -> Self {
-        Rex { root: 0, kinds: vec![RexKind::Thin(rule)] }
+        Rex { kinds: vec![RexKind::Thin(rule)] }
     }
 }
 
 impl From<FatArrowRule> for Rex {
     fn from(rule: FatArrowRule) -> Self {
-        Rex { root: 0, kinds: vec![RexKind::Fat(rule)] }
+        Rex { kinds: vec![RexKind::Fat(rule)] }
     }
 }
 
 impl From<CesInstance> for Rex {
     fn from(instance: CesInstance) -> Self {
-        Rex { root: 0, kinds: vec![RexKind::Instance(instance)] }
+        Rex { kinds: vec![RexKind::Instance(instance)] }
     }
 }
 
-impl FromSpec for Rex {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = RexParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
-    }
-}
-
-#[derive(Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum RexKind {
     Thin(ThinArrowRule),
     Fat(FatArrowRule),
     Instance(CesInstance),
-    Product(RexProduct),
-    Sum(RexSum),
+    Product(RexNode),
+    Sum(RexNode),
 }
 
-#[derive(Debug)]
-pub struct RexProduct {
+trait AppendWithOffset {
+    fn append_with_offset(&mut self, source: Self, offset: usize) -> usize;
+}
+
+impl AppendWithOffset for Vec<RexKind> {
+    fn append_with_offset(&mut self, source: Self, offset: usize) -> usize {
+        let result = offset + source.len();
+
+        self.extend(source.into_iter().map(|mut kind| match kind {
+            RexKind::Product(ref mut node) | RexKind::Sum(ref mut node) => {
+                node.ids.iter_mut().for_each(|id| *id += offset);
+                kind
+            }
+            _ => kind,
+        }));
+
+        result
+    }
+}
+
+#[derive(PartialEq, Eq, Default, Debug)]
+pub struct RexNode {
     ids: Vec<RexID>,
 }
 
-#[derive(Debug)]
-pub struct RexSum {
-    ids: Vec<RexID>,
-}
-
-#[derive(Default, Debug)]
+#[derive(PartialEq, Eq, Default, Debug)]
 pub struct ThinArrowRule {
     nodes:  NodeList,
     cause:  Polynomial,
@@ -731,20 +755,7 @@ impl ThinArrowRule {
     }
 }
 
-impl FromSpec for ThinArrowRule {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = ThinArrowRuleParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
-    }
-}
-
-#[derive(Default, Debug)]
+#[derive(PartialEq, Eq, Default, Debug)]
 pub struct FatArrowRule {
     causes:  Vec<Polynomial>,
     effects: Vec<Polynomial>,
@@ -772,19 +783,6 @@ impl FatArrowRule {
             prev = poly;
         }
         rule
-    }
-}
-
-impl FromSpec for FatArrowRule {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = FatArrowRuleParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
     }
 }
 
@@ -848,7 +846,7 @@ impl TryFrom<Polynomial> for NodeList {
 /// An alphabetically ordered and deduplicated list of monomials,
 /// where each monomial is alphabetically ordered and deduplicated
 /// list of `Node`s.
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Polynomial {
     monomials: BTreeSet<BTreeSet<String>>,
 
@@ -894,19 +892,6 @@ impl Polynomial {
     fn add_assign(&mut self, other: &mut Self) {
         self.is_flat = false;
         self.monomials.append(&mut other.monomials);
-    }
-}
-
-impl FromSpec for Polynomial {
-    fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = spec.as_ref();
-        let mut errors = Vec::new();
-
-        let result = PolynomialParser::new()
-            .parse(&mut errors, spec)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
-
-        Ok(result)
     }
 }
 
@@ -983,5 +968,88 @@ impl fmt::Display for BinOp {
             BinOp::FatTx => "=>".fmt(f),
             BinOp::FatRx => "<=".fmt(f),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_poly() {
+        let spec = "(a (b + c) d e) + f g";
+        let poly: Polynomial = spec.parse().unwrap();
+
+        assert_eq!(
+            poly,
+            Polynomial {
+                monomials: BTreeSet::from_iter(vec![
+                    BTreeSet::from_iter(
+                        vec!["a".to_owned(), "b".to_owned(), "d".to_owned(), "e".to_owned()]
+                            .into_iter()
+                    ),
+                    BTreeSet::from_iter(
+                        vec!["a".to_owned(), "c".to_owned(), "d".to_owned(), "e".to_owned()]
+                            .into_iter()
+                    ),
+                    BTreeSet::from_iter(vec!["f".to_owned(), "g".to_owned()].into_iter()),
+                ]),
+                is_flat:   false,
+            }
+        );
+    }
+
+    #[test]
+    fn test_rex_singles() {
+        let spec =
+            "{ a => b <= c } { d() + e!(f) g!(h, i) } + { { j -> k -> l } { j -> k } { l <- k } }";
+        let rex: Rex = spec.parse().unwrap();
+
+        assert_eq!(
+            rex,
+            Rex {
+                kinds: vec![
+                    RexKind::Sum(RexNode { ids: vec![1, 8] }),
+                    RexKind::Product(RexNode { ids: vec![2, 3] }),
+                    RexKind::Fat(FatArrowRule {
+                        causes:  vec![
+                            Polynomial::from("a".to_owned()),
+                            Polynomial::from("c".to_owned())
+                        ],
+                        effects: vec![
+                            Polynomial::from("b".to_owned()),
+                            Polynomial::from("b".to_owned())
+                        ],
+                    }),
+                    RexKind::Sum(RexNode { ids: vec![4, 5] }),
+                    RexKind::Instance(CesInstance { name: "d".to_owned(), args: vec![] }),
+                    RexKind::Product(RexNode { ids: vec![6, 7] }),
+                    RexKind::Instance(CesInstance {
+                        name: "e".to_owned(),
+                        args: vec!["f".to_owned()],
+                    }),
+                    RexKind::Instance(CesInstance {
+                        name: "g".to_owned(),
+                        args: vec!["h".to_owned(), "i".to_owned()],
+                    }),
+                    RexKind::Product(RexNode { ids: vec![9, 10, 11] }),
+                    RexKind::Thin(ThinArrowRule {
+                        nodes:  NodeList { nodes: vec!["k".to_owned()] },
+                        cause:  Polynomial::from("j".to_owned()),
+                        effect: Polynomial::from("l".to_owned()),
+                    }),
+                    RexKind::Thin(ThinArrowRule {
+                        nodes:  NodeList { nodes: vec!["j".to_owned()] },
+                        cause:  Polynomial::default(),
+                        effect: Polynomial::from("k".to_owned()),
+                    }),
+                    RexKind::Thin(ThinArrowRule {
+                        nodes:  NodeList { nodes: vec!["l".to_owned()] },
+                        cause:  Polynomial::from("k".to_owned()),
+                        effect: Polynomial::default(),
+                    }),
+                ],
+            }
+        );
     }
 }
