@@ -209,6 +209,7 @@ impl FatArrowRule {
 
 #[cfg(test)]
 mod tests {
+    use crate::{ToCesName, ToNode};
     use super::*;
 
     #[test]
@@ -225,39 +226,39 @@ mod tests {
                     RexKind::Product(RexTree { ids: vec![2, 3] }),
                     RexKind::Fat(FatArrowRule {
                         causes:  vec![
-                            Polynomial::from("a".to_owned()),
-                            Polynomial::from("c".to_owned())
+                            Polynomial::from("a".to_node()),
+                            Polynomial::from("c".to_node())
                         ],
                         effects: vec![
-                            Polynomial::from("b".to_owned()),
-                            Polynomial::from("b".to_owned())
+                            Polynomial::from("b".to_node()),
+                            Polynomial::from("b".to_node())
                         ],
                     }),
                     RexKind::Sum(RexTree { ids: vec![4, 5] }),
-                    RexKind::Instance(CesInstance { name: "d".to_owned(), args: vec![] }),
+                    RexKind::Instance(CesInstance { name: "d".to_ces_name(), args: vec![] }),
                     RexKind::Product(RexTree { ids: vec![6, 7] }),
                     RexKind::Instance(CesInstance {
-                        name: "e".to_owned(),
-                        args: vec!["f".to_owned()],
+                        name: "e".to_ces_name(),
+                        args: vec!["f".to_string()],
                     }),
                     RexKind::Instance(CesInstance {
-                        name: "g".to_owned(),
-                        args: vec!["h".to_owned(), "i".to_owned()],
+                        name: "g".to_ces_name(),
+                        args: vec!["h".to_string(), "i".to_string()],
                     }),
                     RexKind::Product(RexTree { ids: vec![9, 10, 11] }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList { nodes: vec!["k".to_owned()] },
-                        cause:  Polynomial::from("j".to_owned()),
-                        effect: Polynomial::from("l".to_owned()),
+                        nodes:  NodeList { nodes: vec!["k".to_node()] },
+                        cause:  Polynomial::from("j".to_node()),
+                        effect: Polynomial::from("l".to_node()),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList { nodes: vec!["j".to_owned()] },
+                        nodes:  NodeList { nodes: vec!["j".to_node()] },
                         cause:  Polynomial::default(),
-                        effect: Polynomial::from("k".to_owned()),
+                        effect: Polynomial::from("k".to_node()),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList { nodes: vec!["l".to_owned()] },
-                        cause:  Polynomial::from("k".to_owned()),
+                        nodes:  NodeList { nodes: vec!["l".to_node()] },
+                        cause:  Polynomial::from("k".to_node()),
                         effect: Polynomial::default(),
                     }),
                 ],

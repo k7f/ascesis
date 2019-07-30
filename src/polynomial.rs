@@ -1,11 +1,12 @@
 use std::{collections::BTreeSet, iter::FromIterator};
+use crate::Node;
 
 /// An alphabetically ordered and deduplicated list of monomials,
 /// where each monomial is alphabetically ordered and deduplicated
 /// list of `Node`s.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Polynomial {
-    pub(crate) monomials: BTreeSet<BTreeSet<String>>,
+    pub(crate) monomials: BTreeSet<BTreeSet<Node>>,
 
     // FIXME falsify on leading "+" or parens, even if still a mono
     pub(crate) is_flat: bool,
@@ -58,9 +59,8 @@ impl Default for Polynomial {
     }
 }
 
-// FIXME impl From<Node>
-impl From<String> for Polynomial {
-    fn from(node: String) -> Self {
+impl From<Node> for Polynomial {
+    fn from(node: Node) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node)))),
             is_flat:   true,
@@ -70,6 +70,7 @@ impl From<String> for Polynomial {
 
 #[cfg(test)]
 mod tests {
+    use crate::ToNode;
     use super::*;
 
     #[test]
@@ -82,14 +83,14 @@ mod tests {
             Polynomial {
                 monomials: BTreeSet::from_iter(vec![
                     BTreeSet::from_iter(
-                        vec!["a".to_owned(), "b".to_owned(), "d".to_owned(), "e".to_owned()]
+                        vec!["a".to_node(), "b".to_node(), "d".to_node(), "e".to_node()]
                             .into_iter()
                     ),
                     BTreeSet::from_iter(
-                        vec!["a".to_owned(), "c".to_owned(), "d".to_owned(), "e".to_owned()]
+                        vec!["a".to_node(), "c".to_node(), "d".to_node(), "e".to_node()]
                             .into_iter()
                     ),
-                    BTreeSet::from_iter(vec!["f".to_owned(), "g".to_owned()].into_iter()),
+                    BTreeSet::from_iter(vec!["f".to_node(), "g".to_node()].into_iter()),
                 ]),
                 is_flat:   false,
             }

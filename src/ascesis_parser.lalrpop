@@ -1,8 +1,8 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
-    CesFileBlock, ImmediateDef, CesInstance,
+    CesFileBlock, CesName, ImmediateDef, CesInstance,
     CapacityBlock, MultiplierBlock, InhibitorBlock,
-    Rex, ThinArrowRule, FatArrowRule, Polynomial, BinOp, Literal,
+    Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
 };
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
@@ -25,7 +25,9 @@ pub ImmediateDef: ImmediateDef =
         ImmediateDef::new(sig, rex);
 
 // immediate_sig = "ces" identifier ;
-ImmediateSig: String = "ces" <Identifier>;
+ImmediateSig: CesName =
+    "ces" <Identifier> =>
+        CesName::from(<>);
 
 // Structure definition, template form
 
@@ -41,9 +43,9 @@ ImmediateSig: String = "ces" <Identifier>;
 //              | identifier "!" "(" instance_args ")" ;
 pub CesInstance: CesInstance = {
     <name: Identifier> "(" ")" =>
-        CesInstance::new(name),
+        CesInstance::new(CesName::from(name)),
     <name: Identifier> "!" "(" <args: InstanceArgs> ")" =>
-        CesInstance::new(name).with_args(args),
+        CesInstance::new(CesName::from(name)).with_args(args),
 };
 
 // instance_args = arg_value { ","  arg_value } [ "," ] ;
@@ -179,7 +181,7 @@ pub Polynomial: Polynomial = {
 // poly_term = identifier | "(" polynomial ")" ;
 #[inline]
 PolyTerm: Polynomial = {
-    <Identifier> => Polynomial::from(<>),
+    <Identifier> => Polynomial::from(Node::from(<>)),
     "(" <Polynomial> ")",
 };
 

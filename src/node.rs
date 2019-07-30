@@ -1,14 +1,33 @@
 use std::{convert::TryFrom, iter::FromIterator};
 use crate::Polynomial;
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct Node(String);
+
+impl From<String> for Node {
+    fn from(id: String) -> Self {
+        Node(id)
+    }
+}
+
+pub trait ToNode {
+    fn to_node(&self) -> Node;
+}
+
+impl<S: AsRef<str>> ToNode for S {
+    fn to_node(&self) -> Node {
+        self.as_ref().to_string().into()
+    }
+}
+
 /// An alphabetically ordered and deduplicated list of `Node`s.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct NodeList {
-    pub(crate) nodes: Vec<String>,
+    pub(crate) nodes: Vec<Node>,
 }
 
 impl NodeList {
-    pub fn with_more(mut self, nodes: Vec<String>) -> Self {
+    pub fn with_more(mut self, nodes: Vec<Node>) -> Self {
         self.nodes.extend(nodes.into_iter());
         self.nodes.sort();
         let len = self.nodes.partition_dedup().0.len();
@@ -17,14 +36,14 @@ impl NodeList {
     }
 }
 
-impl From<String> for NodeList {
-    fn from(node: String) -> Self {
+impl From<Node> for NodeList {
+    fn from(node: Node) -> Self {
         NodeList { nodes: vec![node] }
     }
 }
 
-impl From<Vec<String>> for NodeList {
-    fn from(mut nodes: Vec<String>) -> Self {
+impl From<Vec<Node>> for NodeList {
+    fn from(mut nodes: Vec<Node>) -> Self {
         nodes.sort();
         let len = nodes.partition_dedup().0.len();
         nodes.truncate(len);

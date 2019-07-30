@@ -1,10 +1,10 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
-use crate::{Polynomial, NodeList, Literal};
+use crate::{Polynomial, Node, NodeList, Literal};
 
 /// A map from nodes to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CapacityBlock {
-    capacities: BTreeMap<String, u64>,
+    capacities: BTreeMap<Node, u64>,
 }
 
 impl CapacityBlock {
@@ -122,7 +122,7 @@ impl cmp::PartialOrd for Multiplier {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RxMultiplier {
     size:      u64,
-    post_node: String,
+    post_node: Node,
     pre_set:   NodeList,
 }
 
@@ -147,7 +147,7 @@ impl cmp::PartialOrd for RxMultiplier {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TxMultiplier {
     size:     u64,
-    pre_node: String,
+    pre_node: Node,
     post_set: NodeList,
 }
 
@@ -251,7 +251,7 @@ impl cmp::PartialOrd for Inhibitor {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RxInhibitor {
-    post_node: String,
+    post_node: Node,
     pre_set:   NodeList,
 }
 
@@ -272,7 +272,7 @@ impl cmp::PartialOrd for RxInhibitor {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TxInhibitor {
-    pre_node: String,
+    pre_node: Node,
     post_set: NodeList,
 }
 

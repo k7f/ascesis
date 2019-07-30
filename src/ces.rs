@@ -32,26 +32,45 @@ impl From<InhibitorBlock> for CesFileBlock {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
+pub struct CesName(String);
+
+impl From<String> for CesName {
+    fn from(name: String) -> Self {
+        CesName(name)
+    }
+}
+
+pub trait ToCesName {
+    fn to_ces_name(&self) -> CesName;
+}
+
+impl<S: AsRef<str>> ToCesName for S {
+    fn to_ces_name(&self) -> CesName {
+        self.as_ref().to_string().into()
+    }
+}
+
 #[derive(Debug)]
 pub struct ImmediateDef {
-    name: String,
+    name: CesName,
     rex:  Rex,
 }
 
 impl ImmediateDef {
-    pub fn new(name: String, rex: Rex) -> Self {
+    pub fn new(name: CesName, rex: Rex) -> Self {
         ImmediateDef { name, rex }
     }
 }
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct CesInstance {
-    pub(crate) name: String,
+    pub(crate) name: CesName,
     pub(crate) args: Vec<String>,
 }
 
 impl CesInstance {
-    pub(crate) fn new(name: String) -> Self {
+    pub(crate) fn new(name: CesName) -> Self {
         CesInstance { name, args: Vec::new() }
     }
 
