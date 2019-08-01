@@ -103,16 +103,25 @@ fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynom
 ```
 
 A fat arrow rule is transformed into a sum ('+'-separated sequence) of
-thin arrow rules.  A fat arrow rule with more than two polynomials is
-first transformed into a sum of two-polynomial fat arrow rules, for
-example `b <= a => c` becomes `{ a => b } + { a => c }`.  Then each
-two-polynomial fat arrow rule is replaced with a sum of two thin arrow
-rules, one effect-only, another cause-only.  Next, the resulting rule
-expression is simplified by integrating effect-only rules having a
-common node list and doing the same with cause-only rules.  Finally,
-rule expression is further simplified by merging node lists which
-point to the same effect polynomials, and merging node lists pointed
-to by the same cause polynomials.
+thin arrow rules.  This procedure takes several steps.  A fat arrow
+rule with more than two polynomials is first transformed into a sum of
+two-polynomial fat arrow rules, for example `b <= a => c` becomes `{ a
+=> b } + { a => c }`.  Then each two-polynomial fat arrow rule is
+replaced with a sum of two thin arrow rules, one effect-only, another
+cause-only.  Next,
+
+  - the resulting rule expression is simplified by integrating
+    effect-only rules having a common node list and doing the same
+    with cause-only rules; subsequently,
+
+  - rule expression is further simplified by merging node lists which
+    point to the same effect polynomials, and merging node lists
+    pointed to by the same cause polynomials.
+
+Last two steps are repeated, until a fixed point is reached.  Finally,
+since the result is a sum of single-polynomial thin arrow rules, any
+pair of rules with the same node list is combined into a
+two-polynomial rule.
 
 For example, `a b c => d e f` is transformed to
 

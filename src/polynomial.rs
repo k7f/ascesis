@@ -1,5 +1,5 @@
 use std::{collections::BTreeSet, iter::FromIterator};
-use crate::Node;
+use crate::{Node, ToNode, NodeList};
 
 /// An alphabetically ordered and deduplicated list of monomials,
 /// where each monomial is alphabetically ordered and deduplicated
@@ -28,6 +28,21 @@ impl Polynomial {
         self
     }
 
+    pub(crate) fn flattened_clone(&self) -> Self {
+        if self.is_flat {
+            self.clone()
+        } else {
+            let mut more_monos = self.monomials.iter();
+            let mut single_mono = more_monos.next().expect("non-flat empty polynomial").clone();
+
+            for mono in more_monos {
+                single_mono.append(&mut mono.clone());
+            }
+
+            Polynomial { monomials: BTreeSet::from_iter(Some(single_mono)), is_flat: true }
+        }
+    }
+
     fn multiply_assign(&mut self, factors: &mut [Self]) {
         for factor in factors {
             if !factor.is_flat {
@@ -47,7 +62,7 @@ impl Polynomial {
         }
     }
 
-    fn add_assign(&mut self, other: &mut Self) {
+    pub(crate) fn add_assign(&mut self, other: &mut Self) {
         self.is_flat = false;
         self.monomials.append(&mut other.monomials);
     }
@@ -64,6 +79,78 @@ impl From<Node> for Polynomial {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node)))),
             is_flat:   true,
+        }
+    }
+}
+
+// FIXME fight with orphan rules, maybe...
+impl From<&str> for Polynomial {
+    fn from(node: &str) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node.to_node())))),
+            is_flat:   true,
+        }
+    }
+}
+
+impl From<Vec<Node>> for Polynomial {
+    fn from(mono: Vec<Node>) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.iter().cloned()))),
+            is_flat:   true,
+        }
+    }
+}
+
+// FIXME fight with orphan rules, maybe...
+impl From<Vec<&str>> for Polynomial {
+    fn from(mono: Vec<&str>) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.iter().map(|n| n.to_node())))),
+            is_flat:   true,
+        }
+    }
+}
+
+impl From<Vec<Vec<Node>>> for Polynomial {
+    fn from(monos: Vec<Vec<Node>>) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(
+                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().cloned())),
+            ),
+            is_flat:   false,
+        }
+    }
+}
+
+// FIXME fight with orphan rules, maybe...
+impl From<Vec<Vec<&str>>> for Polynomial {
+    fn from(monos: Vec<Vec<&str>>) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(
+                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().map(|n| n.to_node()))),
+            ),
+            is_flat:   false,
+        }
+    }
+}
+
+impl From<NodeList> for Polynomial {
+    fn from(mono: NodeList) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.nodes.iter().cloned()))),
+            is_flat:   true,
+        }
+    }
+}
+
+impl From<Vec<NodeList>> for Polynomial {
+    fn from(monos: Vec<NodeList>) -> Self {
+        Polynomial {
+            monomials: BTreeSet::from_iter(
+                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.nodes.iter().cloned())),
+            ),
+            is_flat:   false,
         }
     }
 }

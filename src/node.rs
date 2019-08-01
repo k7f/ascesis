@@ -14,6 +14,12 @@ pub trait ToNode {
     fn to_node(&self) -> Node;
 }
 
+impl ToNode for Node {
+    fn to_node(&self) -> Node {
+        self.clone()
+    }
+}
+
 impl<S: AsRef<str>> ToNode for S {
     fn to_node(&self) -> Node {
         self.as_ref().to_string().into()
@@ -34,6 +40,13 @@ impl NodeList {
         self.nodes.truncate(len);
         self
     }
+
+    pub(crate) fn add_assign(&mut self, other: &mut Self) {
+        self.nodes.append(&mut other.nodes);
+        self.nodes.sort();
+        let len = self.nodes.partition_dedup().0.len();
+        self.nodes.truncate(len);
+    }
 }
 
 impl From<Node> for NodeList {
@@ -42,8 +55,9 @@ impl From<Node> for NodeList {
     }
 }
 
-impl From<Vec<Node>> for NodeList {
-    fn from(mut nodes: Vec<Node>) -> Self {
+impl<T: ToNode> From<Vec<T>> for NodeList {
+    fn from(nodes: Vec<T>) -> Self {
+        let mut nodes: Vec<Node> = nodes.into_iter().map(|n| n.to_node()).collect();
         nodes.sort();
         let len = nodes.partition_dedup().0.len();
         nodes.truncate(len);

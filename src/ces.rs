@@ -51,7 +51,7 @@ impl<S: AsRef<str>> ToCesName for S {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ImmediateDef {
     name: CesName,
     rex:  Rex,
@@ -63,7 +63,7 @@ impl ImmediateDef {
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct CesInstance {
     pub(crate) name: CesName,
     pub(crate) args: Vec<String>,
