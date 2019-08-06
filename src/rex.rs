@@ -397,9 +397,9 @@ mod tests {
 
     #[test]
     fn test_rex_singles() {
-        let spec =
+        let phrase =
             "{ a => b <= c } { d() + e!(f) g!(h, i) } + { { j -> k -> l } { j -> k } { l <- k } }";
-        let rex: Rex = spec.parse().unwrap();
+        let rex: Rex = phrase.parse().unwrap();
 
         assert_eq!(
             rex,
@@ -453,8 +453,8 @@ mod tests {
 
     #[test]
     fn test_fit_arrow() {
-        let spec = "a => b";
-        let rex: Rex = spec.parse().unwrap();
+        let phrase = "a => b";
+        let rex: Rex = phrase.parse().unwrap();
 
         assert_eq!(
             rex,
@@ -492,8 +492,8 @@ mod tests {
 
     #[test]
     fn test_fit_arrow_sequence() {
-        let spec = "a => b => c";
-        let rex: Rex = spec.parse().unwrap();
+        let phrase = "a => b => c";
+        let rex: Rex = phrase.parse().unwrap();
         let rex = rex.fit_clone();
 
         assert_eq!(
@@ -523,8 +523,8 @@ mod tests {
 
     #[test]
     fn test_fit_fork() {
-        let spec = "a <= b => c";
-        let rex: Rex = spec.parse().unwrap();
+        let phrase = "a <= b => c";
+        let rex: Rex = phrase.parse().unwrap();
         let rex = rex.fit_clone();
 
         assert_eq!(

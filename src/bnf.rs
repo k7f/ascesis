@@ -25,12 +25,12 @@ fn first_unquoted_semi<S: AsRef<str>>(line: S) -> Option<usize> {
     None
 }
 
-/// Returns `spec` converted to a `String` after removing all
+/// Returns `phrase` converted to a `String` after removing all
 /// substrings delimited with unquoted ";" on the left and the nearest
 /// end of line on the right (delimiters themselves are preserved).
 // FIXME spurious semis at eof
-pub fn without_comments<S: AsRef<str>>(spec: S) -> String {
-    spec.as_ref().lines().fold(String::new(), |mut res, line| {
+pub fn without_comments<S: AsRef<str>>(phrase: S) -> String {
+    phrase.as_ref().lines().fold(String::new(), |mut res, line| {
         if let Some(pos) = first_unquoted_semi(line) {
             res.push_str(&line[..=pos]);
         } else {
@@ -58,12 +58,12 @@ impl Syntax {
         self
     }
 
-    pub fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-        let spec = without_comments(spec);
+    pub fn from_phrase<S: AsRef<str>>(phrase: S) -> ParsingResult<Self> {
+        let phrase = without_comments(phrase);
         let mut errors = Vec::new();
 
         let mut result = SyntaxParser::new()
-            .parse(&mut errors, &spec)
+            .parse(&mut errors, &phrase)
             .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
 
         // Sort rules and merge these with common LHS.
@@ -81,9 +81,9 @@ impl Syntax {
             };
         }
 
-        let spec = include_str!(FILE_NAME!());
+        let phrase = include_str!(FILE_NAME!());
 
-        match Self::from_spec(spec) {
+        match Self::from_phrase(phrase) {
             Ok(result) => result,
             Err(err) => panic!("Error in file \"{}\": {}.", FILE_NAME!(), err),
         }
@@ -122,7 +122,7 @@ impl FromStr for Syntax {
     type Err = ParsingError;
 
     fn from_str(s: &str) -> ParsingResult<Self> {
-        Self::from_spec(s)
+        Self::from_phrase(s)
     }
 }
 

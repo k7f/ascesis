@@ -1,0 +1,7 @@
+vis {
+    title { "Single arrow" }
+}
+
+ces Main {
+    a => x
+}

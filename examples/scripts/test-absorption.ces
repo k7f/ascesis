@@ -1,0 +1,7 @@
+vis {
+    title { "Absorption test" }
+}
+
+ces Main {
+    a => x + x y
+}

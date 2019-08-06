@@ -25,7 +25,7 @@ impl Axiom {
         }
     }
 
-    pub fn guess_from_spec<S: AsRef<str>>(spec: S) -> Self {
+    pub fn guess_from_phrase<S: AsRef<str>>(phrase: S) -> Self {
         lazy_static! {
             static ref IMM_RE: Regex = Regex::new(r"^ces\s+[[:alpha:]][[:word:]]*\s*\{").unwrap();
             static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
@@ -39,23 +39,23 @@ impl Axiom {
             static ref FAR_RE: Regex = Regex::new(r"(=>|<=)").unwrap();
         }
 
-        let spec = spec.as_ref().trim();
+        let phrase = phrase.as_ref().trim();
 
-        if IMM_RE.is_match(spec) {
+        if IMM_RE.is_match(phrase) {
             Axiom("ImmediateDef".to_owned())
-        } else if CAP_RE.is_match(spec) {
+        } else if CAP_RE.is_match(phrase) {
             Axiom("CapBlock".to_owned())
-        } else if MUL_RE.is_match(spec) {
+        } else if MUL_RE.is_match(phrase) {
             Axiom("MulBlock".to_owned())
-        } else if INH_RE.is_match(spec) {
+        } else if INH_RE.is_match(phrase) {
             Axiom("InhBlock".to_owned())
-        } else if TIN_RE.is_match(spec) || IIN_RE.is_match(spec) {
+        } else if TIN_RE.is_match(phrase) || IIN_RE.is_match(phrase) {
             Axiom("CesInstance".to_owned())
-        } else if REX_RE.is_match(spec) {
+        } else if REX_RE.is_match(phrase) {
             Axiom("Rex".to_owned())
-        } else if TAR_RE.is_match(spec) {
+        } else if TAR_RE.is_match(phrase) {
             Axiom("ThinArrowRule".to_owned())
-        } else if FAR_RE.is_match(spec) {
+        } else if FAR_RE.is_match(phrase) {
             Axiom("FatArrowRule".to_owned())
         } else {
             // FIXME into tests: `a(b)` is a Polynomial, `a()`,
@@ -68,47 +68,47 @@ impl Axiom {
         self.0.as_str()
     }
 
-    pub fn parse<S: AsRef<str>>(&self, spec: S) -> Result<Box<dyn FromSpec>, AscesisError> {
-        macro_rules! from_spec_as {
-            ($typ:ty, $spec:expr) => {{
-                let object: $typ = $spec.parse()?;
+    pub fn parse<S: AsRef<str>>(&self, phrase: S) -> Result<Box<dyn FromPhrase>, AscesisError> {
+        macro_rules! from_phrase_as {
+            ($typ:ty, $phrase:expr) => {{
+                let object: $typ = $phrase.parse()?;
                 Ok(Box::new(object))
             }};
         }
 
-        let spec = spec.as_ref();
+        let phrase = phrase.as_ref();
 
         match self.0.as_str() {
-            "CesFileBlock" => from_spec_as!(CesFileBlock, spec),
-            "ImmediateDef" => from_spec_as!(ImmediateDef, spec),
-            "CesInstance" => from_spec_as!(CesInstance, spec),
-            "CapBlock" => from_spec_as!(CapacityBlock, spec),
-            "MulBlock" => from_spec_as!(MultiplierBlock, spec),
-            "InhBlock" => from_spec_as!(InhibitorBlock, spec),
-            "Rex" => from_spec_as!(Rex, spec),
-            "ThinArrowRule" => from_spec_as!(ThinArrowRule, spec),
-            "FatArrowRule" => from_spec_as!(FatArrowRule, spec),
-            "Polynomial" => from_spec_as!(Polynomial, spec),
+            "CesFileBlock" => from_phrase_as!(CesFileBlock, phrase),
+            "ImmediateDef" => from_phrase_as!(ImmediateDef, phrase),
+            "CesInstance" => from_phrase_as!(CesInstance, phrase),
+            "CapBlock" => from_phrase_as!(CapacityBlock, phrase),
+            "MulBlock" => from_phrase_as!(MultiplierBlock, phrase),
+            "InhBlock" => from_phrase_as!(InhibitorBlock, phrase),
+            "Rex" => from_phrase_as!(Rex, phrase),
+            "ThinArrowRule" => from_phrase_as!(ThinArrowRule, phrase),
+            "FatArrowRule" => from_phrase_as!(FatArrowRule, phrase),
+            "Polynomial" => from_phrase_as!(Polynomial, phrase),
             _ => Err(AscesisError::UnknownAxiom(self.0.clone())),
         }
     }
 }
 
-pub trait FromSpec: fmt::Debug {
-    fn from_spec<S>(spec: S) -> ParsingResult<Self>
+pub trait FromPhrase: fmt::Debug {
+    fn from_phrase<S>(phrase: S) -> ParsingResult<Self>
     where
         S: AsRef<str>,
         Self: Sized;
 }
 
-macro_rules! impl_from_spec_for {
+macro_rules! impl_from_phrase_for {
     ($nt:ty, $parser:ty) => {
-        impl FromSpec for $nt {
-            fn from_spec<S: AsRef<str>>(spec: S) -> ParsingResult<Self> {
-                let spec = spec.as_ref();
+        impl FromPhrase for $nt {
+            fn from_phrase<S: AsRef<str>>(phrase: S) -> ParsingResult<Self> {
+                let phrase = phrase.as_ref();
                 let mut errors = Vec::new();
 
-                let result = <$parser>::new().parse(&mut errors, spec).map_err(|err| {
+                let result = <$parser>::new().parse(&mut errors, phrase).map_err(|err| {
                     err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned())
                 })?;
 
@@ -118,16 +118,16 @@ macro_rules! impl_from_spec_for {
     };
 }
 
-impl_from_spec_for!(CesFileBlock, CesFileBlockParser);
-impl_from_spec_for!(ImmediateDef, ImmediateDefParser);
-impl_from_spec_for!(CesInstance, CesInstanceParser);
-impl_from_spec_for!(CapacityBlock, CapBlockParser);
-impl_from_spec_for!(MultiplierBlock, MulBlockParser);
-impl_from_spec_for!(InhibitorBlock, InhBlockParser);
-impl_from_spec_for!(Rex, RexParser);
-impl_from_spec_for!(ThinArrowRule, ThinArrowRuleParser);
-impl_from_spec_for!(FatArrowRule, FatArrowRuleParser);
-impl_from_spec_for!(Polynomial, PolynomialParser);
+impl_from_phrase_for!(CesFileBlock, CesFileBlockParser);
+impl_from_phrase_for!(ImmediateDef, ImmediateDefParser);
+impl_from_phrase_for!(CesInstance, CesInstanceParser);
+impl_from_phrase_for!(CapacityBlock, CapBlockParser);
+impl_from_phrase_for!(MultiplierBlock, MulBlockParser);
+impl_from_phrase_for!(InhibitorBlock, InhBlockParser);
+impl_from_phrase_for!(Rex, RexParser);
+impl_from_phrase_for!(ThinArrowRule, ThinArrowRuleParser);
+impl_from_phrase_for!(FatArrowRule, FatArrowRuleParser);
+impl_from_phrase_for!(Polynomial, PolynomialParser);
 
 macro_rules! impl_from_str_for {
     ($nt:ty) => {
@@ -135,7 +135,7 @@ macro_rules! impl_from_str_for {
             type Err = ParsingError;
 
             fn from_str(s: &str) -> ParsingResult<Self> {
-                Self::from_spec(s)
+                Self::from_phrase(s)
             }
         }
     };

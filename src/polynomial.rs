@@ -162,8 +162,8 @@ mod tests {
 
     #[test]
     fn test_poly() {
-        let spec = "(a (b + c) d e) + f g";
-        let poly: Polynomial = spec.parse().unwrap();
+        let phrase = "(a (b + c) d e) + f g";
+        let poly: Polynomial = phrase.parse().unwrap();
 
         assert_eq!(
             poly,

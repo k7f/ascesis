@@ -17,25 +17,25 @@ impl fmt::Display for RexError {
 
 impl Error for RexError {}
 
-fn random_spec(axiom: &Axiom) -> Result<String, Box<dyn Error>> {
+fn random_phrase(axiom: &Axiom) -> Result<String, Box<dyn Error>> {
     let grammar = Grammar::of_ascesis();
     trace!("{:?}", grammar);
 
     let generator = Generator::new(&grammar);
 
-    let mut all_specs: Vec<_> = generator.rooted(axiom.symbol())?.iter().collect();
+    let mut all_phrases: Vec<_> = generator.rooted(axiom.symbol())?.iter().collect();
 
-    if all_specs.is_empty() {
-        Err(Box::new(RexError(format!("Random spec generation failed for {:?}.", axiom))))
+    if all_phrases.is_empty() {
+        Err(Box::new(RexError(format!("Random phrase generation failed for {:?}.", axiom))))
     } else {
         let mut rng = thread_rng();
-        let result = all_specs.remove(rng.gen_range(0, all_specs.len()));
+        let result = all_phrases.remove(rng.gen_range(0, all_phrases.len()));
 
         Ok(result)
     }
 }
 
-fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dyn Error>> {
+fn get_axiom_and_phrase(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dyn Error>> {
     if let Some(axiom) = {
         if let Some(arg) = maybe_arg {
             let arg = arg.trim();
@@ -48,17 +48,17 @@ fn get_axiom_and_spec(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<dy
             Axiom::from_known_symbol("Rex")
         }
     } {
-        let spec = random_spec(&axiom)?;
-        info!("{:?} generated \"{}\"", axiom, spec);
+        let phrase = random_phrase(&axiom)?;
+        info!("{:?} generated \"{}\"", axiom, phrase);
 
-        Ok((axiom, spec))
+        Ok((axiom, phrase))
     } else {
         let arg = maybe_arg.unwrap();
-        let axiom = Axiom::guess_from_spec(arg);
-        let spec = arg.to_owned();
-        info!("{:?} guessed from \"{}\"", axiom, spec);
+        let axiom = Axiom::guess_from_phrase(arg);
+        let phrase = arg.to_owned();
+        info!("{:?} guessed from \"{}\"", axiom, phrase);
 
-        Ok((axiom, spec))
+        Ok((axiom, phrase))
     }
 }
 
@@ -97,9 +97,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         .get_matches();
 
     let maybe_arg = args.value_of("SENTENCE_OR_AXIOM");
-    let (axiom, spec) = get_axiom_and_spec(maybe_arg)?;
+    let (axiom, phrase) = get_axiom_and_phrase(maybe_arg)?;
 
-    let result = axiom.parse(spec)?;
+    let result = axiom.parse(phrase)?;
     println!("{:?}", result);
 
     Ok(())
