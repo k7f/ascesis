@@ -1,7 +1,12 @@
 vis {
-    title { "Single arrow" }
+    title: "Single arrow",
+
+    labels: {
+        a: "Source",
+        z: "Sink",
+    },
 }
 
 ces Main {
-    a => x
+    a => z
 }

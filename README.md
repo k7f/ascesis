@@ -81,7 +81,7 @@ and there are no inhibitors.  Therefore, in all previous examples
 these mappings are declared implicitly as
 
 ```rust
-vis { labels { a: "a", b: "b" } }
+vis { labels: { a: "a", b: "b" } }
 cap { 1 a b }
 mul { 1 a -> b, 1 b <- a }
 ```
@@ -93,7 +93,7 @@ specified node labels and increased capacity of node `a`.
 ```rust
 ces Arrow(x: Node, y: Node) { x => y }
 
-vis { labels { a: "Source", z: "Sink" } }
+vis { labels: { a: "Source", z: "Sink" } }
 cap { 3 a }
 
 ces Main { Arrow!(a, z) }

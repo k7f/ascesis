@@ -106,7 +106,9 @@ impl From<Vec<Node>> for Polynomial {
 impl From<Vec<&str>> for Polynomial {
     fn from(mono: Vec<&str>) -> Self {
         Polynomial {
-            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.iter().map(|n| n.to_node())))),
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(
+                mono.iter().map(|n| n.to_node()),
+            ))),
             is_flat:   true,
         }
     }

@@ -1,5 +1,5 @@
 vis {
-    title { "Absorption test" }
+    title: "Absorption test"
 }
 
 ces Main {

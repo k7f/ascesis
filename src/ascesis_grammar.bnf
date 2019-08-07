@@ -2,6 +2,7 @@
             | <CesFileBlock> <CesFile> ;
 
 <CesFileBlock> ::= <ImmediateDef>
+                 | <VisBlock>
                  | <CapBlock>
                  | <MulBlock>
                  | <InhBlock> ;
@@ -25,6 +26,22 @@
 
 <ArgValue> ::= <Identifier> ;
 
+;; Presentation context
+
+<VisBlock> ::= "vis" "{" <VisList> "}" ;
+
+<VisList> ::= <PlainVisList>
+            | <PlainVisList> "," ;
+
+<PlainVisList> ::= <VisField>
+                 | <VisField> "," <PlainVisList> ;
+
+<VisField> ::= <Identifier> ":" <VisValue> ;
+
+<VisValue> ::= <Size>
+             | <Name>
+             | "{" <VisList> "}" ;
+
 ;; Capacities
 
 <CapBlock> ::= "cap" "{" <CapList> "}" ;
@@ -32,10 +49,10 @@
 <CapList> ::= <PlainCapList>
             | <PlainCapList> "," ;
 
-<PlainCapList> ::= <CapSpec>
-                 | <CapSpec> "," <PlainCapList> ;
+<PlainCapList> ::= <CapField>
+                 | <CapField> "," <PlainCapList> ;
 
-<CapSpec> ::= <Size> <NodeList>
+<CapField> ::= <Size> <NodeList>
 
 ;; Multipliers
 
@@ -44,11 +61,11 @@
 <MulList> ::= <PlainMulList>
             | <PlainMulList> "," ;
 
-<PlainMulList> ::= <MulSpec>
-                 | <MulSpec> "," <PlainMulList> ;
+<PlainMulList> ::= <MulField>
+                 | <MulField> "," <PlainMulList> ;
 
-<MulSpec> ::= <Size> <NodeList> "->" <NodeList>
-            | <Size> <NodeList> "<-" <NodeList>;
+<MulField> ::= <Size> <NodeList> "->" <NodeList>
+             | <Size> <NodeList> "<-" <NodeList>;
 
 ;; Inhibitors
 
@@ -57,11 +74,11 @@
 <InhList> ::= <PlainInhList>
             | <PlainInhList> "," ;
 
-<PlainInhList> ::= <InhSpec>
-                 | <InhSpec> "," <PlainInhList> ;
+<PlainInhList> ::= <InhField>
+                 | <InhField> "," <PlainInhList> ;
 
-<InhSpec> ::= <NodeList> "->" <NodeList>
-            | <NodeList> "<-" <NodeList>;
+<InhField> ::= <NodeList> "->" <NodeList>
+             | <NodeList> "<-" <NodeList>;
 
 ;; Rule expression
 
@@ -130,3 +147,8 @@
 
 ; FIXME
 <Size> ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+; FIXME
+<Name> ::= "\"A\"" | "\"B\"" | "\"C\"" | "\"D\"" | "\"E\"" | "\"F\"" | "\"G\"" | "\"H\"" | "\"I\""
+         | "\"J\"" | "\"K\"" | "\"L\"" | "\"M\"" | "\"N\"" | "\"O\"" | "\"P\"" | "\"Q\"" | "\"R\""
+         | "\"S\"" | "\"T\"" | "\"U\"" | "\"V\"" | "\"W\"" | "\"X\"" | "\"Y\"" | "\"Z\"" ;

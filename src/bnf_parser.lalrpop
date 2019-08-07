@@ -27,6 +27,6 @@ Term: Term = {
     "<" <RuleName> ">" => Term::new_rule_name(<>),
 };
 
-Literal: String = r#""[^"]*""# => <>.to_owned();
+Literal: String = r#""([^\\"]|\\")+""# => <>.to_owned();
 
 RuleName: String = r#"[A-Za-z][A-Za-z0-9-]*"# => <>.to_owned();

@@ -16,8 +16,8 @@ immediate_sig = "ces" identifier ;
 
 template_def = template_sig "{" rex "}" ;
 template_sig = "ces" identifier "(" template_args ")" ;
-template_args = arg_spec { "," arg_spec } [ "," ] ;
-arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
+template_args = arg_decl { "," arg_decl } [ "," ] ;
+arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "Name" ) ;
 
 ## Structure instantiation
 
@@ -29,25 +29,33 @@ ces_instance = identifier "(" ")"
 
 instance_args = arg_value { ","  arg_value } [ "," ] ;
 
-arg_value = identifier | size | string ;
+arg_value = identifier | size | name ;
 
 ## Context
 
 context_block = vis_block | cap_block | mul_block | inh_block ;
 
-vis_block = "vis" "{" ron_spec "}" ;
+vis_block = "vis" "{" vis_list "}" ;
+
+vis_list = vis_field { "," vis_field } [ "," ] ;
+
+vis_field = identifier ":" vis_value ;
+
+vis_value = size
+          | name
+          | "{" vis_list "}" ;
 
 cap_block = "cap" "{" cap_list "}" ;
-cap_list = cap_spec { "," cap_spec } [ "," ] ;
-cap_spec ::= size node_list ;
+cap_list = cap_field { "," cap_field } [ "," ] ;
+cap_field = size node_list ;
 
 mul_block = "mul" "{" mul_list "}" ;
-mul_list = mul_spec { "," mul_spec } [ "," ] ;
-mul_spec = size node_list ( "->" | "<-" ) node_list ;
+mul_list = mul_field { "," mul_field } [ "," ] ;
+mul_field = size node_list ( "->" | "<-" ) node_list ;
 
 inh_block = "inh" "{" inh_list "}" ;
-inh_list = inh_spec { "," inh_spec } [ "," ] ;
-inh_spec = node_list ( "->" | "<-" ) node_list ;
+inh_list = inh_field { "," inh_field } [ "," ] ;
+inh_field = node_list ( "->" | "<-" ) node_list ;
 
 ## Rule expression
 

@@ -1,5 +1,5 @@
 vis {
-    title { "Structural error (link incoherence)" }
+    title: "Structural error (link incoherence)"
 }
 
 ces Main {

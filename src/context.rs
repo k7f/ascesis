@@ -1,6 +1,45 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
 use crate::{Polynomial, Node, NodeList, Literal};
 
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
+pub struct VisBlock {
+    fields: BTreeMap<String, VisValue>,
+}
+
+impl VisBlock {
+    pub fn new(key: String, value: VisValue) -> Self {
+        let mut fields = BTreeMap::new();
+        fields.insert(key, value);
+
+        VisBlock { fields }
+    }
+
+    pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
+        for mut block in more {
+            self.fields.append(&mut block.fields);
+        }
+        self
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum VisValue {
+    Lit(Literal),
+    Block(VisBlock),
+}
+
+impl From<Literal> for VisValue {
+    fn from(lit: Literal) -> Self {
+        VisValue::Lit(lit)
+    }
+}
+
+impl From<VisBlock> for VisValue {
+    fn from(block: VisBlock) -> Self {
+        VisValue::Block(block)
+    }
+}
+
 /// A map from nodes to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CapacityBlock {

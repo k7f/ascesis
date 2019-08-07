@@ -1,5 +1,5 @@
 vis {
-    title { "Road over bridge without U-turn" }
+    title: "Road over bridge without U-turn"
 }
 
 ces EW { E' => E => B => e => e' }

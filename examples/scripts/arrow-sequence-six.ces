@@ -1,5 +1,5 @@
 vis {
-    title { "Sequence of six arrows" }
+    title: "Sequence of six arrows"
 }
 
 ces Main {

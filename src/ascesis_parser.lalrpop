@@ -1,7 +1,7 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
     CesFileBlock, CesName, ImmediateDef, CesInstance,
-    CapacityBlock, MultiplierBlock, InhibitorBlock,
+    VisBlock, VisValue, CapacityBlock, MultiplierBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
 };
 
@@ -34,8 +34,8 @@ ImmediateSig: CesName =
 // FIXME
 // template_def = template_sig "{" rex "}" ;
 // template_sig = "ces" identifier "(" template_args ")" ;
-// template_args = arg_spec { "," arg_spec } [ "," ] ;
-// arg_spec = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
+// template_args = arg_decl { "," arg_decl } [ "," ] ;
+// arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 
 // Structure instantiation
 
@@ -67,29 +67,53 @@ ArgValue: String = <Identifier>;
 
 // context_block = vis_block | cap_block | mul_block | inh_block ;
 
-// cap_block = "cap" "{" cap_list "}" ;
-pub CapBlock: CapacityBlock =
-    "cap" "{" <head: CapSpec> <tail: CommaThenCapSpec*> ","? "}" =>
+// vis_block = "vis" "{" vis_list "}" ;
+pub VisBlock: VisBlock = "vis" "{" <VisList> "}";
+
+// vis_list = vis_field { "," vis_field } [ "," ] ;
+VisList: VisBlock =
+    <head: VisField> <tail: CommaThenVisField*> ","? =>
         head.with_more(tail);
 
-// cap_list = cap_spec { "," cap_spec } [ "," ] ;
-CommaThenCapSpec: CapacityBlock = "," <CapSpec>;
+CommaThenVisField: VisBlock = "," <VisField>;
 
-// cap_spec ::= size node_list ;
-CapSpec: CapacityBlock =
+// vis_field = identifier ":" vis_value ;
+VisField: VisBlock =
+    <key: Identifier> ":" <value: VisValue> =>
+        VisBlock::new(key, value);
+
+// vis_value = size
+//           | string
+//           | "{" vis_list "}" ;
+VisValue: VisValue = {
+    <Size> => <>.into(),
+    <Name> => <>.into(),
+    "{" <VisList> "}" => <>.into(),
+};
+
+// cap_block = "cap" "{" cap_list "}" ;
+pub CapBlock: CapacityBlock =
+    "cap" "{" <head: CapField> <tail: CommaThenCapField*> ","? "}" =>
+        head.with_more(tail);
+
+// cap_list = cap_field { "," cap_field } [ "," ] ;
+CommaThenCapField: CapacityBlock = "," <CapField>;
+
+// cap_field = size node_list ;
+CapField: CapacityBlock =
     <size: Size> <nodes: NodeList> =>
         CapacityBlock::new(size, nodes).unwrap();
 
 // mul_block = "mul" "{" mul_list "}" ;
 pub MulBlock: MultiplierBlock =
-    "mul" "{" <head: MulSpec> <tail: CommaThenMulSpec*> ","? "}" =>
+    "mul" "{" <head: MulField> <tail: CommaThenMulField*> ","? "}" =>
         head.with_more(tail);
 
-// mul_list = mul_spec { "," mul_spec } [ "," ] ;
-CommaThenMulSpec: MultiplierBlock = "," <MulSpec>;
+// mul_list = mul_field { "," mul_field } [ "," ] ;
+CommaThenMulField: MultiplierBlock = "," <MulField>;
 
-// mul_spec = size node_list ( "->" | "<-" ) node_list ;
-MulSpec: MultiplierBlock = {
+// mul_field = size node_list ( "->" | "<-" ) node_list ;
+MulField: MultiplierBlock = {
     <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>
         MultiplierBlock::new_effects(size, pre_nodes, post_set).unwrap(),
     <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
@@ -98,14 +122,14 @@ MulSpec: MultiplierBlock = {
 
 // inh_block = "inh" "{" inh_list "}" ;
 pub InhBlock: InhibitorBlock =
-    "inh" "{" <head: InhSpec> <tail: CommaThenInhSpec*> ","? "}" =>
+    "inh" "{" <head: InhField> <tail: CommaThenInhField*> ","? "}" =>
         head.with_more(tail);
 
-// inh_list = inh_spec { "," inh_spec } [ "," ] ;
-CommaThenInhSpec: InhibitorBlock = "," <InhSpec>;
+// inh_list = inh_field { "," inh_field } [ "," ] ;
+CommaThenInhField: InhibitorBlock = "," <InhField>;
 
-// inh_spec = node_list ( "->" | "<-" ) node_list ;
-InhSpec: InhibitorBlock = {
+// inh_field = node_list ( "->" | "<-" ) node_list ;
+InhField: InhibitorBlock = {
     <pre_nodes: NodeList> "->" <post_set: NodeList> =>
         InhibitorBlock::new_effects(pre_nodes, post_set).unwrap(),
     <post_nodes: NodeList> "<-" <pre_set: NodeList> =>

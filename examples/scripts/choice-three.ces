@@ -1,5 +1,5 @@
 vis {
-    title { "Choice (three arrows)" }
+    title: "Choice (three arrows)"
 }
 
 ces Main {
