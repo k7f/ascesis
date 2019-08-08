@@ -31,7 +31,7 @@ pub mod lex;
 
 pub use crate::error::{AscesisError, ParsingError, ParsingResult};
 pub use crate::axiom::Axiom;
-pub use crate::ces::{CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
+pub use crate::ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
 pub use crate::context::{VisBlock, VisValue, CapacityBlock, MultiplierBlock, InhibitorBlock};
 pub use crate::rex::{Rex, ThinArrowRule, FatArrowRule};
 pub use crate::polynomial::Polynomial;

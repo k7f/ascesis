@@ -1,6 +1,6 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
-    CesFileBlock, CesName, ImmediateDef, CesInstance,
+    CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
     VisBlock, VisValue, CapacityBlock, MultiplierBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
 };
@@ -8,7 +8,7 @@ use crate::{
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
 // ces_file = { immediate_def | template_def | context_block } ;
-pub CesFile: Vec<CesFileBlock> = <CesFileBlock*>;
+pub CesFile: CesFile = <CesFileBlock*> => <>.into();
 
 pub CesFileBlock: CesFileBlock = {
     <ImmediateDef> => <>.into(),

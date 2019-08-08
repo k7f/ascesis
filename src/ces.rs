@@ -1,6 +1,17 @@
 use crate::{CapacityBlock, MultiplierBlock, InhibitorBlock, Rex};
 
 #[derive(Debug)]
+pub struct CesFile {
+    blocks: Vec<CesFileBlock>,
+}
+
+impl From<Vec<CesFileBlock>> for CesFile {
+    fn from(blocks: Vec<CesFileBlock>) -> Self {
+        CesFile { blocks }
+    }
+}
+
+#[derive(Debug)]
 pub enum CesFileBlock {
     Imm(ImmediateDef),
     Cap(CapacityBlock),

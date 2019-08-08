@@ -36,9 +36,7 @@ arg_value = identifier | size | name ;
 context_block = vis_block | cap_block | mul_block | inh_block ;
 
 vis_block = "vis" "{" vis_list "}" ;
-
 vis_list = vis_field { "," vis_field } [ "," ] ;
-
 vis_field = identifier ":" vis_value ;
 
 vis_value = size

@@ -1,13 +1,14 @@
 use std::{fmt, str::FromStr};
 use regex::Regex;
 use crate::ascesis_parser::{
-    CesFileBlockParser, ImmediateDefParser, CesInstanceParser, VisBlockParser, CapBlockParser,
-    MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser,
-    PolynomialParser,
+    CesFileParser, CesFileBlockParser, ImmediateDefParser, CesInstanceParser, VisBlockParser,
+    CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser,
+    FatArrowRuleParser, PolynomialParser,
 };
 use crate::{
-    ParsingError, ParsingResult, AscesisError, CesFileBlock, ImmediateDef, CesInstance, VisBlock,
-    CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
+    ParsingError, ParsingResult, AscesisError, CesFile, CesFileBlock, ImmediateDef, CesInstance,
+    VisBlock, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, ThinArrowRule, FatArrowRule,
+    Polynomial,
 };
 
 #[derive(Clone, Debug)]
@@ -18,9 +19,10 @@ impl Axiom {
         let symbol = symbol.as_ref();
 
         match symbol {
-            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "VisBlock"
-            | "CapBlock" | "MulBlock" | "InhBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule"
-            | "Polynomial" => Some(Axiom(symbol.to_owned())),
+            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "VisBlock" | "CapBlock"
+            | "MulBlock" | "InhBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => {
+                Some(Axiom(symbol.to_owned()))
+            }
             _ => None,
         }
     }
@@ -122,6 +124,7 @@ macro_rules! impl_from_phrase_for {
     };
 }
 
+impl_from_phrase_for!(CesFile, CesFileParser);
 impl_from_phrase_for!(CesFileBlock, CesFileBlockParser);
 impl_from_phrase_for!(ImmediateDef, ImmediateDefParser);
 impl_from_phrase_for!(CesInstance, CesInstanceParser);
@@ -146,6 +149,7 @@ macro_rules! impl_from_str_for {
     };
 }
 
+impl_from_str_for!(CesFile);
 impl_from_str_for!(CesFileBlock);
 impl_from_str_for!(ImmediateDef);
 impl_from_str_for!(CesInstance);
