@@ -23,6 +23,7 @@ lazy_static = "1.3"
 rand = "0.7"
 enquote = "1.0"
 lalrpop-util = "0.17"
+aces = "0.0.4"
 
 [build-dependencies]
 

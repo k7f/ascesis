@@ -12,6 +12,7 @@ pub CesFile: CesFile = <CesFileBlock*> => <>.into();
 
 pub CesFileBlock: CesFileBlock = {
     <ImmediateDef> => <>.into(),
+    <VisBlock> => <>.into(),
     <CapBlock> => <>.into(),
     <MulBlock> => <>.into(),
     <InhBlock> => <>.into(),

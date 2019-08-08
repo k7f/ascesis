@@ -1,4 +1,5 @@
-use crate::{CapacityBlock, MultiplierBlock, InhibitorBlock, Rex};
+use aces::{Content, NodeID};
+use crate::{VisBlock, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex};
 
 #[derive(Debug)]
 pub struct CesFile {
@@ -11,9 +12,32 @@ impl From<Vec<CesFileBlock>> for CesFile {
     }
 }
 
+impl Content for CesFile {
+    fn get_script(&self) -> Option<&str> {
+        None // FIXME
+    }
+
+    fn get_name(&self) -> Option<&str> {
+        None // FIXME
+    }
+
+    fn get_carrier_ids(&self) -> Vec<NodeID> {
+        Vec::new()
+    }
+
+    fn get_causes_by_id(&self, _id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
+        None // FIXME
+    }
+
+    fn get_effects_by_id(&self, _id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
+        None // FIXME
+    }
+}
+
 #[derive(Debug)]
 pub enum CesFileBlock {
     Imm(ImmediateDef),
+    Vis(VisBlock),
     Cap(CapacityBlock),
     Mul(MultiplierBlock),
     Inh(InhibitorBlock),
@@ -22,6 +46,12 @@ pub enum CesFileBlock {
 impl From<ImmediateDef> for CesFileBlock {
     fn from(imm: ImmediateDef) -> Self {
         CesFileBlock::Imm(imm)
+    }
+}
+
+impl From<VisBlock> for CesFileBlock {
+    fn from(vis: VisBlock) -> Self {
+        CesFileBlock::Vis(vis)
     }
 }
 
