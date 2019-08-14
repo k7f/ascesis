@@ -10,14 +10,14 @@ impl From<String> for Node {
     }
 }
 
-pub trait ToNode {
-    fn to_node(&self) -> Node;
+impl AsRef<str> for Node {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
-impl ToNode for Node {
-    fn to_node(&self) -> Node {
-        self.clone()
-    }
+pub trait ToNode {
+    fn to_node(&self) -> Node;
 }
 
 impl<S: AsRef<str>> ToNode for S {

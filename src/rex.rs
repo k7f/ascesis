@@ -1,5 +1,5 @@
 use std::{convert::TryInto, error::Error};
-use crate::{CesInstance, NodeList, BinOp, polynomial::Polynomial};
+use crate::{CesInstance, Node, NodeList, BinOp, polynomial::Polynomial};
 
 pub(crate) type RexID = usize;
 
@@ -10,7 +10,7 @@ pub(crate) struct RexTree {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Rex {
-    kinds: Vec<RexKind>,
+    pub(crate) kinds: Vec<RexKind>,
 }
 
 impl Rex {
@@ -115,7 +115,7 @@ impl Rex {
                 let ids: Vec<RexID> = std::iter::repeat(0).take(tars.len()).collect();
 
                 new_kinds.push(RexKind::Sum(RexTree { ids }));
-                new_kinds.extend(tars.into_iter().map(|tar| RexKind::Thin(tar)));
+                new_kinds.extend(tars.into_iter().map(RexKind::Thin));
             } else {
                 new_kinds.push(old_kind.clone());
             }
@@ -221,6 +221,18 @@ impl ThinArrowRule {
     pub(crate) fn with_effect(mut self, effect: Polynomial) -> Self {
         self.effect = effect;
         self
+    }
+
+    pub fn get_nodes(&self) -> &[Node] {
+        &self.nodes.nodes
+    }
+
+    pub fn get_flattened_cause(&self) -> Polynomial {
+        self.cause.flattened_clone()
+    }
+
+    pub fn get_flattened_effect(&self) -> Polynomial {
+        self.effect.flattened_clone()
     }
 }
 

@@ -6,7 +6,12 @@ pub type ParsingResult<T> = Result<T, ParsingError>;
 #[derive(Clone, Debug)]
 pub enum AscesisError {
     ParsingError(ParsingError),
-    UnknownAxiom(String),
+    AxiomUnknown(String),
+    RootUnset,
+    RootMissing(String),
+    RootRedefined(String),
+    RootBlockMismatch,
+    RootBlockMissing,
 }
 
 impl Error for AscesisError {
@@ -15,7 +20,12 @@ impl Error for AscesisError {
 
         match self {
             ParsingError(_) => "ascesis parsing error",
-            UnknownAxiom(_) => "unknown axiom",
+            AxiomUnknown(_) => "unknown axiom",
+            RootUnset => "unset root structure",
+            RootMissing(_) => "missing root structure",
+            RootRedefined(_) => "redefined root structure",
+            RootBlockMismatch => "root block mismatch",
+            RootBlockMissing => "root block missing",
         }
     }
 }
@@ -39,7 +49,12 @@ impl fmt::Display for AscesisError {
 
                 Ok(())
             }
-            UnknownAxiom(symbol) => write!(f, "Unknown axiom '{}'", symbol),
+            AxiomUnknown(symbol) => write!(f, "Unknown axiom '{}'", symbol),
+            RootUnset => write!(f, "Undeclared root structure"),
+            RootMissing(name) => write!(f, "Missing root structure '{}'", name),
+            RootRedefined(name) => write!(f, "Redefined root structure '{}'", name),
+            RootBlockMismatch => write!(f, "Root block mismatch"),
+            RootBlockMissing => write!(f, "Root block missing"),
         }
     }
 }

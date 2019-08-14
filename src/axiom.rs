@@ -6,9 +6,9 @@ use crate::ascesis_parser::{
     FatArrowRuleParser, PolynomialParser,
 };
 use crate::{
-    ParsingError, ParsingResult, AscesisError, CesFile, CesFileBlock, ImmediateDef, CesInstance,
-    VisBlock, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, ThinArrowRule, FatArrowRule,
-    Polynomial,
+    CesFile, CesFileBlock, ImmediateDef, CesInstance, VisBlock, CapacityBlock, MultiplierBlock,
+    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, ParsingError,
+    ParsingResult,
 };
 
 #[derive(Clone, Debug)]
@@ -95,7 +95,7 @@ impl Axiom {
             "ThinArrowRule" => from_phrase_as!(ThinArrowRule, phrase),
             "FatArrowRule" => from_phrase_as!(FatArrowRule, phrase),
             "Polynomial" => from_phrase_as!(Polynomial, phrase),
-            _ => Err(AscesisError::UnknownAxiom(self.0.clone())),
+            _ => Err(AscesisError::AxiomUnknown(self.0.clone())),
         }
     }
 }

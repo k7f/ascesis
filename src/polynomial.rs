@@ -1,4 +1,5 @@
 use std::{collections::BTreeSet, iter::FromIterator};
+use aces::{ContextHandle, NodeID};
 use crate::{Node, ToNode, NodeList};
 
 /// An alphabetically ordered and deduplicated list of monomials,
@@ -65,6 +66,15 @@ impl Polynomial {
     pub(crate) fn add_assign(&mut self, other: &mut Self) {
         self.is_flat = false;
         self.monomials.append(&mut other.monomials);
+    }
+
+    pub(crate) fn into_content(self, ctx: ContextHandle) -> Vec<Vec<NodeID>> {
+        let mut ctx = ctx.lock().unwrap();
+
+        self.monomials
+            .iter()
+            .map(|mono| mono.iter().map(|node| ctx.share_node_name(node)).collect())
+            .collect()
     }
 }
 

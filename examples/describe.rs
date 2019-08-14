@@ -3,7 +3,7 @@ extern crate log;
 
 use std::{io::Read, fs::File, error::Error};
 use fern::colors::{Color, ColoredLevelConfig};
-use aces::{Context, ContentOrigin, CES, sat, AcesError};
+use aces::{Context, Content, ContentOrigin, CES, sat, AcesError};
 use ascesis::CesFile;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -46,7 +46,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut script = String::new();
         fp.read_to_string(&mut script)?;
 
-        let content: CesFile = script.parse()?;
+        let mut content = CesFile::from_script(script)?;
+        content.set_root_name("Main")?;
+        info!("Root structure: '{}'", content.get_name().unwrap());
+
+        content.compile(ctx.clone())?;
+        info!("{:?}", content);
 
         let ces = CES::from_content(ctx.clone(), Box::new(content))?;
         info!("{:?}", ces);
