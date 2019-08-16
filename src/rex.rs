@@ -1,11 +1,18 @@
 use std::{convert::TryInto, error::Error};
-use crate::{CesInstance, Node, NodeList, BinOp, polynomial::Polynomial};
+use aces::{ContextHandle, PartialContent, CompilableAsContent};
+use crate::{CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError};
 
 pub(crate) type RexID = usize;
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub(crate) struct RexTree {
     ids: Vec<RexID>,
+}
+
+impl RexTree {
+    pub(crate) fn as_slice(&self) -> &[RexID] {
+        self.ids.as_slice()
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -149,6 +156,81 @@ impl Rex {
     }
 }
 
+impl CompilableAsContent for Rex {
+    fn compile_as_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
+        let rex = self.fit_clone();
+
+        if rex.kinds.is_empty() {
+            return Ok(PartialContent::new(ctx))
+        }
+
+        let mut merged_content = vec![None; rex.kinds.len()];
+        let mut parent_pos = vec![0; rex.kinds.len()];
+
+        for (pos, kind) in rex.kinds.iter().enumerate() {
+            match kind {
+                RexKind::Product(ast) | RexKind::Sum(ast) => {
+                    merged_content[pos] = Some(PartialContent::new(ctx));
+
+                    // println!("parent {} -> children {:?}", pos, ast.as_slice());
+                    for &i in ast.as_slice() {
+                        parent_pos[i] = pos;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        for pos in (0..rex.kinds.len()).rev() {
+            let content = match &rex.kinds[pos] {
+                RexKind::Thin(tar) => {
+                    tar.compile_as_content(ctx)?
+                }
+                RexKind::Fat(_) => {
+                    return Err(Box::new(AscesisError::FatLeak))
+                }
+                RexKind::Instance(_) => {
+                    // FIXME
+                    PartialContent::new(ctx)
+                }
+                RexKind::Product(_) | RexKind::Sum(_) => {
+                    if let Some(content) = merged_content[pos].take() {
+                        content
+                    } else {
+                        return Err(Box::new(AscesisError::InvalidAST))
+                    }
+                }
+            };
+
+            if pos > 0 {
+                let parent = parent_pos[pos];
+                // println!("child {} -> parent {}", pos, parent);
+
+                if let Some(parent_content) = merged_content[parent].as_mut() {
+                    match &rex.kinds[parent] {
+                        RexKind::Product(_) => {
+                            // FIXME multiply
+                            parent_content.add_assign(content);
+                        }
+                        RexKind::Sum(_) => {
+                            parent_content.add_assign(content);
+                        }
+                        _ => {
+                            return Err(Box::new(AscesisError::InvalidAST))
+                        }
+                    }
+                } else {
+                    return Err(Box::new(AscesisError::InvalidAST))
+                }
+            } else {
+                return Ok(content)
+            }
+        }
+
+        unreachable!()
+    }
+}
+
 impl From<ThinArrowRule> for Rex {
     fn from(rule: ThinArrowRule) -> Self {
         Rex { kinds: vec![RexKind::Thin(rule)] }
@@ -233,6 +315,38 @@ impl ThinArrowRule {
 
     pub fn get_flattened_effect(&self) -> Polynomial {
         self.effect.flattened_clone()
+    }
+}
+
+impl CompilableAsContent for ThinArrowRule {
+    fn compile_as_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
+        let mut content = PartialContent::new(ctx);
+
+        let cause = self.get_flattened_cause().compile_into_vec(ctx);
+        let effect = self.get_flattened_effect().compile_into_vec(ctx);
+
+        print!("TAR compile C {:?} E {:?} @ {{", cause, effect);
+
+        for node in self.get_nodes() {
+            let id = {
+                let mut ctx = ctx.lock().unwrap();
+                ctx.share_node_name(node)
+            };
+
+            print!(" {:?}:{:?}", node, id);
+
+            if !cause.is_empty() {
+                content.add_to_causes(id, &cause);
+            }
+
+            if !effect.is_empty() {
+                content.add_to_effects(id, &effect);
+            }
+        }
+
+        println!(" }}");
+
+        Ok(content)
     }
 }
 

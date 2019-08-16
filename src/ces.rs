@@ -1,6 +1,6 @@
 use std::{ops::Deref, error::Error};
-use aces::{Content, PartialContent, ContextHandle, NodeID};
-use crate::{VisBlock, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, rex::RexKind, AscesisError};
+use aces::{Content, PartialContent, CompilableAsContent, ContextHandle, NodeID};
+use crate::{VisBlock, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, AscesisError};
 
 #[derive(Default, Debug)]
 pub struct CesFile {
@@ -59,34 +59,9 @@ impl CesFile {
         }
     }
 
-    pub fn compile(&mut self, ctx: ContextHandle) -> Result<(), AscesisError> {
+    pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
         let root = self.get_root()?;
-        let rex = root.rex.fit_clone();
-        let mut content = PartialContent::new();
-
-        for kind in rex.kinds.iter() {
-            match kind {
-                RexKind::Thin(tar) => {
-                    let cause = tar.get_flattened_cause().into_content(ctx.clone());
-                    let effect = tar.get_flattened_effect().into_content(ctx.clone());
-
-                    for node in tar.get_nodes() {
-                        let mut ctx = ctx.lock().unwrap();
-                        let id = ctx.share_node_name(node);
-                        println!("{:?} {:?} C {:?} E {:?}", node, id, cause, effect);
-
-                        if !cause.is_empty() {
-                            content.add_to_causes(id, &cause);
-                        }
-
-                        if !effect.is_empty() {
-                            content.add_to_effects(id, &effect);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        let content = root.rex.compile_as_content(ctx)?;
 
         self.content = Some(content);
 

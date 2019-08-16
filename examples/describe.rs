@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         content.set_root_name("Main")?;
         info!("Root structure: '{}'", content.get_name().unwrap());
 
-        content.compile(ctx.clone())?;
+        content.compile(&ctx)?;
         info!("{:?}", content);
 
         let ces = CES::from_content(ctx.clone(), Box::new(content))?;

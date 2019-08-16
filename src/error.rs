@@ -12,6 +12,8 @@ pub enum AscesisError {
     RootRedefined(String),
     RootBlockMismatch,
     RootBlockMissing,
+    InvalidAST,
+    FatLeak,
 }
 
 impl Error for AscesisError {
@@ -26,6 +28,8 @@ impl Error for AscesisError {
             RootRedefined(_) => "redefined root structure",
             RootBlockMismatch => "root block mismatch",
             RootBlockMissing => "root block missing",
+            InvalidAST => "invalid AST",
+            FatLeak => "fat arrow rule leaked through FIT transformation",
         }
     }
 }
@@ -55,6 +59,8 @@ impl fmt::Display for AscesisError {
             RootRedefined(name) => write!(f, "Redefined root structure '{}'", name),
             RootBlockMismatch => write!(f, "Root block mismatch"),
             RootBlockMissing => write!(f, "Root block missing"),
+            InvalidAST => write!(f, "Invalid AST"),
+            FatLeak => write!(f, "Fat arrow rule leaked through FIT transformation"),
         }
     }
 }

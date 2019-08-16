@@ -68,7 +68,7 @@ impl Polynomial {
         self.monomials.append(&mut other.monomials);
     }
 
-    pub(crate) fn into_content(self, ctx: ContextHandle) -> Vec<Vec<NodeID>> {
+    pub(crate) fn compile_into_vec(self, ctx: &ContextHandle) -> Vec<Vec<NodeID>> {
         let mut ctx = ctx.lock().unwrap();
 
         self.monomials
