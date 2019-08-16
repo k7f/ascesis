@@ -26,7 +26,7 @@ impl<S: AsRef<str>> ToNode for S {
     }
 }
 
-/// An alphabetically ordered and deduplicated list of `Node`s.
+/// An alphabetically ordered and deduplicated list of [`Node`]s.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct NodeList {
     pub(crate) nodes: Vec<Node>,

@@ -4,12 +4,18 @@ use crate::{Node, ToNode, NodeList};
 
 /// An alphabetically ordered and deduplicated list of monomials,
 /// where each monomial is alphabetically ordered and deduplicated
-/// list of `Node`s.
+/// list of [`Node`]s.
+///
+/// The `is_flat` flag indicates whether a `Polynomial` may be
+/// interpreted as a [`NodeList`].  The flag is set if the textual
+/// form the `Polynomial` originated from was syntactically valid as a
+/// node list, or if the `Polynomial` is the result of
+/// [`Polynomial::flattened_clone`].
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Polynomial {
     pub(crate) monomials: BTreeSet<BTreeSet<Node>>,
 
-    // FIXME falsify on leading "+" or parens, even if still a mono
+    // FIXME falsify on leading "+" or parens, even if still a single mono
     pub(crate) is_flat: bool,
 }
 
@@ -29,6 +35,9 @@ impl Polynomial {
         self
     }
 
+    /// Transform this `Polynomial` into a [`NodeList`]-compatible
+    /// form by gathering all [`Node`]s as a single-monomial
+    /// `Polynomial` with the `is_flat` flag set.
     pub(crate) fn flattened_clone(&self) -> Self {
         if self.is_flat {
             self.clone()
@@ -68,7 +77,7 @@ impl Polynomial {
         self.monomials.append(&mut other.monomials);
     }
 
-    pub(crate) fn compile_into_vec(self, ctx: &ContextHandle) -> Vec<Vec<NodeID>> {
+    pub(crate) fn compile_as_vec(&self, ctx: &ContextHandle) -> Vec<Vec<NodeID>> {
         let mut ctx = ctx.lock().unwrap();
 
         self.monomials

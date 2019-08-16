@@ -1,4 +1,5 @@
 use std::{convert::TryInto, error::Error};
+use log::Level::Debug;
 use aces::{ContextHandle, PartialContent, CompilableAsContent};
 use crate::{CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError};
 
@@ -172,9 +173,13 @@ impl CompilableAsContent for Rex {
                 RexKind::Product(ast) | RexKind::Sum(ast) => {
                     merged_content[pos] = Some(PartialContent::new(ctx));
 
-                    // println!("parent {} -> children {:?}", pos, ast.as_slice());
+                    debug!("Rex compile node {} -> {:?}", pos, kind);
                     for &i in ast.as_slice() {
-                        parent_pos[i] = pos;
+                        if i > pos {
+                            parent_pos[i] = pos;
+                        } else {
+                            return Err(Box::new(AscesisError::InvalidAST))
+                        }
                     }
                 }
                 _ => {}
@@ -183,12 +188,8 @@ impl CompilableAsContent for Rex {
 
         for pos in (0..rex.kinds.len()).rev() {
             let content = match &rex.kinds[pos] {
-                RexKind::Thin(tar) => {
-                    tar.compile_as_content(ctx)?
-                }
-                RexKind::Fat(_) => {
-                    return Err(Box::new(AscesisError::FatLeak))
-                }
+                RexKind::Thin(tar) => tar.compile_as_content(ctx)?,
+                RexKind::Fat(_) => return Err(Box::new(AscesisError::FatLeak)),
                 RexKind::Instance(_) => {
                     // FIXME
                     PartialContent::new(ctx)
@@ -204,7 +205,6 @@ impl CompilableAsContent for Rex {
 
             if pos > 0 {
                 let parent = parent_pos[pos];
-                // println!("child {} -> parent {}", pos, parent);
 
                 if let Some(parent_content) = merged_content[parent].as_mut() {
                     match &rex.kinds[parent] {
@@ -215,9 +215,7 @@ impl CompilableAsContent for Rex {
                         RexKind::Sum(_) => {
                             parent_content.add_assign(content);
                         }
-                        _ => {
-                            return Err(Box::new(AscesisError::InvalidAST))
-                        }
+                        _ => return Err(Box::new(AscesisError::InvalidAST)),
                     }
                 } else {
                     return Err(Box::new(AscesisError::InvalidAST))
@@ -308,24 +306,26 @@ impl ThinArrowRule {
     pub fn get_nodes(&self) -> &[Node] {
         &self.nodes.nodes
     }
-
-    pub fn get_flattened_cause(&self) -> Polynomial {
-        self.cause.flattened_clone()
-    }
-
-    pub fn get_flattened_effect(&self) -> Polynomial {
-        self.effect.flattened_clone()
-    }
 }
 
 impl CompilableAsContent for ThinArrowRule {
     fn compile_as_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
         let mut content = PartialContent::new(ctx);
 
-        let cause = self.get_flattened_cause().compile_into_vec(ctx);
-        let effect = self.get_flattened_effect().compile_into_vec(ctx);
+        let cause = self.cause.compile_as_vec(ctx);
+        let effect = self.effect.compile_as_vec(ctx);
 
-        print!("TAR compile C {:?} E {:?} @ {{", cause, effect);
+        let mut debug_mess = if log_enabled!(Debug) {
+            if cause.is_empty() {
+                format!("E{:?} @ {{", effect)
+            } else if effect.is_empty() {
+                format!("C{:?} @ {{", cause)
+            } else {
+                format!("C{:?} E{:?} @ {{", cause, effect)
+            }
+        } else {
+            String::new()
+        };
 
         for node in self.get_nodes() {
             let id = {
@@ -333,7 +333,9 @@ impl CompilableAsContent for ThinArrowRule {
                 ctx.share_node_name(node)
             };
 
-            print!(" {:?}:{:?}", node, id);
+            if log_enabled!(Debug) {
+                debug_mess.push_str(&format!(" {:?}:{:?}", node, id));
+            }
 
             if !cause.is_empty() {
                 content.add_to_causes(id, &cause);
@@ -344,7 +346,7 @@ impl CompilableAsContent for ThinArrowRule {
             }
         }
 
-        println!(" }}");
+        debug!("TAR compile {} }}", debug_mess);
 
         Ok(content)
     }

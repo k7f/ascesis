@@ -137,16 +137,14 @@ pub enum Multiplier {
 
 impl cmp::Ord for Multiplier {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        use Multiplier::*;
-
         match self {
-            Rx(s) => match other {
-                Rx(o) => s.cmp(o),
-                Tx(_) => cmp::Ordering::Less,
+            Self::Rx(s) => match other {
+                Self::Rx(o) => s.cmp(o),
+                Self::Tx(_) => cmp::Ordering::Less,
             },
-            Tx(s) => match other {
-                Rx(_) => cmp::Ordering::Greater,
-                Tx(o) => s.cmp(o),
+            Self::Tx(s) => match other {
+                Self::Rx(_) => cmp::Ordering::Greater,
+                Self::Tx(o) => s.cmp(o),
             },
         }
     }
@@ -267,16 +265,14 @@ pub enum Inhibitor {
 
 impl cmp::Ord for Inhibitor {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        use Inhibitor::*;
-
         match self {
-            Rx(s) => match other {
-                Rx(o) => s.cmp(o),
-                Tx(_) => cmp::Ordering::Less,
+            Self::Rx(s) => match other {
+                Self::Rx(o) => s.cmp(o),
+                Self::Tx(_) => cmp::Ordering::Less,
             },
-            Tx(s) => match other {
-                Rx(_) => cmp::Ordering::Greater,
-                Tx(o) => s.cmp(o),
+            Self::Tx(s) => match other {
+                Self::Rx(_) => cmp::Ordering::Greater,
+                Self::Tx(o) => s.cmp(o),
             },
         }
     }
