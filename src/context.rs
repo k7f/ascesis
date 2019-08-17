@@ -20,6 +20,36 @@ impl VisBlock {
         }
         self
     }
+
+    pub fn get<S: AsRef<str>>(&self, key: S) -> Option<&VisValue> {
+        let key = key.as_ref();
+
+        self.fields.get(key)
+    }
+
+    pub fn get_size<S: AsRef<str>>(&self, key: S) -> Option<u64> {
+        let key = key.as_ref();
+
+        self.fields.get(key).and_then(|value| {
+            if let VisValue::Lit(Literal::Size(size)) = value {
+                Some(*size)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_name<S: AsRef<str>>(&self, key: S) -> Option<&str> {
+        let key = key.as_ref();
+
+        self.fields.get(key).and_then(|value| {
+            if let VisValue::Lit(Literal::Name(name)) = value {
+                Some(name.as_str())
+            } else {
+                None
+            }
+        })
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

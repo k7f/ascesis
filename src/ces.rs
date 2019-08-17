@@ -43,7 +43,8 @@ impl CesFile {
         }
     }
 
-    fn get_root(&self) -> Result<&ImmediateDef, AscesisError> {
+    #[allow(dead_code)]
+    fn get_root_verified(&self) -> Result<&ImmediateDef, AscesisError> {
         if let Some(ndx) = self.root {
             if let Some(block) = self.blocks.get(ndx) {
                 if let CesFileBlock::Imm(ref root) = block {
@@ -59,13 +60,62 @@ impl CesFile {
         }
     }
 
+    fn get_root(&self) -> Result<&ImmediateDef, AscesisError> {
+        if let Some(ndx) = self.root {
+            if let CesFileBlock::Imm(ref root) = self.blocks[ndx] {
+                Ok(root)
+            } else {
+                unreachable!()
+            }
+        } else {
+            Err(AscesisError::RootUnset)
+        }
+    }
+
+    fn get_root_mut(&mut self) -> Result<&mut ImmediateDef, AscesisError> {
+        if let Some(ndx) = self.root {
+            if let CesFileBlock::Imm(ref mut root) = self.blocks[ndx] {
+                Ok(root)
+            } else {
+                unreachable!()
+            }
+        } else {
+            Err(AscesisError::RootUnset)
+        }
+    }
+
+    pub fn get_vis_size<S: AsRef<str>>(&self, key: S) -> Option<u64> {
+        let key = key.as_ref();
+
+        for block in self.blocks.iter().rev() {
+            if let CesFileBlock::Vis(vis) = block {
+                let result = vis.get_size(key);
+                if result.is_some() {
+                    return result
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_vis_name<S: AsRef<str>>(&self, key: S) -> Option<&str> {
+        let key = key.as_ref();
+
+        for block in self.blocks.iter().rev() {
+            if let CesFileBlock::Vis(vis) = block {
+                let result = vis.get_name(key);
+                if result.is_some() {
+                    return result
+                }
+            }
+        }
+        None
+    }
+
     pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
-        let root = self.get_root()?;
-        let content = root.rex.compile_as_content(ctx)?;
+        let root = self.get_root_mut()?;
 
-        self.content = Some(content);
-
-        Ok(())
+        root.compile(ctx)
     }
 }
 
@@ -81,30 +131,40 @@ impl Content for CesFile {
     }
 
     fn get_name(&self) -> Option<&str> {
-        let root = self.get_root().unwrap();
-
-        Some(root.name.as_str())
+        self.get_root().ok().map(|root| root.name.as_str())
     }
 
     fn get_carrier_ids(&mut self) -> Vec<NodeID> {
-        if let Some(ref mut content) = self.content {
-            content.get_carrier_ids()
+        if let Ok(root) = self.get_root_mut() {
+            if let Some(ref mut content) = root.content {
+                content.get_carrier_ids()
+            } else {
+                panic!()
+            }
         } else {
             panic!()
         }
     }
 
     fn get_causes_by_id(&self, id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
-        if let Some(ref content) = self.content {
-            content.get_causes_by_id(id)
+        if let Ok(root) = self.get_root() {
+            if let Some(ref content) = root.content {
+                content.get_causes_by_id(id)
+            } else {
+                panic!()
+            }
         } else {
             panic!()
         }
     }
 
     fn get_effects_by_id(&self, id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
-        if let Some(ref content) = self.content {
-            content.get_effects_by_id(id)
+        if let Ok(root) = self.get_root() {
+            if let Some(ref content) = root.content {
+                content.get_effects_by_id(id)
+            } else {
+                panic!()
+            }
         } else {
             panic!()
         }
@@ -179,13 +239,22 @@ impl<S: AsRef<str>> ToCesName for S {
 
 #[derive(Clone, Debug)]
 pub struct ImmediateDef {
-    name: CesName,
-    rex:  Rex,
+    name:    CesName,
+    rex:     Rex,
+    content: Option<PartialContent>,
 }
 
 impl ImmediateDef {
     pub fn new(name: CesName, rex: Rex) -> Self {
-        ImmediateDef { name, rex }
+        ImmediateDef { name, rex, content: None }
+    }
+
+    pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        let content = self.rex.compile_as_content(ctx)?;
+
+        self.content = Some(content);
+
+        Ok(())
     }
 }
 

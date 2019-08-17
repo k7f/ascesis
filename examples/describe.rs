@@ -27,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 message
             )),
         })
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Info)
         .chain(std::io::stdout());
 
     let root_logger = fern::Dispatch::new().chain(console_logger);
@@ -46,15 +46,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut script = String::new();
         fp.read_to_string(&mut script)?;
 
-        let mut content = CesFile::from_script(script)?;
-        content.set_root_name("Main")?;
-        info!("Root structure: '{}'", content.get_name().unwrap());
+        let mut ces_file = CesFile::from_script(script)?;
+        ces_file.set_root_name("Main")?;
+        if let Some(title) = ces_file.get_vis_name("title") {
+            info!("Using '{}' as the root structure: \"{}\"", ces_file.get_name().unwrap(), title);
+        } else {
+            info!("Using '{}' as the root structure", ces_file.get_name().unwrap());
+        }
 
-        content.compile(&ctx)?;
-        info!("{:?}", content);
+        ces_file.compile(&ctx)?;
+        debug!("{:?}", ces_file);
 
-        let ces = CES::from_content(ctx.clone(), Box::new(content))?;
-        info!("{:?}", ces);
+        let ces = CES::from_content(ctx.clone(), Box::new(ces_file))?;
+        debug!("{:?}", ces);
 
         if !ces.is_coherent() {
             return Err(Box::new(AcesError::CESIsIncoherent(
@@ -64,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let formula = ces.get_formula();
 
             debug!("Raw {:?}", formula);
-            info!("Formula: {}", formula);
+            debug!("Formula: {}", formula);
 
             let mut solver = sat::Solver::new(ctx.clone());
             solver.add_formula(&formula);

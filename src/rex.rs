@@ -209,11 +209,10 @@ impl CompilableAsContent for Rex {
                 if let Some(parent_content) = merged_content[parent].as_mut() {
                     match &rex.kinds[parent] {
                         RexKind::Product(_) => {
-                            // FIXME multiply
-                            parent_content.add_assign(content);
+                            *parent_content *= content;
                         }
                         RexKind::Sum(_) => {
-                            parent_content.add_assign(content);
+                            *parent_content += content;
                         }
                         _ => return Err(Box::new(AscesisError::InvalidAST)),
                     }
