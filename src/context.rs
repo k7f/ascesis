@@ -50,6 +50,52 @@ impl VisBlock {
             }
         })
     }
+
+    pub fn get_nested_size<I, S>(&self, subblock_keys: I, value_key: S) -> Option<u64>
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+        S: AsRef<str>,
+    {
+        let mut block_keys = subblock_keys.into_iter();
+
+        if let Some(block_key) = block_keys.next() {
+            let block_key = block_key.as_ref();
+
+            self.fields.get(block_key).and_then(|value| {
+                if let VisValue::Block(block) = value {
+                    block.get_nested_size(block_keys, value_key)
+                } else {
+                    None
+                }
+            })
+        } else {
+            self.get_size(value_key)
+        }
+    }
+
+    pub fn get_nested_name<I, S>(&self, subblock_keys: I, value_key: S) -> Option<&str>
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+        S: AsRef<str>,
+    {
+        let mut block_keys = subblock_keys.into_iter();
+
+        if let Some(block_key) = block_keys.next() {
+            let block_key = block_key.as_ref();
+
+            self.fields.get(block_key).and_then(|value| {
+                if let VisValue::Block(block) = value {
+                    block.get_nested_name(block_keys, value_key)
+                } else {
+                    None
+                }
+            })
+        } else {
+            self.get_name(value_key)
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

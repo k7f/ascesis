@@ -112,6 +112,44 @@ impl CesFile {
         None
     }
 
+    pub fn get_nested_vis_size<I, S>(&self, subblock_keys: I, value_key: S) -> Option<u64>
+    where
+        I: IntoIterator + Clone,
+        I::Item: AsRef<str>,
+        S: AsRef<str>,
+    {
+        let value_key = value_key.as_ref();
+
+        for block in self.blocks.iter().rev() {
+            if let CesFileBlock::Vis(vis) = block {
+                let result = vis.get_nested_size(subblock_keys.clone(), value_key);
+                if result.is_some() {
+                    return result
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_nested_vis_name<I, S>(&self, subblock_keys: I, value_key: S) -> Option<&str>
+    where
+        I: IntoIterator + Clone,
+        I::Item: AsRef<str>,
+        S: AsRef<str>,
+    {
+        let value_key = value_key.as_ref();
+
+        for block in self.blocks.iter().rev() {
+            if let CesFileBlock::Vis(vis) = block {
+                let result = vis.get_nested_name(subblock_keys.clone(), value_key);
+                if result.is_some() {
+                    return result
+                }
+            }
+        }
+        None
+    }
+
     pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
         let root = self.get_root_mut()?;
 
