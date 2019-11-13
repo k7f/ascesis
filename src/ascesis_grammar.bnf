@@ -2,7 +2,7 @@
             | <CesFileBlock> <CesFile> ;
 
 <CesFileBlock> ::= <ImmediateDef>
-                 | <VisBlock>
+                 | <PropBlock>
                  | <CapBlock>
                  | <MulBlock>
                  | <InhBlock> ;
@@ -28,19 +28,22 @@
 
 ;; Presentation context
 
-<VisBlock> ::= "vis" "{" <VisList> "}" ;
+<PropSelector> ::= "vis" | "sat" ;
 
-<VisList> ::= <PlainVisList>
-            | <PlainVisList> "," ;
+<PropBlock> ::= <PropSelector> "{" <PropList> "}" ;
 
-<PlainVisList> ::= <VisField>
-                 | <VisField> "," <PlainVisList> ;
+<PropList> ::= <PlainPropList>
+             | <PlainPropList> "," ;
 
-<VisField> ::= <Identifier> ":" <VisValue> ;
+<PlainPropList> ::= <PropField>
+                  | <PropField> "," <PlainPropList> ;
 
-<VisValue> ::= <Size>
-             | <Name>
-             | "{" <VisList> "}" ;
+<PropField> ::= <Identifier> ":" <PropValue> ;
+
+<PropValue> ::= <Size>
+              | <Name>
+              | <Identifier>
+              | "{" <PropList> "}" ;
 
 ;; Capacities
 

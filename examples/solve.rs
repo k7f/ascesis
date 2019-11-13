@@ -3,7 +3,7 @@ extern crate log;
 
 use std::{io::Read, fs::File, error::Error};
 use fern::colors::{Color, ColoredLevelConfig};
-use aces::{Context, Content, ContentOrigin, CES, sat, AcesError};
+use aces::{Context, Content, ContentOrigin, CEStructure};
 use ascesis::CesFile;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -33,15 +33,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let root_logger = fern::Dispatch::new().chain(console_logger);
     root_logger.apply().unwrap_or_else(|err| eprintln!("[ERROR] {}.", err));
 
-    let args = clap::App::new("Describe")
+    let args = clap::App::new("solve")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Ascesis description demo")
+        .about("Ascesis solving demo")
         .args_from_usage("[ROOT_PATH] 'path to a script'")
         .get_matches();
 
     if let Some(root_path) = args.value_of("ROOT_PATH") {
-        let ctx = Context::new_toplevel("describe", ContentOrigin::ces_script(&root_path));
+        let ctx = Context::new_toplevel("solve", ContentOrigin::ces_script(&root_path));
         let mut fp = File::open(root_path)?;
         let mut script = String::new();
         fp.read_to_string(&mut script)?;
@@ -57,41 +57,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         ces_file.compile(&ctx)?;
         debug!("{:?}", ces_file);
 
-        let ces = CES::from_content(ctx.clone(), Box::new(ces_file))?;
+        let mut ces = CEStructure::new(&ctx).with_content(Box::new(ces_file))?;
         debug!("{:?}", ces);
 
-        if !ces.is_coherent() {
-            return Err(Box::new(AcesError::CESIsIncoherent(
-                ces.get_name().unwrap_or("anonymous").to_owned(),
-            )))
-        } else {
-            let formula = ces.get_formula();
+        ces.solve()?;
 
-            debug!("Raw {:?}", formula);
-            debug!("Formula: {}", formula);
+        if let Some(fset) = ces.get_firing_set() {
+            println!("Firing components:");
 
-            let mut solver = sat::Solver::new(ctx.clone());
-            solver.add_formula(&formula);
-            solver.inhibit_empty_solution();
+            let ctx = ctx.lock().unwrap();
 
-            if let Some(first_solution) = solver.next() {
-                debug!("1. Raw {:?}", first_solution);
-                println!("1. Solution: {}", first_solution);
-
-                for (count, solution) in solver.enumerate() {
-                    debug!("{}. Raw {:?}", count + 2, solution);
-                    println!("{}. Solution: {}", count + 2, solution);
-                }
-            } else if solver.is_sat().is_some() {
-                println!("\nStructural deadlock (found no solutions).");
-            } else if solver.was_interrupted() {
-                warn!("Solving was interrupted");
-            } else if let Some(Err(err)) = solver.take_last_result() {
-                error!("Solving failed: {}", err);
-            } else {
-                unreachable!()
+            for (i, fc) in fset.as_slice().iter().enumerate() {
+                println!("{}. {}", i + 1, ctx.with(fc));
             }
         }
+    } else {
+        println!("{}", args.usage());
     }
 
     Ok(())

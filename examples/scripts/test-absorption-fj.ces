@@ -2,6 +2,10 @@ vis {
     title: "Absorption test"
 }
 
+sat {
+    encoding: fork-join,
+}
+
 ces Main {
     a => x + x y
 }

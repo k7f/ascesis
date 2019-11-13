@@ -1,12 +1,12 @@
 use std::{fmt, str::FromStr};
 use regex::Regex;
 use crate::ascesis_parser::{
-    CesFileParser, CesFileBlockParser, ImmediateDefParser, CesInstanceParser, VisBlockParser,
+    CesFileParser, CesFileBlockParser, ImmediateDefParser, CesInstanceParser, PropBlockParser,
     CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser,
     FatArrowRuleParser, PolynomialParser,
 };
 use crate::{
-    CesFile, CesFileBlock, ImmediateDef, CesInstance, VisBlock, CapacityBlock, MultiplierBlock,
+    CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplierBlock,
     InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, ParsingError,
     ParsingResult,
 };
@@ -19,7 +19,7 @@ impl Axiom {
         let symbol = symbol.as_ref();
 
         match symbol {
-            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "VisBlock" | "CapBlock"
+            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "PropBlock" | "CapBlock"
             | "MulBlock" | "InhBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => {
                 Some(Axiom(symbol.to_owned()))
             }
@@ -31,6 +31,7 @@ impl Axiom {
         lazy_static! {
             static ref IMM_RE: Regex = Regex::new(r"^ces\s+[[:alpha:]][[:word:]]*\s*\{").unwrap();
             static ref VIS_RE: Regex = Regex::new(r"^vis\s*\{").unwrap();
+            static ref SAT_RE: Regex = Regex::new(r"^sat\s*\{").unwrap();
             static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
             static ref MUL_RE: Regex = Regex::new(r"^mul\s*\{").unwrap();
             static ref INH_RE: Regex = Regex::new(r"^inh\s*\{").unwrap();
@@ -46,8 +47,8 @@ impl Axiom {
 
         if IMM_RE.is_match(phrase) {
             Axiom("ImmediateDef".to_owned())
-        } else if VIS_RE.is_match(phrase) {
-            Axiom("VisBlock".to_owned())
+        } else if VIS_RE.is_match(phrase) || SAT_RE.is_match(phrase) {
+            Axiom("PropBlock".to_owned())
         } else if CAP_RE.is_match(phrase) {
             Axiom("CapBlock".to_owned())
         } else if MUL_RE.is_match(phrase) {
@@ -87,7 +88,7 @@ impl Axiom {
             "CesFileBlock" => from_phrase_as!(CesFileBlock, phrase),
             "ImmediateDef" => from_phrase_as!(ImmediateDef, phrase),
             "CesInstance" => from_phrase_as!(CesInstance, phrase),
-            "VisBlock" => from_phrase_as!(VisBlock, phrase),
+            "PropBlock" => from_phrase_as!(PropBlock, phrase),
             "CapBlock" => from_phrase_as!(CapacityBlock, phrase),
             "MulBlock" => from_phrase_as!(MultiplierBlock, phrase),
             "InhBlock" => from_phrase_as!(InhibitorBlock, phrase),
@@ -128,7 +129,7 @@ impl_from_phrase_for!(CesFile, CesFileParser);
 impl_from_phrase_for!(CesFileBlock, CesFileBlockParser);
 impl_from_phrase_for!(ImmediateDef, ImmediateDefParser);
 impl_from_phrase_for!(CesInstance, CesInstanceParser);
-impl_from_phrase_for!(VisBlock, VisBlockParser);
+impl_from_phrase_for!(PropBlock, PropBlockParser);
 impl_from_phrase_for!(CapacityBlock, CapBlockParser);
 impl_from_phrase_for!(MultiplierBlock, MulBlockParser);
 impl_from_phrase_for!(InhibitorBlock, InhBlockParser);
@@ -153,7 +154,7 @@ impl_from_str_for!(CesFile);
 impl_from_str_for!(CesFileBlock);
 impl_from_str_for!(ImmediateDef);
 impl_from_str_for!(CesInstance);
-impl_from_str_for!(VisBlock);
+impl_from_str_for!(PropBlock);
 impl_from_str_for!(CapacityBlock);
 impl_from_str_for!(MultiplierBlock);
 impl_from_str_for!(InhibitorBlock);

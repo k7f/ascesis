@@ -1,17 +1,42 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
 use crate::{Polynomial, Node, NodeList, Literal};
 
-#[derive(Clone, PartialEq, Eq, Default, Debug)]
-pub struct VisBlock {
-    fields: BTreeMap<String, VisValue>,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PropSelector {
+    Vis,
+    SAT,
 }
 
-impl VisBlock {
-    pub fn new(key: String, value: VisValue) -> Self {
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
+pub struct PropBlock {
+    selector: Option<PropSelector>,
+    fields:   BTreeMap<String, PropValue>,
+}
+
+impl PropBlock {
+    pub fn new(key: String, value: PropValue) -> Self {
+        let selector = Default::default();
         let mut fields = BTreeMap::new();
         fields.insert(key, value);
 
-        VisBlock { fields }
+        PropBlock { selector, fields }
+    }
+
+    pub fn with_selector(mut self, selector: String) -> Self {
+        match selector.as_str() {
+            "vis" => self.selector = Some(PropSelector::Vis),
+            "sat" => self.selector = Some(PropSelector::SAT),
+            _ => {
+                panic!() // FIXME
+            }
+        }
+
+        self
+    }
+
+    #[inline]
+    pub fn get_selector(&self) -> Option<PropSelector> {
+        self.selector
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
@@ -21,7 +46,7 @@ impl VisBlock {
         self
     }
 
-    pub fn get<S: AsRef<str>>(&self, key: S) -> Option<&VisValue> {
+    pub fn get<S: AsRef<str>>(&self, key: S) -> Option<&PropValue> {
         let key = key.as_ref();
 
         self.fields.get(key)
@@ -31,7 +56,7 @@ impl VisBlock {
         let key = key.as_ref();
 
         self.fields.get(key).and_then(|value| {
-            if let VisValue::Lit(Literal::Size(size)) = value {
+            if let PropValue::Lit(Literal::Size(size)) = value {
                 Some(*size)
             } else {
                 None
@@ -43,8 +68,20 @@ impl VisBlock {
         let key = key.as_ref();
 
         self.fields.get(key).and_then(|value| {
-            if let VisValue::Lit(Literal::Name(name)) = value {
+            if let PropValue::Lit(Literal::Name(name)) = value {
                 Some(name.as_str())
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_identifier<S: AsRef<str>>(&self, key: S) -> Option<&str> {
+        let key = key.as_ref();
+
+        self.fields.get(key).and_then(|value| {
+            if let PropValue::Identifier(identifier) = value {
+                Some(identifier.as_str())
             } else {
                 None
             }
@@ -63,7 +100,7 @@ impl VisBlock {
             let block_key = block_key.as_ref();
 
             self.fields.get(block_key).and_then(|value| {
-                if let VisValue::Block(block) = value {
+                if let PropValue::Block(block) = value {
                     block.get_nested_size(block_keys, value_key)
                 } else {
                     None
@@ -86,7 +123,7 @@ impl VisBlock {
             let block_key = block_key.as_ref();
 
             self.fields.get(block_key).and_then(|value| {
-                if let VisValue::Block(block) = value {
+                if let PropValue::Block(block) = value {
                     block.get_nested_name(block_keys, value_key)
                 } else {
                     None
@@ -96,23 +133,53 @@ impl VisBlock {
             self.get_name(value_key)
         }
     }
-}
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum VisValue {
-    Lit(Literal),
-    Block(VisBlock),
-}
+    pub fn get_nested_identifier<I, S>(&self, subblock_keys: I, value_key: S) -> Option<&str>
+    where
+        I: IntoIterator,
+        I::Item: AsRef<str>,
+        S: AsRef<str>,
+    {
+        let mut block_keys = subblock_keys.into_iter();
 
-impl From<Literal> for VisValue {
-    fn from(lit: Literal) -> Self {
-        VisValue::Lit(lit)
+        if let Some(block_key) = block_keys.next() {
+            let block_key = block_key.as_ref();
+
+            self.fields.get(block_key).and_then(|value| {
+                if let PropValue::Block(block) = value {
+                    block.get_nested_identifier(block_keys, value_key)
+                } else {
+                    None
+                }
+            })
+        } else {
+            self.get_identifier(value_key)
+        }
     }
 }
 
-impl From<VisBlock> for VisValue {
-    fn from(block: VisBlock) -> Self {
-        VisValue::Block(block)
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum PropValue {
+    Lit(Literal),
+    Identifier(String),
+    Block(PropBlock),
+}
+
+impl From<Literal> for PropValue {
+    fn from(lit: Literal) -> Self {
+        PropValue::Lit(lit)
+    }
+}
+
+impl From<String> for PropValue {
+    fn from(identifier: String) -> Self {
+        PropValue::Identifier(identifier)
+    }
+}
+
+impl From<PropBlock> for PropValue {
+    fn from(block: PropBlock) -> Self {
+        PropValue::Block(block)
     }
 }
 

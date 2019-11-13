@@ -1,6 +1,8 @@
 use std::{ops::Deref, error::Error};
-use aces::{Content, PartialContent, CompilableAsContent, ContextHandle, NodeID};
-use crate::{VisBlock, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, AscesisError};
+use aces::{Content, PartialContent, CompilableAsContent, ContextHandle, NodeID, sat};
+use crate::{
+    PropBlock, PropSelector, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, AscesisError,
+};
 
 #[derive(Default, Debug)]
 pub struct CesFile {
@@ -88,8 +90,8 @@ impl CesFile {
         let key = key.as_ref();
 
         for block in self.blocks.iter().rev() {
-            if let CesFileBlock::Vis(vis) = block {
-                let result = vis.get_size(key);
+            if let CesFileBlock::Vis(blk) = block {
+                let result = blk.get_size(key);
                 if result.is_some() {
                     return result
                 }
@@ -102,8 +104,8 @@ impl CesFile {
         let key = key.as_ref();
 
         for block in self.blocks.iter().rev() {
-            if let CesFileBlock::Vis(vis) = block {
-                let result = vis.get_name(key);
+            if let CesFileBlock::Vis(blk) = block {
+                let result = blk.get_name(key);
                 if result.is_some() {
                     return result
                 }
@@ -121,8 +123,8 @@ impl CesFile {
         let value_key = value_key.as_ref();
 
         for block in self.blocks.iter().rev() {
-            if let CesFileBlock::Vis(vis) = block {
-                let result = vis.get_nested_size(subblock_keys.clone(), value_key);
+            if let CesFileBlock::Vis(blk) = block {
+                let result = blk.get_nested_size(subblock_keys.clone(), value_key);
                 if result.is_some() {
                     return result
                 }
@@ -140,8 +142,8 @@ impl CesFile {
         let value_key = value_key.as_ref();
 
         for block in self.blocks.iter().rev() {
-            if let CesFileBlock::Vis(vis) = block {
-                let result = vis.get_nested_name(subblock_keys.clone(), value_key);
+            if let CesFileBlock::Vis(blk) = block {
+                let result = blk.get_nested_name(subblock_keys.clone(), value_key);
                 if result.is_some() {
                     return result
                 }
@@ -150,7 +152,57 @@ impl CesFile {
         None
     }
 
+    pub fn get_sat_encoding(&self) -> Option<sat::Encoding> {
+        for block in self.blocks.iter().rev() {
+            if let CesFileBlock::SAT(blk) = block {
+                if let Some(encoding) =
+                    blk.get_name("encoding").or_else(|| blk.get_identifier("encoding"))
+                {
+                    match encoding {
+                        "port-link" => return Some(sat::Encoding::PortLink),
+                        "fork-join" => return Some(sat::Encoding::ForkJoin),
+                        _ => {
+                            error!("Invalid SAT encoding '{}'", encoding);
+                            return None
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn get_sat_search(&self) -> Option<sat::Search> {
+        for block in self.blocks.iter().rev() {
+            if let CesFileBlock::SAT(blk) = block {
+                if let Some(search) =
+                    blk.get_name("search").or_else(|| blk.get_identifier("search"))
+                {
+                    match search {
+                        "min" => return Some(sat::Search::MinSolutions),
+                        "all" => return Some(sat::Search::AllSolutions),
+                        _ => {
+                            error!("Invalid SAT search '{}'", search);
+                            return None
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        if let Some(encoding) = self.get_sat_encoding() {
+            info!("Using encoding '{:?}'", encoding);
+            ctx.lock().unwrap().set_encoding(encoding);
+        }
+
+        if let Some(search) = self.get_sat_search() {
+            info!("Using '{:?}' search", search);
+            ctx.lock().unwrap().set_search(search);
+        }
+
         let root = self.get_root_mut()?;
 
         root.compile(ctx)
@@ -212,7 +264,8 @@ impl Content for CesFile {
 #[derive(Debug)]
 pub enum CesFileBlock {
     Imm(ImmediateDef),
-    Vis(VisBlock),
+    Vis(PropBlock),
+    SAT(PropBlock),
     Cap(CapacityBlock),
     Mul(MultiplierBlock),
     Inh(InhibitorBlock),
@@ -224,9 +277,16 @@ impl From<ImmediateDef> for CesFileBlock {
     }
 }
 
-impl From<VisBlock> for CesFileBlock {
-    fn from(vis: VisBlock) -> Self {
-        CesFileBlock::Vis(vis)
+impl From<PropBlock> for CesFileBlock {
+    fn from(props: PropBlock) -> Self {
+        if let Some(selector) = props.get_selector() {
+            match selector {
+                PropSelector::Vis => CesFileBlock::Vis(props),
+                PropSelector::SAT => CesFileBlock::SAT(props),
+            }
+        } else {
+            panic!() // FIXME
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
-    VisBlock, VisValue, CapacityBlock, MultiplierBlock, InhibitorBlock,
+    PropBlock, PropValue, CapacityBlock, MultiplierBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
 };
 
@@ -12,7 +12,7 @@ pub CesFile: CesFile = <CesFileBlock*> => <>.into();
 
 pub CesFileBlock: CesFileBlock = {
     <ImmediateDef> => <>.into(),
-    <VisBlock> => <>.into(),
+    <PropBlock> => <>.into(),
     <CapBlock> => <>.into(),
     <MulBlock> => <>.into(),
     <InhBlock> => <>.into(),
@@ -66,30 +66,40 @@ ArgValue: String = <Identifier>;
 
 // Context
 
-// context_block = vis_block | cap_block | mul_block | inh_block ;
+// context_block = prop_block | cap_block | mul_block | inh_block ;
 
-// vis_block = "vis" "{" vis_list "}" ;
-pub VisBlock: VisBlock = "vis" "{" <VisList> "}";
+// prop_selector = "vis" | "sat" ;
+PropSelector: String = {
+    "vis" => <>.into(),
+    "sat" => <>.into(),
+};
 
-// vis_list = vis_field { "," vis_field } [ "," ] ;
-VisList: VisBlock =
-    <head: VisField> <tail: CommaThenVisField*> ","? =>
+// prop_block = prop_selector "{" prop_list "}" ;
+pub PropBlock: PropBlock =
+    <sel: PropSelector> "{" <blk: PropList> "}" =>
+        blk.with_selector(sel);
+
+// prop_list = prop_field { "," prop_field } [ "," ] ;
+PropList: PropBlock =
+    <head: PropField> <tail: CommaThenPropField*> ","? =>
         head.with_more(tail);
 
-CommaThenVisField: VisBlock = "," <VisField>;
+CommaThenPropField: PropBlock = "," <PropField>;
 
-// vis_field = identifier ":" vis_value ;
-VisField: VisBlock =
-    <key: Identifier> ":" <value: VisValue> =>
-        VisBlock::new(key, value);
+// prop_field = identifier ":" prop_value ;
+PropField: PropBlock =
+    <key: Identifier> ":" <value: PropValue> =>
+        PropBlock::new(key, value);
 
-// vis_value = size
-//           | string
-//           | "{" vis_list "}" ;
-VisValue: VisValue = {
+// prop_value = size
+//            | string
+//            | identifier
+//            | "{" prop_list "}" ;
+PropValue: PropValue = {
     <Size> => <>.into(),
     <Name> => <>.into(),
-    "{" <VisList> "}" => <>.into(),
+    <Identifier> => <>.into(),
+    "{" <PropList> "}" => <>.into(),
 };
 
 // cap_block = "cap" "{" cap_list "}" ;
@@ -220,7 +230,7 @@ FatOp: BinOp = { "=>" => BinOp::FatTx, "<=" => BinOp::FatRx };
 
 // Identifiers
 
-Identifier: String = r"[A-Za-z_][A-Za-z0-9_]*" => <>.to_owned();
+Identifier: String = r"[A-Za-z_][A-Za-z0-9_-]*" => <>.to_owned();
 
 // Literals
 

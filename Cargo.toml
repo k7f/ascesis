@@ -18,13 +18,14 @@ build = "build.rs"
 log = "0.4"
 fern = { version = "0.5", features = ["colored"] }
 clap = "2.33"
-regex = "1.2"
-lazy_static = "1.3"
+regex = "1.3"
+lazy_static = "1.4"
 rand = "0.7"
 enquote = "1.0"
 lalrpop-util = "0.17"
 # aces = { path = "../aces" }
-aces = { git = "https://github.com/k7f/aces", rev = "d86bb05" }
+# aces = { git = "https://github.com/k7f/aces", rev = "d86bb05" }
+aces = "0.0.8"
 
 [build-dependencies]
 

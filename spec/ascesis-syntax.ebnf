@@ -33,15 +33,17 @@ arg_value = identifier | size | name ;
 
 ## Context
 
-context_block = vis_block | cap_block | mul_block | inh_block ;
+context_block = prop_block | cap_block | mul_block | inh_block ;
 
-vis_block = "vis" "{" vis_list "}" ;
-vis_list = vis_field { "," vis_field } [ "," ] ;
-vis_field = identifier ":" vis_value ;
+prop_selector = "vis" | "sat" ;
+prop_block = prop_selector "{" prop_list "}" ;
+prop_list = prop_field { "," prop_field } [ "," ] ;
+prop_field = identifier ":" prop_value ;
 
-vis_value = size
-          | name
-          | "{" vis_list "}" ;
+prop_value = size
+           | name
+           | identifier
+           | "{" prop_list "}" ;
 
 cap_block = "cap" "{" cap_list "}" ;
 cap_list = cap_field { "," cap_field } [ "," ] ;
