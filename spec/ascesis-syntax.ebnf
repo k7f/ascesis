@@ -92,7 +92,7 @@ bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 node_list = identifier { identifier } ;
 
 # multi-polynomial rule with implicit node lists
-fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
+fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;
 
 ## Polynomial
 

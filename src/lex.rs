@@ -48,6 +48,7 @@ pub enum BinOp {
     ThinRx,
     FatTx,
     FatRx,
+    FatDx,
 }
 
 impl fmt::Display for BinOp {
@@ -58,6 +59,7 @@ impl fmt::Display for BinOp {
             BinOp::ThinRx => "<-".fmt(f),
             BinOp::FatTx => "=>".fmt(f),
             BinOp::FatRx => "<=".fmt(f),
+            BinOp::FatDx => "<=>".fmt(f),
         }
     }
 }

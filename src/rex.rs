@@ -400,6 +400,10 @@ impl FatArrowRule {
                 BinOp::FatRx => {
                     far.parts.push(FatArrow { cause: poly.clone(), effect: prev });
                 }
+                BinOp::FatDx => {
+                    far.parts.push(FatArrow { cause: prev.clone(), effect: poly.clone() });
+                    far.parts.push(FatArrow { cause: poly.clone(), effect: prev });
+                }
                 _ => panic!("Operator not allowed in a fat arrow rule: '{}'.", op),
             }
             prev = poly;

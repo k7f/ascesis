@@ -99,16 +99,18 @@ and right polynomials exchanged.  See above.
 ## _Fat arrow_ rules
 
 ```ebnf
-fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
+fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;
 ```
 
 A fat arrow rule is transformed into a sum ('+'-separated sequence) of
 thin arrow rules.  This procedure takes several steps.  A fat arrow
 rule with more than two polynomials is first transformed into a sum of
-two-polynomial fat arrow rules, for example `b <= a => c` becomes `{ a
-=> b } + { a => c }`.  Then each two-polynomial fat arrow rule is
-replaced with a sum of two thin arrow rules, one effect-only, another
-cause-only.  Next,
+two-polynomial fat arrow rules, for example `b <= a <=> c` becomes `{
+a => b } + { a <=> c }`.  Then each two-way two-polynomial fat arrow
+rule is transformed into a sum of two one-way fat arrow rules, for
+example `a <=> c` becomes `{ a => c } + { c => a }`. Then each one-way
+two-polynomial fat arrow rule is replaced with a sum of two thin arrow
+rules, one effect-only, another cause-only.  Next,
 
   - the resulting rule expression is simplified by integrating
     effect-only rules having a common node list and doing the same
@@ -129,10 +131,10 @@ For example, `a b c => d e f` is transformed to
 { a b c -> d e f } + { d e f <- a b c }
 ```
 
-`b <= a => c` is transformed to
+`b <= a <=> c` is transformed to
 
 ```rust
-{ a -> b + c } + { b <- a } + { c <- a }
+{ a <- c } + { a -> b + c } + { b c <- a } + { c -> a }
 ```
 
 etc.  A fat arrow rule always unfolds to a proper (coherent) c-e

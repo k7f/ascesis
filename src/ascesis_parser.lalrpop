@@ -200,7 +200,7 @@ pub ThinArrowRule: ThinArrowRule = {
     },
 };
 
-// fat_arrow_rule = polynomial ( "=>" | "<=" ) polynomial { ( "=>" | "<=" ) polynomial } ;
+// fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;
 pub FatArrowRule: FatArrowRule =
     <head: Polynomial> <tail: (<FatOp> <Polynomial>)+> =>
         FatArrowRule::from_parts(head, tail);
@@ -226,7 +226,7 @@ NodeList: Polynomial = <Polynomial>;
 
 AddOp: BinOp = "+" => BinOp::Add;
 ThinOp: BinOp = { "->" => BinOp::ThinTx, "<-" => BinOp::ThinRx };
-FatOp: BinOp = { "=>" => BinOp::FatTx, "<=" => BinOp::FatRx };
+FatOp: BinOp = { "=>" => BinOp::FatTx, "<=" => BinOp::FatRx, "<=>" => BinOp::FatDx };
 
 // Identifiers
 

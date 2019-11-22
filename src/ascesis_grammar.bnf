@@ -126,7 +126,7 @@
 <FatArrowRuleTail> ::= <Polynomial>
                      | <Polynomial> <FatArrow> <FatArrowRuleTail> ;
 
-<FatArrow> ::= "=>" | "<=" ;
+<FatArrow> ::= "=>" | "<=" | "<=>" ;
 
 ;; Polynomial
 
