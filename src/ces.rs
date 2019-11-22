@@ -1,14 +1,18 @@
-use std::{ops::Deref, error::Error};
-use aces::{Content, PartialContent, CompilableAsContent, ContextHandle, NodeID, sat};
+use std::{ops::Deref, fmt, error::Error};
+use log::Level::Debug;
+use aces::{
+    Content, PartialContent, CompilableAsContent, CompilableAsDependency, ContextHandle, NodeID,
+    sat,
+};
 use crate::{
     PropBlock, PropSelector, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, AscesisError,
 };
 
 #[derive(Default, Debug)]
 pub struct CesFile {
+    script:  Option<String>,
     blocks:  Vec<CesFileBlock>,
     root:    Option<usize>,
-    script:  Option<String>,
     content: Option<PartialContent>,
 }
 
@@ -45,7 +49,6 @@ impl CesFile {
         }
     }
 
-    #[allow(dead_code)]
     fn get_root_verified(&self) -> Result<&ImmediateDef, AscesisError> {
         if let Some(ndx) = self.root {
             if let Some(block) = self.blocks.get(ndx) {
@@ -74,15 +77,19 @@ impl CesFile {
         }
     }
 
-    fn get_root_mut(&mut self) -> Result<&mut ImmediateDef, AscesisError> {
-        if let Some(ndx) = self.root {
-            if let CesFileBlock::Imm(ref mut root) = self.blocks[ndx] {
-                Ok(root)
-            } else {
-                unreachable!()
-            }
+    fn get_content(&self) -> Result<&PartialContent, AscesisError> {
+        if let Some(ref content) = self.content {
+            Ok(content)
         } else {
-            Err(AscesisError::RootUnset)
+            self.get_root_verified().and(Err(AscesisError::ScriptUncompiled))
+        }
+    }
+
+    fn get_content_mut(&mut self) -> Result<&mut PartialContent, AscesisError> {
+        if let Some(ref mut content) = self.content {
+            Ok(content)
+        } else {
+            self.get_root_verified().and(Err(AscesisError::ScriptUncompiled))
         }
     }
 
@@ -193,6 +200,8 @@ impl CesFile {
     }
 
     pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        info!("Start compiling...");
+
         if let Some(encoding) = self.get_sat_encoding() {
             info!("Using encoding '{:?}'", encoding);
             ctx.lock().unwrap().set_encoding(encoding);
@@ -203,9 +212,51 @@ impl CesFile {
             ctx.lock().unwrap().set_search(search);
         }
 
-        let root = self.get_root_mut()?;
+        loop {
+            // Repeat compiling all resolvable uncompiled Imm blocks
+            // until reaching a fix point.
 
-        root.compile(ctx)
+            let mut made_progress = false;
+
+            for block in self.blocks.iter_mut() {
+                if let CesFileBlock::Imm(ref mut imm) = block {
+                    if !imm.is_compiled(ctx) {
+                        if log_enabled!(Debug) {
+                            if let Some(dep_name) = imm.compile_as_dependency(ctx)? {
+                                debug!(
+                                    "Still not compiled ImmediateDef of '{}': missing {}",
+                                    imm.name, dep_name
+                                );
+                            } else {
+                                let content = imm.get_compiled_content(ctx)?;
+
+                                debug!("OK compiled ImmediateDef of '{}': {:?}", imm.name, content);
+
+                                made_progress = true;
+                            }
+                        } else if imm.compile_as_dependency(ctx)?.is_none() {
+                            made_progress = true;
+                        }
+                    }
+                }
+            }
+
+            if !made_progress {
+                break
+            }
+        }
+
+        let root = self.get_root()?;
+
+        if root.is_compiled(ctx) {
+            let content = root.get_compiled_content(ctx)?;
+
+            self.content = Some(content);
+
+            Ok(())
+        } else {
+            Err(Box::new(AscesisError::RootUnresolvable))
+        }
     }
 }
 
@@ -225,39 +276,21 @@ impl Content for CesFile {
     }
 
     fn get_carrier_ids(&mut self) -> Vec<NodeID> {
-        if let Ok(root) = self.get_root_mut() {
-            if let Some(ref mut content) = root.content {
-                content.get_carrier_ids()
-            } else {
-                panic!()
-            }
-        } else {
-            panic!()
-        }
+        let content = self.get_content_mut().unwrap();
+
+        content.get_carrier_ids()
     }
 
     fn get_causes_by_id(&self, id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
-        if let Ok(root) = self.get_root() {
-            if let Some(ref content) = root.content {
-                content.get_causes_by_id(id)
-            } else {
-                panic!()
-            }
-        } else {
-            panic!()
-        }
+        let content = self.get_content().unwrap();
+
+        content.get_causes_by_id(id)
     }
 
     fn get_effects_by_id(&self, id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
-        if let Ok(root) = self.get_root() {
-            if let Some(ref content) = root.content {
-                content.get_effects_by_id(id)
-            } else {
-                panic!()
-            }
-        } else {
-            panic!()
-        }
+        let content = self.get_content().unwrap();
+
+        content.get_effects_by_id(id)
     }
 }
 
@@ -325,6 +358,18 @@ impl From<String> for CesName {
     }
 }
 
+impl AsRef<str> for CesName {
+    fn as_ref(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl fmt::Display for CesName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 pub trait ToCesName {
     fn to_ces_name(&self) -> CesName;
 }
@@ -337,22 +382,51 @@ impl<S: AsRef<str>> ToCesName for S {
 
 #[derive(Clone, Debug)]
 pub struct ImmediateDef {
-    name:    CesName,
-    rex:     Rex,
-    content: Option<PartialContent>,
+    name: CesName,
+    rex:  Rex,
 }
 
 impl ImmediateDef {
     pub fn new(name: CesName, rex: Rex) -> Self {
-        ImmediateDef { name, rex, content: None }
+        println!("ImmediateDef of '{}': {:?}", name, rex);
+        ImmediateDef { name, rex }
     }
 
-    pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
-        let content = self.rex.compile_as_content(ctx)?;
+    pub(crate) fn is_compiled(&self, ctx: &ContextHandle) -> bool {
+        ctx.lock().unwrap().has_content(&self.name)
+    }
+}
 
-        self.content = Some(content);
+impl CompilableAsContent for ImmediateDef {
+    fn get_compiled_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
+        if let Some(content) = ctx.lock().unwrap().get_content(&self.name) {
+            Ok(content.clone())
+        } else if let Some(dep_name) = self.compile_as_dependency(ctx)? {
+            Err(Box::new(AscesisError::UnexpectedDependency(dep_name)))
+        } else if let Some(content) = ctx.lock().unwrap().get_content(&self.name) {
+            Ok(content.clone())
+        } else {
+            panic!()
+        }
+    }
 
-        Ok(())
+    fn check_dependencies(&self, ctx: &ContextHandle) -> Option<String> {
+        self.rex.check_dependencies(ctx)
+    }
+}
+
+impl CompilableAsDependency for ImmediateDef {
+    fn compile_as_dependency(&self, ctx: &ContextHandle) -> Result<Option<String>, Box<dyn Error>> {
+        if let Some(dep_name) = self.rex.check_dependencies(ctx) {
+            Ok(Some(dep_name))
+        } else {
+            let content = self.rex.get_compiled_content(ctx)?;
+            let mut ctx = ctx.lock().unwrap();
+
+            ctx.add_content(&self.name, content);
+
+            Ok(None)
+        }
     }
 }
 
@@ -364,6 +438,7 @@ pub struct CesInstance {
 
 impl CesInstance {
     pub(crate) fn new(name: CesName) -> Self {
+        println!("CesInstance of '{}'", name);
         CesInstance { name, args: Vec::new() }
     }
 

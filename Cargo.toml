@@ -24,8 +24,8 @@ rand = "0.7"
 enquote = "1.0"
 lalrpop-util = "0.17"
 # aces = { path = "../aces" }
-# aces = { git = "https://github.com/k7f/aces", rev = "d86bb05" }
-aces = "0.0.8"
+aces = { git = "https://github.com/k7f/aces", rev = "2179e24" }
+# aces = "0.0.8"
 
 [build-dependencies]
 

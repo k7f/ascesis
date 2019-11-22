@@ -12,6 +12,9 @@ pub enum AscesisError {
     RootRedefined(String),
     RootBlockMismatch,
     RootBlockMissing,
+    RootUnresolvable,
+    ScriptUncompiled,
+    UnexpectedDependency(String),
     InvalidAST,
     FatLeak,
 }
@@ -28,6 +31,9 @@ impl Error for AscesisError {
             RootRedefined(_) => "redefined root structure",
             RootBlockMismatch => "root block mismatch",
             RootBlockMissing => "root block missing",
+            RootUnresolvable => "root contains instances without known definitions",
+            ScriptUncompiled => "script uncompiled",
+            UnexpectedDependency(_) => "unexpected uncompiled dependency",
             InvalidAST => "invalid AST",
             FatLeak => "fat arrow rule leaked through FIT transformation",
         }
@@ -59,6 +65,9 @@ impl fmt::Display for AscesisError {
             RootRedefined(name) => write!(f, "Redefined root structure '{}'", name),
             RootBlockMismatch => write!(f, "Root block mismatch"),
             RootBlockMissing => write!(f, "Root block missing"),
+            RootUnresolvable => write!(f, "Root contains instances without known definitions"),
+            ScriptUncompiled => write!(f, "Script uncompiled"),
+            UnexpectedDependency(name) => write!(f, "Unexpected uncompiled dependency '{}'", name),
             InvalidAST => write!(f, "Invalid AST"),
             FatLeak => write!(f, "Fat arrow rule leaked through FIT transformation"),
         }

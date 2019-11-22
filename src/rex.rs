@@ -158,7 +158,21 @@ impl Rex {
 }
 
 impl CompilableAsContent for Rex {
-    fn compile_as_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
+    fn check_dependencies(&self, ctx: &ContextHandle) -> Option<String> {
+        let ctx = ctx.lock().unwrap();
+
+        for kind in self.kinds.iter() {
+            if let RexKind::Instance(instance) = kind {
+                if !ctx.has_content(&instance.name) {
+                    return Some((*instance.name).clone())
+                }
+            }
+        }
+
+        None
+    }
+
+    fn get_compiled_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
         let rex = self.fit_clone();
 
         if rex.kinds.is_empty() {
@@ -188,11 +202,20 @@ impl CompilableAsContent for Rex {
 
         for pos in (0..rex.kinds.len()).rev() {
             let content = match &rex.kinds[pos] {
-                RexKind::Thin(tar) => tar.compile_as_content(ctx)?,
+                RexKind::Thin(tar) => tar.get_compiled_content(ctx)?,
                 RexKind::Fat(_) => return Err(Box::new(AscesisError::FatLeak)),
-                RexKind::Instance(_) => {
+                RexKind::Instance(instance) => {
                     // FIXME
-                    PartialContent::new(ctx)
+                    println!("--> in rex, {}", instance.name);
+                    let ctx = ctx.lock().unwrap();
+
+                    if let Some(content) = ctx.get_content(&instance.name) {
+                        content.clone()
+                    } else {
+                        return Err(Box::new(AscesisError::UnexpectedDependency(
+                            (*instance.name).clone(),
+                        )))
+                    }
                 }
                 RexKind::Product(_) | RexKind::Sum(_) => {
                     if let Some(content) = merged_content[pos].take() {
@@ -308,7 +331,7 @@ impl ThinArrowRule {
 }
 
 impl CompilableAsContent for ThinArrowRule {
-    fn compile_as_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
+    fn get_compiled_content(&self, ctx: &ContextHandle) -> Result<PartialContent, Box<dyn Error>> {
         let mut content = PartialContent::new(ctx);
 
         let cause = self.cause.compile_as_vec(ctx);
