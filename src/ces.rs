@@ -212,6 +212,20 @@ impl CesFile {
             ctx.lock().unwrap().set_search(search);
         }
 
+        // First pass: compile all blocks having no dependencies.
+
+        for block in self.blocks.iter_mut() {
+            match block {
+                CesFileBlock::Imm(ref mut imm) => {
+                    imm.compile(ctx)?;
+                }
+                CesFileBlock::Cap(ref cap) => {
+                    cap.compile(ctx)?;
+                }
+                _ => {} // FIXME
+            }
+        }
+
         loop {
             // Repeat compiling all resolvable uncompiled Imm blocks
             // until reaching a fix point.
@@ -220,23 +234,8 @@ impl CesFile {
 
             for block in self.blocks.iter_mut() {
                 if let CesFileBlock::Imm(ref mut imm) = block {
-                    if !imm.is_compiled(ctx) {
-                        if log_enabled!(Debug) {
-                            if let Some(dep_name) = imm.compile_as_dependency(ctx)? {
-                                debug!(
-                                    "Still not compiled ImmediateDef of '{}': missing {}",
-                                    imm.name, dep_name
-                                );
-                            } else {
-                                let content = imm.get_compiled_content(ctx)?;
-
-                                debug!("OK compiled ImmediateDef of '{}': {:?}", imm.name, content);
-
-                                made_progress = true;
-                            }
-                        } else if imm.compile_as_dependency(ctx)?.is_none() {
-                            made_progress = true;
-                        }
+                    if !imm.is_compiled(ctx) && imm.compile(ctx)? {
+                        made_progress = true;
                     }
                 }
             }
@@ -390,6 +389,24 @@ impl ImmediateDef {
     pub fn new(name: CesName, rex: Rex) -> Self {
         println!("ImmediateDef of '{}': {:?}", name, rex);
         ImmediateDef { name, rex }
+    }
+
+    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
+        if log_enabled!(Debug) {
+            if let Some(dep_name) = self.compile_as_dependency(ctx)? {
+                debug!("Still not compiled ImmediateDef of '{}': missing {}", self.name, dep_name);
+
+                Ok(false)
+            } else {
+                let content = self.get_compiled_content(ctx)?;
+
+                debug!("OK compiled ImmediateDef of '{}': {:?}", self.name, content);
+
+                Ok(true)
+            }
+        } else {
+            Ok(self.compile_as_dependency(ctx)?.is_none())
+        }
     }
 
     pub(crate) fn is_compiled(&self, ctx: &ContextHandle) -> bool {

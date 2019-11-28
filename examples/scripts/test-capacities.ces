@@ -1,0 +1,12 @@
+vis {
+    title: "Two arrows in sequence with node capacities"
+}
+
+cap {
+    2 a b,
+    3 c,
+}
+
+ces Main {
+    a => b => c
+}

@@ -63,6 +63,22 @@ fn get_axiom_and_phrase(maybe_arg: Option<&str>) -> Result<(Axiom, String), Box<
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let args = clap::App::new("Rex")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("Ascesis parsing demo")
+        .args_from_usage(
+            "[SENTENCE_OR_AXIOM] 'sentence or axiom to parse (default: \'Rex\')'
+             -v, --verbose...    'level of verbosity'",
+        )
+        .get_matches();
+
+    let log_level = match args.occurrences_of("verbose") {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+
     let colors = ColoredLevelConfig::new()
         .trace(Color::Blue)
         .debug(Color::Yellow)
@@ -83,18 +99,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 message
             )),
         })
-        .level(log::LevelFilter::Debug)
+        .level(log_level)
         .chain(std::io::stdout());
 
     let root_logger = fern::Dispatch::new().chain(console_logger);
     root_logger.apply().unwrap_or_else(|err| eprintln!("[ERROR] {}.", err));
-
-    let args = clap::App::new("Rex")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Ascesis parsing demo")
-        .args_from_usage("[SENTENCE_OR_AXIOM] 'sentence or axiom to parse (default: \'Rex\')'")
-        .get_matches();
 
     let maybe_arg = args.value_of("SENTENCE_OR_AXIOM");
     let (axiom, phrase) = get_axiom_and_phrase(maybe_arg)?;

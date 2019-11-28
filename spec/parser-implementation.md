@@ -27,9 +27,9 @@ This rule specifies an effect `polynomial` for all nodes in the
     _R_.
 
 For example, `a b -> c d` generates ports `[a >]`, `[b >]`, `[c <]`,
-`[d <]`, and effect-only links `(a >? c)`, `(a >? d)`, `(b >? c)`, `(b
->? d)`.  Cause polynomials of nodes `c` and `d` are _&theta;_, hence
-this rule doesn't unfold to a proper c-e structure.
+`[d <]`, and effect-only links `(a >? c)`, `(a >? d)`, `(b >? c)`,
+`(b >? d)`.  Cause polynomials of nodes `c` and `d` are _&theta;_,
+hence this rule doesn't unfold to a proper c-e structure.
 
 ### _Cause-only_ rules
 

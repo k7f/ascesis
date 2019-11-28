@@ -1,4 +1,5 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
+use aces::ContextHandle;
 use crate::{Polynomial, Node, NodeList, Literal};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -207,6 +208,14 @@ impl CapacityBlock {
             self.capacities.append(&mut block.capacities);
         }
         self
+    }
+
+    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        let _ctx = ctx.lock().unwrap();
+
+        // FIXME fill ctx.capacities
+
+        Ok(())
     }
 }
 

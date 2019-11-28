@@ -3,10 +3,26 @@ extern crate log;
 
 use std::{io::Read, fs::File, error::Error};
 use fern::colors::{Color, ColoredLevelConfig};
-use aces::{Context, Content, ContentOrigin, CEStructure};
+use aces::{Context, Contextual, Content, ContentOrigin, CEStructure};
 use ascesis::CesFile;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let args = clap::App::new("solve")
+        .version(env!("CARGO_PKG_VERSION"))
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about("Ascesis solving demo")
+        .args_from_usage(
+            "[ROOT_PATH]      'path to a script'
+             -v, --verbose... 'level of verbosity'",
+        )
+        .get_matches();
+
+    let log_level = match args.occurrences_of("verbose") {
+        0 => log::LevelFilter::Info,
+        1 => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Trace,
+    };
+
     let colors = ColoredLevelConfig::new()
         .trace(Color::Blue)
         .debug(Color::Yellow)
@@ -27,18 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 message
             )),
         })
-        .level(log::LevelFilter::Info)
+        .level(log_level)
         .chain(std::io::stdout());
 
     let root_logger = fern::Dispatch::new().chain(console_logger);
     root_logger.apply().unwrap_or_else(|err| eprintln!("[ERROR] {}.", err));
-
-    let args = clap::App::new("solve")
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Ascesis solving demo")
-        .args_from_usage("[ROOT_PATH] 'path to a script'")
-        .get_matches();
 
     if let Some(root_path) = args.value_of("ROOT_PATH") {
         let ctx = Context::new_toplevel("solve", ContentOrigin::ces_script(&root_path));
@@ -65,10 +74,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(fset) = ces.get_firing_set() {
             println!("Firing components:");
 
-            let ctx = ctx.lock().unwrap();
-
             for (i, fc) in fset.as_slice().iter().enumerate() {
-                println!("{}. {}", i + 1, ctx.with(fc));
+                println!("{}. {}", i + 1, fc.with(&ctx));
             }
         }
     } else {
