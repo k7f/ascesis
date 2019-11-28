@@ -3,7 +3,7 @@
 [package]
 
 name = "ascesis"
-version = "0.0.2-pre"
+version = "0.0.2"
 description = "A language for analysis and synthesis of cause-effect synchronised interacting systems"
 authors = ["k7f"]
 edition = "2018"
