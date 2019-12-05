@@ -58,12 +58,11 @@ ces Main { Arrow() }
 
 If the addition operator was missing between rule expressions, then
 their syntactic concatenation would be interpreted as _multiplication_
-of corresponding polynomials.  However, when two thin arrow rules are
-used for defining a single-arrow structure, the result of their
-multiplication is the same as the result of addition.
-
-For example, next fragment will be interpreted as the same arrow as
-above (for brevity, here defined directly in `Main`),
+of corresponding polynomials.  Note, however, that when two thin arrow
+rules are used for defining a single-arrow structure, the result of
+their multiplication is the same as the result of addition.  For
+example, next fragment will be interpreted as the same arrow as above
+(for brevity, here defined directly in `Main`),
 
 ```rust
 ces Main { { a -> b } { b <- a } }

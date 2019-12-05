@@ -5,7 +5,7 @@ use aces::{
     sat,
 };
 use crate::{
-    PropBlock, PropSelector, CapacityBlock, MultiplierBlock, InhibitorBlock, Rex, AscesisError,
+    PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, AscesisError,
 };
 
 #[derive(Default, Debug)]
@@ -222,6 +222,12 @@ impl CesFile {
                 CesFileBlock::Cap(ref cap) => {
                     cap.compile(ctx)?;
                 }
+                CesFileBlock::Mul(ref mul) => {
+                    mul.compile(ctx)?;
+                }
+                CesFileBlock::Inh(ref inh) => {
+                    inh.compile(ctx)?;
+                }
                 _ => {} // FIXME
             }
         }
@@ -299,7 +305,7 @@ pub enum CesFileBlock {
     Vis(PropBlock),
     SAT(PropBlock),
     Cap(CapacityBlock),
-    Mul(MultiplierBlock),
+    Mul(MultiplicityBlock),
     Inh(InhibitorBlock),
 }
 
@@ -328,8 +334,8 @@ impl From<CapacityBlock> for CesFileBlock {
     }
 }
 
-impl From<MultiplierBlock> for CesFileBlock {
-    fn from(mul: MultiplierBlock) -> Self {
+impl From<MultiplicityBlock> for CesFileBlock {
+    fn from(mul: MultiplicityBlock) -> Self {
         CesFileBlock::Mul(mul)
     }
 }

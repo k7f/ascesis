@@ -6,7 +6,7 @@ use crate::ascesis_parser::{
     FatArrowRuleParser, PolynomialParser,
 };
 use crate::{
-    CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplierBlock,
+    CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplicityBlock,
     InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, ParsingError,
     ParsingResult,
 };
@@ -90,7 +90,7 @@ impl Axiom {
             "CesInstance" => from_phrase_as!(CesInstance, phrase),
             "PropBlock" => from_phrase_as!(PropBlock, phrase),
             "CapBlock" => from_phrase_as!(CapacityBlock, phrase),
-            "MulBlock" => from_phrase_as!(MultiplierBlock, phrase),
+            "MulBlock" => from_phrase_as!(MultiplicityBlock, phrase),
             "InhBlock" => from_phrase_as!(InhibitorBlock, phrase),
             "Rex" => from_phrase_as!(Rex, phrase),
             "ThinArrowRule" => from_phrase_as!(ThinArrowRule, phrase),
@@ -131,7 +131,7 @@ impl_from_phrase_for!(ImmediateDef, ImmediateDefParser);
 impl_from_phrase_for!(CesInstance, CesInstanceParser);
 impl_from_phrase_for!(PropBlock, PropBlockParser);
 impl_from_phrase_for!(CapacityBlock, CapBlockParser);
-impl_from_phrase_for!(MultiplierBlock, MulBlockParser);
+impl_from_phrase_for!(MultiplicityBlock, MulBlockParser);
 impl_from_phrase_for!(InhibitorBlock, InhBlockParser);
 impl_from_phrase_for!(Rex, RexParser);
 impl_from_phrase_for!(ThinArrowRule, ThinArrowRuleParser);
@@ -156,7 +156,7 @@ impl_from_str_for!(ImmediateDef);
 impl_from_str_for!(CesInstance);
 impl_from_str_for!(PropBlock);
 impl_from_str_for!(CapacityBlock);
-impl_from_str_for!(MultiplierBlock);
+impl_from_str_for!(MultiplicityBlock);
 impl_from_str_for!(InhibitorBlock);
 impl_from_str_for!(Rex);
 impl_from_str_for!(ThinArrowRule);

@@ -1,5 +1,5 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
-use aces::ContextHandle;
+use aces::{ContextHandle, node, monomial};
 use crate::{Polynomial, Node, NodeList, Literal};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -211,21 +211,27 @@ impl CapacityBlock {
     }
 
     pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
-        let _ctx = ctx.lock().unwrap();
+        let mut ctx = ctx.lock().unwrap();
 
-        // FIXME fill ctx.capacities
+        for (node, cap) in self.capacities.iter() {
+            if let Some(cap) = node::Capacity::new_finite(*cap) {
+                ctx.set_capacity(node.as_ref(), cap);
+            } else {
+                // FIXME omega
+            }
+        }
 
         Ok(())
     }
 }
 
-/// An alphabetically ordered and deduplicated list of `Multiplier`s.
+/// An alphabetically ordered and deduplicated list of multiplicities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
-pub struct MultiplierBlock {
-    multipliers: Vec<Multiplier>,
+pub struct MultiplicityBlock {
+    multiplicities: Vec<Multiplicity>,
 }
 
-impl MultiplierBlock {
+impl MultiplicityBlock {
     pub fn new_causes(
         size: Literal,
         post_nodes: Polynomial,
@@ -235,16 +241,16 @@ impl MultiplierBlock {
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
 
-        let multipliers = post_nodes
+        let multiplicities = post_nodes
             .nodes
             .into_iter()
             .map(|post_node| {
-                Multiplier::Rx(RxMultiplier { size, post_node, pre_set: pre_set.clone() })
+                Multiplicity::Rx(RxMultiplicity { size, post_node, pre_set: pre_set.clone() })
             })
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
 
-        Ok(MultiplierBlock { multipliers })
+        Ok(MultiplicityBlock { multiplicities })
     }
 
     pub fn new_effects(
@@ -256,38 +262,67 @@ impl MultiplierBlock {
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;
 
-        let multipliers = pre_nodes
+        let multiplicities = pre_nodes
             .nodes
             .into_iter()
             .map(|pre_node| {
-                Multiplier::Tx(TxMultiplier { size, pre_node, post_set: post_set.clone() })
+                Multiplicity::Tx(TxMultiplicity { size, pre_node, post_set: post_set.clone() })
             })
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
 
-        Ok(MultiplierBlock { multipliers })
+        Ok(MultiplicityBlock { multiplicities })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
         for mut block in more {
-            self.multipliers.append(&mut block.multipliers);
+            self.multiplicities.append(&mut block.multiplicities);
         }
 
-        self.multipliers.sort();
-        let len = self.multipliers.partition_dedup().0.len();
-        self.multipliers.truncate(len);
+        self.multiplicities.sort();
+        let len = self.multiplicities.partition_dedup().0.len();
+        self.multiplicities.truncate(len);
 
         self
+    }
+
+    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        let mut ctx = ctx.lock().unwrap();
+
+        for mul in self.multiplicities.iter() {
+            match mul {
+                Multiplicity::Rx(rx) => {
+                    if let Some(weight) = monomial::Weight::new_finite(rx.size) {
+                        let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+
+                        ctx.set_weight(node::Face::Rx, rx.post_node.as_ref(), suit_names, weight);
+                    } else {
+                        // FIXME omega
+                    }
+                }
+                Multiplicity::Tx(tx) => {
+                    if let Some(weight) = monomial::Weight::new_finite(tx.size) {
+                        let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+
+                        ctx.set_weight(node::Face::Tx, tx.pre_node.as_ref(), suit_names, weight);
+                    } else {
+                        // FIXME omega
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Multiplier {
-    Rx(RxMultiplier),
-    Tx(TxMultiplier),
+pub enum Multiplicity {
+    Rx(RxMultiplicity),
+    Tx(TxMultiplicity),
 }
 
-impl cmp::Ord for Multiplier {
+impl cmp::Ord for Multiplicity {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self {
             Self::Rx(s) => match other {
@@ -302,20 +337,20 @@ impl cmp::Ord for Multiplier {
     }
 }
 
-impl cmp::PartialOrd for Multiplier {
+impl cmp::PartialOrd for Multiplicity {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct RxMultiplier {
+pub struct RxMultiplicity {
     size:      u64,
     post_node: Node,
     pre_set:   NodeList,
 }
 
-impl cmp::Ord for RxMultiplier {
+impl cmp::Ord for RxMultiplicity {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.post_node.cmp(&other.post_node) {
             cmp::Ordering::Equal => match self.pre_set.cmp(&other.pre_set) {
@@ -327,20 +362,20 @@ impl cmp::Ord for RxMultiplier {
     }
 }
 
-impl cmp::PartialOrd for RxMultiplier {
+impl cmp::PartialOrd for RxMultiplicity {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TxMultiplier {
+pub struct TxMultiplicity {
     size:     u64,
     pre_node: Node,
     post_set: NodeList,
 }
 
-impl cmp::Ord for TxMultiplier {
+impl cmp::Ord for TxMultiplicity {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.pre_node.cmp(&other.pre_node) {
             cmp::Ordering::Equal => match self.post_set.cmp(&other.post_set) {
@@ -352,7 +387,7 @@ impl cmp::Ord for TxMultiplier {
     }
 }
 
-impl cmp::PartialOrd for TxMultiplier {
+impl cmp::PartialOrd for TxMultiplicity {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -406,6 +441,27 @@ impl InhibitorBlock {
         self.inhibitors.truncate(len);
 
         self
+    }
+
+    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        let mut ctx = ctx.lock().unwrap();
+
+        for inh in self.inhibitors.iter() {
+            match inh {
+                Inhibitor::Rx(rx) => {
+                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+
+                    ctx.set_inhibitor(node::Face::Rx, rx.post_node.as_ref(), suit_names);
+                }
+                Inhibitor::Tx(tx) => {
+                    let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+
+                    ctx.set_inhibitor(node::Face::Tx, tx.pre_node.as_ref(), suit_names);
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

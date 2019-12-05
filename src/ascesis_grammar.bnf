@@ -57,7 +57,7 @@
 
 <CapField> ::= <Size> <NodeList>
 
-;; Multipliers
+;; Multiplicities
 
 <MulBlock> ::= "mul" "{" <MulList> "}" ;
 

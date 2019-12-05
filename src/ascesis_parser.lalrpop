@@ -1,7 +1,7 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
-    PropBlock, PropValue, CapacityBlock, MultiplierBlock, InhibitorBlock,
+    PropBlock, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
 };
 
@@ -116,19 +116,19 @@ CapField: CapacityBlock =
         CapacityBlock::new(size, nodes).unwrap();
 
 // mul_block = "mul" "{" mul_list "}" ;
-pub MulBlock: MultiplierBlock =
+pub MulBlock: MultiplicityBlock =
     "mul" "{" <head: MulField> <tail: CommaThenMulField*> ","? "}" =>
         head.with_more(tail);
 
 // mul_list = mul_field { "," mul_field } [ "," ] ;
-CommaThenMulField: MultiplierBlock = "," <MulField>;
+CommaThenMulField: MultiplicityBlock = "," <MulField>;
 
 // mul_field = size node_list ( "->" | "<-" ) node_list ;
-MulField: MultiplierBlock = {
+MulField: MultiplicityBlock = {
     <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        MultiplierBlock::new_effects(size, pre_nodes, post_set).unwrap(),
+        MultiplicityBlock::new_effects(size, pre_nodes, post_set).unwrap(),
     <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        MultiplierBlock::new_causes(size, post_nodes, pre_set).unwrap(),
+        MultiplicityBlock::new_causes(size, post_nodes, pre_set).unwrap(),
 };
 
 // inh_block = "inh" "{" inh_list "}" ;
