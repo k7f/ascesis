@@ -1,8 +1,8 @@
 use std::{ops::Deref, fmt, error::Error};
 use log::Level::Debug;
 use aces::{
-    Content, PartialContent, CompilableAsContent, CompilableAsDependency, ContextHandle, NodeID,
-    sat,
+    Content, PartialContent, Compilable, CompilableMut, CompilableAsContent,
+    CompilableAsDependency, ContextHandle, NodeID, sat,
 };
 use crate::{
     PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, AscesisError,
@@ -159,60 +159,47 @@ impl CesFile {
         None
     }
 
-    pub fn get_sat_encoding(&self) -> Option<sat::Encoding> {
+    pub fn get_sat_encoding(&self) -> Result<Option<sat::Encoding>, AscesisError> {
         for block in self.blocks.iter().rev() {
             if let CesFileBlock::SAT(blk) = block {
-                if let Some(encoding) =
-                    blk.get_name("encoding").or_else(|| blk.get_identifier("encoding"))
-                {
-                    match encoding {
-                        "port-link" => return Some(sat::Encoding::PortLink),
-                        "fork-join" => return Some(sat::Encoding::ForkJoin),
-                        _ => {
-                            error!("Invalid SAT encoding '{}'", encoding);
-                            return None
-                        }
-                    }
+                if let Some(encoding) = blk.get_sat_encoding()? {
+                    return Ok(Some(encoding))
                 }
             }
         }
-        None
+
+        Ok(None)
     }
 
-    pub fn get_sat_search(&self) -> Option<sat::Search> {
+    pub fn get_sat_search(&self) -> Result<Option<sat::Search>, AscesisError> {
         for block in self.blocks.iter().rev() {
             if let CesFileBlock::SAT(blk) = block {
-                if let Some(search) =
-                    blk.get_name("search").or_else(|| blk.get_identifier("search"))
-                {
-                    match search {
-                        "min" => return Some(sat::Search::MinSolutions),
-                        "all" => return Some(sat::Search::AllSolutions),
-                        _ => {
-                            error!("Invalid SAT search '{}'", search);
-                            return None
-                        }
-                    }
+                if let Some(search) = blk.get_sat_search()? {
+                    return Ok(Some(search))
                 }
             }
         }
-        None
-    }
 
-    pub fn compile(&mut self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+        Ok(None)
+    }
+}
+
+impl CompilableMut for CesFile {
+    fn compile_mut(&mut self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         info!("Start compiling...");
 
-        if let Some(encoding) = self.get_sat_encoding() {
-            info!("Using encoding '{:?}'", encoding);
-            ctx.lock().unwrap().set_encoding(encoding);
+        // First pass: compile all property blocks.
+
+        for block in self.blocks.iter().rev() {
+            match block {
+                CesFileBlock::SAT(blk) | CesFileBlock::Vis(blk) => {
+                    blk.compile(ctx)?;
+                }
+                _ => {}
+            }
         }
 
-        if let Some(search) = self.get_sat_search() {
-            info!("Using '{:?}' search", search);
-            ctx.lock().unwrap().set_search(search);
-        }
-
-        // First pass: compile all blocks having no dependencies.
+        // Second pass: compile all structural blocks having no dependencies.
 
         for block in self.blocks.iter_mut() {
             match block {
@@ -258,7 +245,7 @@ impl CesFile {
 
             self.content = Some(content);
 
-            Ok(())
+            Ok(true)
         } else {
             Err(Box::new(AscesisError::RootUnresolvable))
         }
@@ -397,7 +384,13 @@ impl ImmediateDef {
         ImmediateDef { name, rex }
     }
 
-    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
+    pub(crate) fn is_compiled(&self, ctx: &ContextHandle) -> bool {
+        ctx.lock().unwrap().has_content(&self.name)
+    }
+}
+
+impl Compilable for ImmediateDef {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         if log_enabled!(Debug) {
             if let Some(dep_name) = self.compile_as_dependency(ctx)? {
                 debug!("Still not compiled ImmediateDef of '{}': missing {}", self.name, dep_name);
@@ -413,10 +406,6 @@ impl ImmediateDef {
         } else {
             Ok(self.compile_as_dependency(ctx)?.is_none())
         }
-    }
-
-    pub(crate) fn is_compiled(&self, ctx: &ContextHandle) -> bool {
-        ctx.lock().unwrap().has_content(&self.name)
     }
 }
 

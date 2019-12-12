@@ -1,6 +1,6 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
-use aces::{ContextHandle, node, monomial};
-use crate::{Polynomial, Node, NodeList, Literal};
+use aces::{ContextHandle, Compilable, node, monomial, sat};
+use crate::{Polynomial, Node, NodeList, Literal, AscesisError};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum PropSelector {
@@ -157,6 +157,61 @@ impl PropBlock {
             self.get_identifier(value_key)
         }
     }
+
+    pub fn get_sat_encoding(&self) -> Result<Option<sat::Encoding>, AscesisError> {
+        if let Some(encoding) =
+            self.get_name("encoding").or_else(|| self.get_identifier("encoding"))
+        {
+            match encoding {
+                "port-link" => Ok(Some(sat::Encoding::PortLink)),
+                "fork-join" => Ok(Some(sat::Encoding::ForkJoin)),
+                _ => Err(AscesisError::InvalidSATProp("encoding".to_owned(), encoding.to_owned())),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_sat_search(&self) -> Result<Option<sat::Search>, AscesisError> {
+        if let Some(search) = self.get_name("search").or_else(|| self.get_identifier("search")) {
+            match search {
+                "min" => Ok(Some(sat::Search::MinSolutions)),
+                "all" => Ok(Some(sat::Search::AllSolutions)),
+                _ => Err(AscesisError::InvalidSATProp("search".to_owned(), search.to_owned())),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl Compilable for PropBlock {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
+        if let Some(selector) = self.selector {
+            let mut ctx = ctx.lock().unwrap();
+
+            match selector {
+                PropSelector::Vis => {
+                    // FIXME
+                }
+                PropSelector::SAT => {
+                    if let Some(encoding) = self.get_sat_encoding()? {
+                        info!("Using encoding '{:?}'", encoding);
+                        ctx.set_encoding(encoding);
+                    }
+
+                    if let Some(search) = self.get_sat_search()? {
+                        info!("Using '{:?}' search", search);
+                        ctx.set_search(search);
+                    }
+                }
+            }
+
+            Ok(true)
+        } else {
+            Err(Box::new(AscesisError::MissingPropSelector))
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -187,12 +242,12 @@ impl From<PropBlock> for PropValue {
 /// A map from nodes to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CapacityBlock {
-    capacities: BTreeMap<Node, u64>,
+    capacities: BTreeMap<Node, node::Capacity>,
 }
 
 impl CapacityBlock {
     pub fn new(size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
-        let size = size.try_into()?;
+        let size = node::Capacity::finite(size.try_into()?).unwrap(); // FIXME omega
         let nodes: NodeList = nodes.try_into()?;
         let mut capacities = BTreeMap::new();
 
@@ -209,19 +264,17 @@ impl CapacityBlock {
         }
         self
     }
+}
 
-    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+impl Compilable for CapacityBlock {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
         for (node, cap) in self.capacities.iter() {
-            if let Some(cap) = node::Capacity::new_finite(*cap) {
-                ctx.set_capacity(node.as_ref(), cap);
-            } else {
-                // FIXME omega
-            }
+            ctx.set_capacity(node.as_ref(), *cap);
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -285,14 +338,16 @@ impl MultiplicityBlock {
 
         self
     }
+}
 
-    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+impl Compilable for MultiplicityBlock {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
         for mul in self.multiplicities.iter() {
             match mul {
                 Multiplicity::Rx(rx) => {
-                    if let Some(weight) = monomial::Weight::new_finite(rx.size) {
+                    if let Some(weight) = monomial::Weight::finite(rx.size) {
                         let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
                         ctx.set_weight(node::Face::Rx, rx.post_node.as_ref(), suit_names, weight);
@@ -301,7 +356,7 @@ impl MultiplicityBlock {
                     }
                 }
                 Multiplicity::Tx(tx) => {
-                    if let Some(weight) = monomial::Weight::new_finite(tx.size) {
+                    if let Some(weight) = monomial::Weight::finite(tx.size) {
                         let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
                         ctx.set_weight(node::Face::Tx, tx.pre_node.as_ref(), suit_names, weight);
@@ -312,7 +367,7 @@ impl MultiplicityBlock {
             }
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -442,8 +497,10 @@ impl InhibitorBlock {
 
         self
     }
+}
 
-    pub(crate) fn compile(&self, ctx: &ContextHandle) -> Result<(), Box<dyn Error>> {
+impl Compilable for InhibitorBlock {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
         for inh in self.inhibitors.iter() {
@@ -461,7 +518,7 @@ impl InhibitorBlock {
             }
         }
 
-        Ok(())
+        Ok(true)
     }
 }
 

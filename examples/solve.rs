@@ -3,7 +3,7 @@ extern crate log;
 
 use std::{io::Read, fs::File, error::Error};
 use fern::colors::{Color, ColoredLevelConfig};
-use aces::{Context, Contextual, Content, ContentOrigin, CEStructure};
+use aces::{Context, Contextual, Content, ContentOrigin, CEStructure, CompilableMut};
 use ascesis::CesFile;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             info!("Using '{}' as the root structure", ces_file.get_name().unwrap());
         }
 
-        ces_file.compile(&ctx)?;
+        ces_file.compile_mut(&ctx)?;
         debug!("{:?}", ces_file);
 
         let mut ces = CEStructure::new(&ctx).with_content(Box::new(ces_file))?;

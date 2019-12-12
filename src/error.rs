@@ -17,6 +17,8 @@ pub enum AscesisError {
     UnexpectedDependency(String),
     InvalidAST,
     FatLeak,
+    MissingPropSelector,
+    InvalidSATProp(String, String),
 }
 
 impl Error for AscesisError {
@@ -36,6 +38,8 @@ impl Error for AscesisError {
             UnexpectedDependency(_) => "unexpected uncompiled dependency",
             InvalidAST => "invalid AST",
             FatLeak => "fat arrow rule leaked through FIT transformation",
+            MissingPropSelector => "property block without selector",
+            InvalidSATProp(..) => "invalid SAT property",
         }
     }
 }
@@ -70,6 +74,8 @@ impl fmt::Display for AscesisError {
             UnexpectedDependency(name) => write!(f, "Unexpected uncompiled dependency '{}'", name),
             InvalidAST => write!(f, "Invalid AST"),
             FatLeak => write!(f, "Fat arrow rule leaked through FIT transformation"),
+            MissingPropSelector => write!(f, "property block without selector"),
+            InvalidSATProp(prop, value) => write!(f, "Invalid SAT {} '{}'", prop, value),
         }
     }
 }
