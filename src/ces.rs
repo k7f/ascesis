@@ -36,7 +36,7 @@ impl CesFile {
                     if self.root.is_none() {
                         self.root = Some(ndx);
                     } else {
-                        return Err(Box::new(AscesisError::RootRedefined(root_name.to_owned())))
+                        return Err(AscesisError::RootRedefined(root_name.to_owned()).into())
                     }
                 }
             }
@@ -45,7 +45,7 @@ impl CesFile {
         if self.root.is_some() {
             Ok(())
         } else {
-            Err(Box::new(AscesisError::RootMissing(root_name.to_owned())))
+            Err(AscesisError::RootMissing(root_name.to_owned()).into())
         }
     }
 
@@ -247,7 +247,7 @@ impl CompilableMut for CesFile {
 
             Ok(true)
         } else {
-            Err(Box::new(AscesisError::RootUnresolvable))
+            Err(AscesisError::RootUnresolvable.into())
         }
     }
 }
@@ -414,7 +414,7 @@ impl CompilableAsContent for ImmediateDef {
         if let Some(content) = ctx.lock().unwrap().get_content(&self.name) {
             Ok(content.clone())
         } else if let Some(dep_name) = self.compile_as_dependency(ctx)? {
-            Err(Box::new(AscesisError::UnexpectedDependency(dep_name)))
+            Err(AscesisError::UnexpectedDependency(dep_name).into())
         } else if let Some(content) = ctx.lock().unwrap().get_content(&self.name) {
             Ok(content.clone())
         } else {

@@ -19,6 +19,9 @@ pub enum AscesisError {
     FatLeak,
     MissingPropSelector,
     InvalidSATProp(String, String),
+    SizeLiteralOverflow,
+    ExpectedSizeLiteral,
+    ExpectedNameLiteral,
 }
 
 impl Error for AscesisError {
@@ -40,6 +43,9 @@ impl Error for AscesisError {
             FatLeak => "fat arrow rule leaked through FIT transformation",
             MissingPropSelector => "property block without selector",
             InvalidSATProp(..) => "invalid SAT property",
+            SizeLiteralOverflow => "size literal overflow",
+            ExpectedSizeLiteral => "bad literal, not a size",
+            ExpectedNameLiteral => "bad literal, not a name",
         }
     }
 }
@@ -76,6 +82,9 @@ impl fmt::Display for AscesisError {
             FatLeak => write!(f, "Fat arrow rule leaked through FIT transformation"),
             MissingPropSelector => write!(f, "property block without selector"),
             InvalidSATProp(prop, value) => write!(f, "Invalid SAT {} '{}'", prop, value),
+            SizeLiteralOverflow => write!(f, "Size literal overflow"),
+            ExpectedSizeLiteral => write!(f, "Bad literal, not a size"),
+            ExpectedNameLiteral => write!(f, "Bad literal, not a name"),
         }
     }
 }

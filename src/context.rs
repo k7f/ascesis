@@ -1,5 +1,5 @@
 use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
-use aces::{ContextHandle, Compilable, node, monomial, sat};
+use aces::{ContextHandle, Compilable, Capacity, Weight, node, sat};
 use crate::{Polynomial, Node, NodeList, Literal, AscesisError};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -209,7 +209,7 @@ impl Compilable for PropBlock {
 
             Ok(true)
         } else {
-            Err(Box::new(AscesisError::MissingPropSelector))
+            Err(AscesisError::MissingPropSelector.into())
         }
     }
 }
@@ -242,17 +242,21 @@ impl From<PropBlock> for PropValue {
 /// A map from nodes to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CapacityBlock {
-    capacities: BTreeMap<Node, node::Capacity>,
+    capacities: BTreeMap<Node, Capacity>,
 }
 
 impl CapacityBlock {
     pub fn new(size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
-        let size = node::Capacity::finite(size.try_into()?).unwrap(); // FIXME omega
+        let capacity = match size {
+            Literal::Size(sz) => Capacity::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
+            Literal::Infinity => Capacity::omega(),
+            _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
+        };
         let nodes: NodeList = nodes.try_into()?;
         let mut capacities = BTreeMap::new();
 
         for node in nodes.nodes.into_iter() {
-            capacities.insert(node, size);
+            capacities.insert(node, capacity);
         }
 
         Ok(CapacityBlock { capacities })
@@ -271,7 +275,7 @@ impl Compilable for CapacityBlock {
         let mut ctx = ctx.lock().unwrap();
 
         for (node, cap) in self.capacities.iter() {
-            ctx.set_capacity(node.as_ref(), *cap);
+            ctx.set_capacity_by_name(node.as_ref(), *cap);
         }
 
         Ok(true)
@@ -290,7 +294,11 @@ impl MultiplicityBlock {
         post_nodes: Polynomial,
         pre_set: Polynomial,
     ) -> Result<Self, Box<dyn Error>> {
-        let size = size.try_into()?;
+        let weight = match size {
+            Literal::Size(sz) => Weight::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
+            Literal::Infinity => Weight::omega(),
+            _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
+        };
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
 
@@ -298,7 +306,7 @@ impl MultiplicityBlock {
             .nodes
             .into_iter()
             .map(|post_node| {
-                Multiplicity::Rx(RxMultiplicity { size, post_node, pre_set: pre_set.clone() })
+                Multiplicity::Rx(RxMultiplicity { weight, post_node, pre_set: pre_set.clone() })
             })
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
@@ -311,7 +319,11 @@ impl MultiplicityBlock {
         pre_nodes: Polynomial,
         post_set: Polynomial,
     ) -> Result<Self, Box<dyn Error>> {
-        let size = size.try_into()?;
+        let weight = match size {
+            Literal::Size(sz) => Weight::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
+            Literal::Infinity => Weight::omega(),
+            _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
+        };
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;
 
@@ -319,7 +331,7 @@ impl MultiplicityBlock {
             .nodes
             .into_iter()
             .map(|pre_node| {
-                Multiplicity::Tx(TxMultiplicity { size, pre_node, post_set: post_set.clone() })
+                Multiplicity::Tx(TxMultiplicity { weight, pre_node, post_set: post_set.clone() })
             })
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
@@ -347,22 +359,24 @@ impl Compilable for MultiplicityBlock {
         for mul in self.multiplicities.iter() {
             match mul {
                 Multiplicity::Rx(rx) => {
-                    if let Some(weight) = monomial::Weight::finite(rx.size) {
-                        let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
-                        ctx.set_weight(node::Face::Rx, rx.post_node.as_ref(), suit_names, weight);
-                    } else {
-                        // FIXME omega
-                    }
+                    ctx.set_weight_by_name(
+                        node::Face::Rx,
+                        rx.post_node.as_ref(),
+                        suit_names,
+                        rx.weight,
+                    );
                 }
                 Multiplicity::Tx(tx) => {
-                    if let Some(weight) = monomial::Weight::finite(tx.size) {
-                        let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+                    let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
-                        ctx.set_weight(node::Face::Tx, tx.pre_node.as_ref(), suit_names, weight);
-                    } else {
-                        // FIXME omega
-                    }
+                    ctx.set_weight_by_name(
+                        node::Face::Tx,
+                        tx.pre_node.as_ref(),
+                        suit_names,
+                        tx.weight,
+                    );
                 }
             }
         }
@@ -400,7 +414,7 @@ impl cmp::PartialOrd for Multiplicity {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RxMultiplicity {
-    size:      u64,
+    weight:    Weight,
     post_node: Node,
     pre_set:   NodeList,
 }
@@ -409,7 +423,7 @@ impl cmp::Ord for RxMultiplicity {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.post_node.cmp(&other.post_node) {
             cmp::Ordering::Equal => match self.pre_set.cmp(&other.pre_set) {
-                cmp::Ordering::Equal => self.size.cmp(&other.size),
+                cmp::Ordering::Equal => self.weight.cmp(&other.weight),
                 result => result,
             },
             result => result,
@@ -425,7 +439,7 @@ impl cmp::PartialOrd for RxMultiplicity {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TxMultiplicity {
-    size:     u64,
+    weight:   Weight,
     pre_node: Node,
     post_set: NodeList,
 }
@@ -434,7 +448,7 @@ impl cmp::Ord for TxMultiplicity {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.pre_node.cmp(&other.pre_node) {
             cmp::Ordering::Equal => match self.post_set.cmp(&other.post_set) {
-                cmp::Ordering::Equal => self.size.cmp(&other.size),
+                cmp::Ordering::Equal => self.weight.cmp(&other.weight),
                 result => result,
             },
             result => result,
@@ -508,12 +522,12 @@ impl Compilable for InhibitorBlock {
                 Inhibitor::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_inhibitor(node::Face::Rx, rx.post_node.as_ref(), suit_names);
+                    ctx.set_inhibitor_by_name(node::Face::Rx, rx.post_node.as_ref(), suit_names);
                 }
                 Inhibitor::Tx(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_inhibitor(node::Face::Tx, tx.pre_node.as_ref(), suit_names);
+                    ctx.set_inhibitor_by_name(node::Face::Tx, tx.pre_node.as_ref(), suit_names);
                 }
             }
         }

@@ -96,7 +96,7 @@ PropField: PropBlock =
 //            | identifier
 //            | "{" prop_list "}" ;
 PropValue: PropValue = {
-    <Size> => <>.into(),
+    <FiniteSize> => <>.into(),
     <Name> => <>.into(),
     <Identifier> => <>.into(),
     "{" <PropList> "}" => <>.into(),
@@ -234,5 +234,7 @@ Identifier: String = r"[A-Za-z_][A-Za-z0-9_-]*" => <>.to_owned();
 
 // Literals
 
-Size: Literal = r"[0-9]+" => Literal::from_digits(<>).unwrap();
+FiniteSize: Literal = r"[0-9]+" => Literal::from_digits(<>).unwrap();
+Infinity: Literal = "@@" => Literal::infinity();
+Size: Literal = { FiniteSize, Infinity };
 Name: Literal = r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap();

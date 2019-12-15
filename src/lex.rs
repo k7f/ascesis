@@ -1,9 +1,11 @@
 use std::{fmt, convert::TryFrom, str::FromStr, error::Error};
 use enquote::unquote;
+use crate::AscesisError;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Literal {
     Size(u64),
+    Infinity,
     Name(String),
 }
 
@@ -12,19 +14,24 @@ impl Literal {
         Ok(Literal::Size(u64::from_str(digits)?))
     }
 
+    #[inline]
+    pub(crate) fn infinity() -> Self {
+        Literal::Infinity
+    }
+
     pub(crate) fn from_quoted_str(quoted: &str) -> Result<Self, Box<dyn Error>> {
         Ok(Literal::Name(unquote(quoted)?))
     }
 }
 
 impl TryFrom<Literal> for u64 {
-    type Error = &'static str;
+    type Error = AscesisError;
 
     fn try_from(lit: Literal) -> Result<Self, Self::Error> {
         if let Literal::Size(size) = lit {
             Ok(size)
         } else {
-            Err("Bad literal, not a size")
+            Err(AscesisError::ExpectedSizeLiteral)
         }
     }
 }

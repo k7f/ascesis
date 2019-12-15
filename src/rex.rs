@@ -192,7 +192,7 @@ impl CompilableAsContent for Rex {
                         if i > pos {
                             parent_pos[i] = pos;
                         } else {
-                            return Err(Box::new(AscesisError::InvalidAST))
+                            return Err(AscesisError::InvalidAST.into())
                         }
                     }
                 }
@@ -203,7 +203,7 @@ impl CompilableAsContent for Rex {
         for pos in (0..rex.kinds.len()).rev() {
             let content = match &rex.kinds[pos] {
                 RexKind::Thin(tar) => tar.get_compiled_content(ctx)?,
-                RexKind::Fat(_) => return Err(Box::new(AscesisError::FatLeak)),
+                RexKind::Fat(_) => return Err(AscesisError::FatLeak.into()),
                 RexKind::Instance(instance) => {
                     // FIXME
                     println!("--> in rex, {}", instance.name);
@@ -212,16 +212,16 @@ impl CompilableAsContent for Rex {
                     if let Some(content) = ctx.get_content(&instance.name) {
                         content.clone()
                     } else {
-                        return Err(Box::new(AscesisError::UnexpectedDependency(
-                            (*instance.name).clone(),
-                        )))
+                        return Err(
+                            AscesisError::UnexpectedDependency((*instance.name).clone()).into()
+                        )
                     }
                 }
                 RexKind::Product(_) | RexKind::Sum(_) => {
                     if let Some(content) = merged_content[pos].take() {
                         content
                     } else {
-                        return Err(Box::new(AscesisError::InvalidAST))
+                        return Err(AscesisError::InvalidAST.into())
                     }
                 }
             };
@@ -237,10 +237,10 @@ impl CompilableAsContent for Rex {
                         RexKind::Sum(_) => {
                             *parent_content += content;
                         }
-                        _ => return Err(Box::new(AscesisError::InvalidAST)),
+                        _ => return Err(AscesisError::InvalidAST.into()),
                     }
                 } else {
-                    return Err(Box::new(AscesisError::InvalidAST))
+                    return Err(AscesisError::InvalidAST.into())
                 }
             } else {
                 return Ok(content)
