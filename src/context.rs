@@ -15,21 +15,21 @@ pub struct PropBlock {
 }
 
 impl PropBlock {
-    pub fn new(key: String, value: PropValue) -> Self {
-        let selector = Default::default();
-        let mut fields = BTreeMap::new();
-        fields.insert(key, value);
-
-        PropBlock { selector, fields }
+    pub fn new() -> Self {
+        Default::default()
     }
 
-    pub fn with_selector(mut self, selector: String) -> Self {
+    pub(crate) fn with_prop(mut self, key: String, value: PropValue) -> Self {
+        self.fields.insert(key, value);
+
+        self
+    }
+
+    pub(crate) fn with_selector(mut self, selector: String) -> Self {
         match selector.as_str() {
             "vis" => self.selector = Some(PropSelector::Vis),
             "sat" => self.selector = Some(PropSelector::SAT),
-            _ => {
-                panic!() // FIXME
-            }
+            _ => unreachable!(),
         }
 
         self
@@ -246,20 +246,23 @@ pub struct CapacityBlock {
 }
 
 impl CapacityBlock {
-    pub fn new(size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
         let capacity = match size {
             Literal::Size(sz) => Capacity::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
             Literal::Infinity => Capacity::omega(),
             _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
         };
         let nodes: NodeList = nodes.try_into()?;
-        let mut capacities = BTreeMap::new();
 
         for node in nodes.nodes.into_iter() {
-            capacities.insert(node, capacity);
+            self.capacities.insert(node, capacity);
         }
 
-        Ok(CapacityBlock { capacities })
+        Ok(self)
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {

@@ -6,6 +6,7 @@ pub type ParsingResult<T> = Result<T, ParsingError>;
 #[derive(Clone, Debug)]
 pub enum AscesisError {
     ParsingError(ParsingError),
+    ParsingRecovery,
     AxiomUnknown(String),
     RootUnset,
     RootMissing(String),
@@ -18,6 +19,7 @@ pub enum AscesisError {
     InvalidAST,
     FatLeak,
     MissingPropSelector,
+    InvalidPropSelector,
     InvalidSATProp(String, String),
     SizeLiteralOverflow,
     ExpectedSizeLiteral,
@@ -30,6 +32,7 @@ impl Error for AscesisError {
 
         match self {
             ParsingError(_) => "ascesis parsing error",
+            ParsingRecovery => "recovering from ascesis parsing error",
             AxiomUnknown(_) => "unknown axiom",
             RootUnset => "unset root structure",
             RootMissing(_) => "missing root structure",
@@ -42,6 +45,7 @@ impl Error for AscesisError {
             InvalidAST => "invalid AST",
             FatLeak => "fat arrow rule leaked through FIT transformation",
             MissingPropSelector => "property block without selector",
+            InvalidPropSelector => "invalid block selector",
             InvalidSATProp(..) => "invalid SAT property",
             SizeLiteralOverflow => "size literal overflow",
             ExpectedSizeLiteral => "bad literal, not a size",
@@ -69,6 +73,7 @@ impl fmt::Display for AscesisError {
 
                 Ok(())
             }
+            ParsingRecovery => write!(f, "Recovering from ascesis parsing error"),
             AxiomUnknown(symbol) => write!(f, "Unknown axiom '{}'", symbol),
             RootUnset => write!(f, "Undeclared root structure"),
             RootMissing(name) => write!(f, "Missing root structure '{}'", name),
@@ -80,7 +85,8 @@ impl fmt::Display for AscesisError {
             UnexpectedDependency(name) => write!(f, "Unexpected uncompiled dependency '{}'", name),
             InvalidAST => write!(f, "Invalid AST"),
             FatLeak => write!(f, "Fat arrow rule leaked through FIT transformation"),
-            MissingPropSelector => write!(f, "property block without selector"),
+            MissingPropSelector => write!(f, "Property block without selector"),
+            InvalidPropSelector => write!(f, "Invalid block selector"),
             InvalidSATProp(prop, value) => write!(f, "Invalid SAT {} '{}'", prop, value),
             SizeLiteralOverflow => write!(f, "Size literal overflow"),
             ExpectedSizeLiteral => write!(f, "Bad literal, not a size"),
@@ -89,8 +95,13 @@ impl fmt::Display for AscesisError {
     }
 }
 
-impl From<ParsingError> for AscesisError {
-    fn from(err: ParsingError) -> Self {
+impl<L: Into<usize>, T: fmt::Display, E: Into<String>> From<lalrpop_util::ParseError<L, T, E>>
+    for AscesisError
+{
+    fn from(err: lalrpop_util::ParseError<L, T, E>) -> Self {
+        let err =
+            err.map_location(|l| l.into()).map_token(|t| format!("{}", t)).map_error(|e| e.into());
+
         AscesisError::ParsingError(err)
     }
 }

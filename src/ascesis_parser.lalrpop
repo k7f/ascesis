@@ -3,6 +3,7 @@ use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
     PropBlock, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
+    AscesisError,
 };
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
@@ -16,6 +17,10 @@ pub CesFileBlock: CesFileBlock = {
     <CapBlock> => <>.into(),
     <MulBlock> => <>.into(),
     <InhBlock> => <>.into(),
+    ! => {
+        errors.push(<>);
+        CesFileBlock::Err(AscesisError::ParsingRecovery)
+    },
 };
 
 // Structure definition, immediate form
@@ -89,7 +94,7 @@ CommaThenPropField: PropBlock = "," <PropField>;
 // prop_field = identifier ":" prop_value ;
 PropField: PropBlock =
     <key: Identifier> ":" <value: PropValue> =>
-        PropBlock::new(key, value);
+        PropBlock::new().with_prop(key, value);
 
 // prop_value = size
 //            | string
@@ -113,7 +118,7 @@ CommaThenCapField: CapacityBlock = "," <CapField>;
 // cap_field = size node_list ;
 CapField: CapacityBlock =
     <size: Size> <nodes: NodeList> =>
-        CapacityBlock::new(size, nodes).unwrap();
+        CapacityBlock::new().with_nodes(size, nodes).unwrap();
 
 // mul_block = "mul" "{" mul_list "}" ;
 pub MulBlock: MultiplicityBlock =

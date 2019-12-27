@@ -6,6 +6,7 @@ use aces::{
 };
 use crate::{
     PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, AscesisError,
+    ascesis_parser::CesFileParser,
 };
 
 #[derive(Default, Debug)]
@@ -17,12 +18,29 @@ pub struct CesFile {
 }
 
 impl CesFile {
-    pub fn from_script(script: String) -> Result<Self, Box<dyn Error>> {
-        let mut result: Self = script.parse()?;
+    pub fn from_script<S: 'static + AsRef<str>>(script: S) -> Result<Self, Box<dyn Error>> {
+        let script = script.as_ref();
+        let mut errors = Vec::new();
+        let mut result = CesFileParser::new().parse(&mut errors, script).unwrap();
 
-        result.script = Some(script);
+        if errors.is_empty() {
+            result.script = Some(script.to_owned());
 
-        Ok(result)
+            Ok(result)
+        } else {
+            for error in errors.iter() {
+                println!("Error: {}", error.error);
+
+                if let Some(token) = error.dropped_tokens.first() {
+                    // FIXME print relevant lines of the script
+                    println!("{}..{}: {:?}", token.0, token.2, token);
+                }
+            }
+
+            let err: AscesisError = errors[0].error.clone().into();
+
+            Err(err.into())
+        }
     }
 
     pub fn set_root_name<S: AsRef<str>>(&mut self, root_name: S) -> Result<(), Box<dyn Error>> {
@@ -294,6 +312,7 @@ pub enum CesFileBlock {
     Cap(CapacityBlock),
     Mul(MultiplicityBlock),
     Inh(InhibitorBlock),
+    Err(AscesisError),
 }
 
 impl From<ImmediateDef> for CesFileBlock {
@@ -310,7 +329,7 @@ impl From<PropBlock> for CesFileBlock {
                 PropSelector::SAT => CesFileBlock::SAT(props),
             }
         } else {
-            panic!() // FIXME
+            CesFileBlock::Err(AscesisError::InvalidPropSelector)
         }
     }
 }
@@ -380,7 +399,7 @@ pub struct ImmediateDef {
 
 impl ImmediateDef {
     pub fn new(name: CesName, rex: Rex) -> Self {
-        println!("ImmediateDef of '{}': {:?}", name, rex);
+        debug!("ImmediateDef of '{}': {:?}", name, rex);
         ImmediateDef { name, rex }
     }
 
