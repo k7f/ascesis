@@ -100,7 +100,7 @@ impl<L: Into<usize>, T: fmt::Display, E: Into<String>> From<lalrpop_util::ParseE
 {
     fn from(err: lalrpop_util::ParseError<L, T, E>) -> Self {
         let err =
-            err.map_location(|l| l.into()).map_token(|t| format!("{}", t)).map_error(|e| e.into());
+            err.map_location(|l| l.into()).map_token(|t| t.to_string()).map_error(|e| e.into());
 
         AscesisError::ParsingError(err)
     }
