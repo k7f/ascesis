@@ -17,25 +17,29 @@ lalrpop_mod!(
     pub bnf_parser
 );
 
-pub mod error;
-pub mod bnf;
+mod error;
+mod bnf;
 pub mod grammar;
 pub mod sentence;
-pub mod axiom;
-pub mod ces;
-pub mod context;
-pub mod rex;
-pub mod polynomial;
-pub mod node;
-pub mod lex;
+mod axiom;
+mod ces;
+mod context;
+mod content;
+mod rex;
+mod polynomial;
+mod node;
+mod lex;
 
-pub use crate::error::{AscesisError, ParsingError, ParsingResult};
-pub use crate::axiom::Axiom;
-pub use crate::ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
-pub use crate::context::{
+pub use aces::*;
+
+pub use error::{AscesisError, ParsingError, ParsingResult};
+pub use axiom::Axiom;
+pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
+pub use context::{
     PropBlock, PropSelector, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
 };
-pub use crate::rex::{Rex, ThinArrowRule, FatArrowRule};
-pub use crate::polynomial::Polynomial;
-pub use crate::node::{Node, ToNode, NodeList};
-pub use crate::lex::{Literal, BinOp};
+pub use content::AscesisFormat;
+pub use rex::{Rex, ThinArrowRule, FatArrowRule};
+pub use polynomial::Polynomial;
+pub use node::{Node, ToNode, NodeList};
+pub use lex::{Literal, BinOp};

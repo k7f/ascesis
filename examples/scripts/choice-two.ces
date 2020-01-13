@@ -1,7 +1,0 @@
-vis {
-    title: "Choice (two arrows)"
-}
-
-ces Main {
-    a => x + y
-}
