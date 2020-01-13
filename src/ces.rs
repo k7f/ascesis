@@ -18,7 +18,7 @@ pub struct CesFile {
 }
 
 impl CesFile {
-    pub fn from_script<S: 'static + AsRef<str>>(script: S) -> Result<Self, Box<dyn Error>> {
+    pub fn from_script<S: AsRef<str>>(script: S) -> Result<Self, Box<dyn Error>> {
         let script = script.as_ref();
         let mut errors = Vec::new();
         let mut result = CesFileParser::new().parse(&mut errors, script).unwrap();
