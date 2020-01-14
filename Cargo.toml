@@ -23,9 +23,9 @@ lazy_static = "1.4"
 rand = "0.7"
 enquote = "1.0"
 lalrpop-util = "0.17"
-aces = { path = "../aces" }
+# aces = { path = "../aces" }
 # aces = { git = "https://github.com/k7f/aces", rev = "f57ef03" }
-# aces = "0.0.10"
+aces = "0.0.11"
 
 [build-dependencies]
 

@@ -27,8 +27,33 @@ impl ContentFormat for AscesisFormat {
         &["ces"]
     }
 
-    fn script_is_acceptable(&self, _script: &str) -> bool {
-        true // FIXME
+    fn script_is_acceptable(&self, script: &str) -> bool {
+        let mut words = script.split_whitespace();
+
+        if let Some(word) = words.next() {
+            match word {
+                "ces" => true,
+                _ => {
+                    if word.contains('{') {
+                        word.trim_start_matches(|c: char| c.is_ascii_alphabetic()).starts_with('{')
+                    } else if word.trim_start_matches(|c: char| c.is_ascii_alphabetic()).is_empty()
+                    {
+                        if let Some(word) = words.next() {
+                            word.starts_with('{')
+                        } else {
+                            // Script is a single token, maybe a keyword, but not a block.
+                            false
+                        }
+                    } else {
+                        // Script is a single word, which is not a block.
+                        false
+                    }
+                }
+            }
+        } else {
+            // Script is empty.
+            false
+        }
     }
 
     fn script_to_content(
@@ -37,6 +62,7 @@ impl ContentFormat for AscesisFormat {
         script: &str,
     ) -> Result<Box<dyn Content>, Box<dyn Error>> {
         let mut ces_file = CesFile::from_script(script)?;
+
         ces_file.set_root_name("Main")?;
         if let Some(title) = ces_file.get_vis_name("title") {
             info!("Using '{}' as the root structure: \"{}\"", ces_file.get_name().unwrap(), title);
