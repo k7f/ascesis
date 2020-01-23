@@ -1,4 +1,5 @@
 use std::{fmt, error::Error};
+use crate::PropSelector;
 
 pub type ParsingError = lalrpop_util::ParseError<usize, String, String>;
 pub type ParsingResult<T> = Result<T, ParsingError>;
@@ -20,40 +21,12 @@ pub enum AscesisError {
     FatLeak,
     MissingPropSelector,
     InvalidPropSelector(String),
-    InvalidPropType(String, String),
-    InvalidPropValue(String, String, String),
+    InvalidPropType(PropSelector, String),
+    InvalidPropValue(PropSelector, String, String),
+    BlockSelectorMismatch(PropSelector, PropSelector),
     SizeLiteralOverflow,
     ExpectedSizeLiteral,
     ExpectedNameLiteral,
-}
-
-impl Error for AscesisError {
-    fn description(&self) -> &str {
-        use AscesisError::*;
-
-        match self {
-            ParsingError(_) => "ascesis parsing error",
-            ParsingRecovery => "recovering from ascesis parsing error",
-            AxiomUnknown(_) => "unknown axiom",
-            RootUnset => "unset root structure",
-            RootMissing(_) => "missing root structure",
-            RootRedefined(_) => "redefined root structure",
-            RootBlockMismatch => "root block mismatch",
-            RootBlockMissing => "root block missing",
-            RootUnresolvable => "root contains instances without known definitions",
-            ScriptUncompiled => "script uncompiled",
-            UnexpectedDependency(_) => "unexpected uncompiled dependency",
-            InvalidAST => "invalid AST",
-            FatLeak => "fat arrow rule leaked through FIT transformation",
-            MissingPropSelector => "property block without selector",
-            InvalidPropSelector(..) => "invalid block selector",
-            InvalidPropType(..) => "invalid property type",
-            InvalidPropValue(..) => "invalid property value",
-            SizeLiteralOverflow => "size literal overflow",
-            ExpectedSizeLiteral => "bad literal, not a size",
-            ExpectedNameLiteral => "bad literal, not a name",
-        }
-    }
 }
 
 impl fmt::Display for AscesisError {
@@ -88,10 +61,13 @@ impl fmt::Display for AscesisError {
             InvalidAST => write!(f, "Invalid AST"),
             FatLeak => write!(f, "Fat arrow rule leaked through FIT transformation"),
             MissingPropSelector => write!(f, "Property block without selector"),
-            InvalidPropSelector(selector) => write!(f, "Invalid block selector '{}'", selector),
+            InvalidPropSelector(name) => write!(f, "Invalid block selector '{}'", name),
             InvalidPropType(selector, prop) => write!(f, "Invalid {} {} type", selector, prop),
             InvalidPropValue(selector, prop, value) => {
                 write!(f, "Invalid {} {} '{}'", selector, prop, value)
+            }
+            BlockSelectorMismatch(expected, actual) => {
+                write!(f, "Expecting {} selector, got {}", expected, actual)
             }
             SizeLiteralOverflow => write!(f, "Size literal overflow"),
             ExpectedSizeLiteral => write!(f, "Bad literal, not a size"),
@@ -99,6 +75,8 @@ impl fmt::Display for AscesisError {
         }
     }
 }
+
+impl Error for AscesisError {}
 
 impl<L: Into<usize>, T: fmt::Display, E: Into<String>> From<lalrpop_util::ParseError<L, T, E>>
     for AscesisError

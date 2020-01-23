@@ -1,12 +1,33 @@
-use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
-use aces::{ContextHandle, Compilable, Capacity, Weight, node, sat};
+use std::{collections::BTreeMap, convert::TryInto, cmp, fmt, error::Error};
+use aces::{ContextHandle, Compilable, Face, Capacity, Weight, sat};
 use crate::{Polynomial, Node, NodeList, Literal, AscesisError};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum PropSelector {
+    AnonymousBlock,
     Vis,
     SAT,
     Invalid(String),
+}
+
+impl Default for PropSelector {
+    #[inline]
+    fn default() -> Self {
+        PropSelector::AnonymousBlock
+    }
+}
+
+impl fmt::Display for PropSelector {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use PropSelector::*;
+
+        match self {
+            AnonymousBlock => write!(f, "anonymous block"),
+            Vis => write!(f, "Vis"),
+            SAT => write!(f, "SAT"),
+            Invalid(ref name) => write!(f, "{}", name),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -36,7 +57,7 @@ impl From<PropBlock> for PropValue {
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct PropBlock {
-    selector: Option<PropSelector>,
+    selector: PropSelector,
     fields:   BTreeMap<String, PropValue>,
 }
 
@@ -53,19 +74,29 @@ impl PropBlock {
 
     pub(crate) fn with_selector(mut self, selector: String) -> Self {
         match selector.as_str() {
-            "vis" => self.selector = Some(PropSelector::Vis),
-            "sat" => self.selector = Some(PropSelector::SAT),
-            _ => self.selector = Some(PropSelector::Invalid(selector)),
+            "vis" => self.selector = PropSelector::Vis,
+            "sat" => self.selector = PropSelector::SAT,
+            _ => self.selector = PropSelector::Invalid(selector),
         }
 
         self
     }
 
-    pub fn get_selector(&self) -> Result<Option<PropSelector>, AscesisError> {
-        if let Some(PropSelector::Invalid(ref selector)) = self.selector {
+    pub fn get_selector(&self) -> Result<PropSelector, AscesisError> {
+        if let PropSelector::Invalid(ref selector) = self.selector {
             Err(AscesisError::InvalidPropSelector(selector.to_owned()))
         } else {
-            Ok(self.selector.as_ref().cloned())
+            Ok(self.selector.clone())
+        }
+    }
+
+    pub fn verify_selector(&self, expected: PropSelector) -> Result<(), AscesisError> {
+        let actual = self.get_selector()?;
+
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(AscesisError::BlockSelectorMismatch(expected, actual))
         }
     }
 
@@ -116,6 +147,23 @@ impl PropBlock {
                 None
             }
         })
+    }
+
+    pub fn get_name_or_identifier<S: AsRef<str>>(
+        &self,
+        key: S,
+    ) -> Result<Option<&str>, AscesisError> {
+        let key = key.as_ref();
+
+        if let Some(value) = self.fields.get(key) {
+            match value {
+                PropValue::Lit(Literal::Name(name)) => Ok(Some(name.as_str())),
+                PropValue::Identifier(identifier) => Ok(Some(identifier.as_str())),
+                _ => Err(AscesisError::InvalidPropType(self.selector.clone(), "key".to_owned())),
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn get_nested_size<I, S>(&self, subblock_keys: I, value_key: S) -> Option<u64>
@@ -188,14 +236,14 @@ impl PropBlock {
     }
 
     pub fn get_sat_encoding(&self) -> Result<Option<sat::Encoding>, AscesisError> {
-        if let Some(encoding) =
-            self.get_name("encoding").or_else(|| self.get_identifier("encoding"))
-        {
+        self.verify_selector(PropSelector::SAT)?;
+
+        if let Some(encoding) = self.get_name_or_identifier("encoding")? {
             match encoding {
                 "port-link" => Ok(Some(sat::Encoding::PortLink)),
                 "fork-join" => Ok(Some(sat::Encoding::ForkJoin)),
                 _ => Err(AscesisError::InvalidPropValue(
-                    "SAT".to_owned(),
+                    PropSelector::SAT,
                     "encoding".to_owned(),
                     encoding.to_owned(),
                 )),
@@ -206,12 +254,14 @@ impl PropBlock {
     }
 
     pub fn get_sat_search(&self) -> Result<Option<sat::Search>, AscesisError> {
-        if let Some(search) = self.get_name("search").or_else(|| self.get_identifier("search")) {
+        self.verify_selector(PropSelector::SAT)?;
+
+        if let Some(search) = self.get_name_or_identifier("search")? {
             match search {
                 "min" => Ok(Some(sat::Search::MinSolutions)),
                 "all" => Ok(Some(sat::Search::AllSolutions)),
                 _ => Err(AscesisError::InvalidPropValue(
-                    "SAT".to_owned(),
+                    PropSelector::SAT,
                     "search".to_owned(),
                     search.to_owned(),
                 )),
@@ -222,15 +272,19 @@ impl PropBlock {
     }
 
     pub fn get_vis_title(&self) -> Result<Option<&str>, AscesisError> {
-        Ok(self.get_name("title").or_else(|| self.get_identifier("title")))
+        self.verify_selector(PropSelector::Vis)?;
+
+        Ok(self.get_name_or_identifier("title")?)
     }
 
     pub fn get_vis_labels(&self) -> Result<Option<&BTreeMap<String, PropValue>>, AscesisError> {
+        self.verify_selector(PropSelector::Vis)?;
+
         if let Some(value) = self.fields.get("labels") {
             if let PropValue::Block(block) = value {
                 Ok(Some(&block.fields))
             } else {
-                Ok(None)
+                Err(AscesisError::InvalidPropType(self.selector.clone(), "labels".to_owned()))
             }
         } else {
             Ok(None)
@@ -240,52 +294,50 @@ impl PropBlock {
 
 impl Compilable for PropBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
-        if let Some(selector) = self.get_selector()? {
-            match selector {
-                PropSelector::Vis => {
-                    if let Some(title) = self.get_vis_title()? {
-                        ctx.lock().unwrap().set_title(title);
-                    }
+        match self.get_selector()? {
+            PropSelector::Vis => {
+                if let Some(title) = self.get_vis_title()? {
+                    ctx.lock().unwrap().set_title(title);
+                }
 
-                    if let Some(labels) = self.get_vis_labels()? {
-                        for (node_name, node_label) in labels {
-                            match node_label {
-                                PropValue::Lit(Literal::Name(ref label))
-                                | PropValue::Identifier(ref label) => {
-                                    let mut ctx = ctx.lock().unwrap();
-                                    let node_id = ctx.share_node_name(node_name);
+                if let Some(labels) = self.get_vis_labels()? {
+                    for (node_name, node_label) in labels {
+                        match node_label {
+                            PropValue::Lit(Literal::Name(ref label))
+                            | PropValue::Identifier(ref label) => {
+                                let mut ctx = ctx.lock().unwrap();
+                                let node_id = ctx.share_node_name(node_name);
 
-                                    ctx.set_label(node_id, label);
-                                }
-                                _ => {
-                                    return Err(AscesisError::InvalidPropType(
-                                        "Vis".to_owned(),
-                                        "labels".to_owned(),
-                                    )
-                                    .into())
-                                }
+                                ctx.set_label(node_id, label);
+                            }
+                            _ => {
+                                return Err(AscesisError::InvalidPropType(
+                                    PropSelector::Vis,
+                                    "labels".to_owned(),
+                                )
+                                .into())
                             }
                         }
                     }
                 }
-                PropSelector::SAT => {
-                    if let Some(encoding) = self.get_sat_encoding()? {
-                        info!("Using encoding '{:?}'", encoding);
-                        ctx.lock().unwrap().set_encoding(encoding);
-                    }
-
-                    if let Some(search) = self.get_sat_search()? {
-                        info!("Using '{:?}' search", search);
-                        ctx.lock().unwrap().set_search(search);
-                    }
-                }
-                _ => unreachable!(),
             }
 
-            Ok(true)
-        } else {
-            Err(AscesisError::MissingPropSelector.into())
+            PropSelector::SAT => {
+                if let Some(encoding) = self.get_sat_encoding()? {
+                    info!("Using encoding '{:?}'", encoding);
+                    ctx.lock().unwrap().set_encoding(encoding);
+                }
+
+                if let Some(search) = self.get_sat_search()? {
+                    info!("Using '{:?}' search", search);
+                    ctx.lock().unwrap().set_search(search);
+                }
+            }
+
+            _ => unreachable!(),
         }
+
+        Ok(true)
     }
 }
 
@@ -414,22 +466,12 @@ impl Compilable for MultiplicityBlock {
                 Multiplicity::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_weight_by_name(
-                        node::Face::Rx,
-                        rx.post_node.as_ref(),
-                        suit_names,
-                        rx.weight,
-                    );
+                    ctx.set_weight_by_name(Face::Rx, rx.post_node.as_ref(), suit_names, rx.weight);
                 }
                 Multiplicity::Tx(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_weight_by_name(
-                        node::Face::Tx,
-                        tx.pre_node.as_ref(),
-                        suit_names,
-                        tx.weight,
-                    );
+                    ctx.set_weight_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names, tx.weight);
                 }
             }
         }
@@ -575,12 +617,12 @@ impl Compilable for InhibitorBlock {
                 Inhibitor::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_inhibitor_by_name(node::Face::Rx, rx.post_node.as_ref(), suit_names);
+                    ctx.set_inhibitor_by_name(Face::Rx, rx.post_node.as_ref(), suit_names);
                 }
                 Inhibitor::Tx(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_inhibitor_by_name(node::Face::Tx, tx.pre_node.as_ref(), suit_names);
+                    ctx.set_inhibitor_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names);
                 }
             }
         }
