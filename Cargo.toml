@@ -3,7 +3,7 @@
 [package]
 
 name = "ascesis"
-version = "0.0.4"
+version = "0.0.5-pre"
 description = "A language for analysis and synthesis of cause-effect synchronised interacting systems"
 authors = ["k7f"]
 edition = "2018"
@@ -23,8 +23,8 @@ lazy_static = "1.4"
 rand = "0.7"
 enquote = "1.0"
 lalrpop-util = "0.17"
-# aces = { path = "../aces" }
-aces = "0.0.11"
+aces = { path = "../aces" }
+# aces = "0.0.11"
 
 [build-dependencies]
 

@@ -323,13 +323,14 @@ impl From<ImmediateDef> for CesFileBlock {
 
 impl From<PropBlock> for CesFileBlock {
     fn from(props: PropBlock) -> Self {
-        if let Some(selector) = props.get_selector() {
-            match selector {
+        match props.get_selector() {
+            Ok(Some(selector)) => match selector {
                 PropSelector::Vis => CesFileBlock::Vis(props),
                 PropSelector::SAT => CesFileBlock::SAT(props),
-            }
-        } else {
-            CesFileBlock::Err(AscesisError::InvalidPropSelector)
+                _ => unreachable!(),
+            },
+            Ok(None) => CesFileBlock::Err(AscesisError::MissingPropSelector),
+            Err(err) => CesFileBlock::Err(err),
         }
     }
 }

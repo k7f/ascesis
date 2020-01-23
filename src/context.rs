@@ -2,10 +2,36 @@ use std::{cmp, collections::BTreeMap, convert::TryInto, error::Error};
 use aces::{ContextHandle, Compilable, Capacity, Weight, node, sat};
 use crate::{Polynomial, Node, NodeList, Literal, AscesisError};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum PropSelector {
     Vis,
     SAT,
+    Invalid(String),
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum PropValue {
+    Lit(Literal),
+    Identifier(String),
+    Block(PropBlock),
+}
+
+impl From<Literal> for PropValue {
+    fn from(lit: Literal) -> Self {
+        PropValue::Lit(lit)
+    }
+}
+
+impl From<String> for PropValue {
+    fn from(identifier: String) -> Self {
+        PropValue::Identifier(identifier)
+    }
+}
+
+impl From<PropBlock> for PropValue {
+    fn from(block: PropBlock) -> Self {
+        PropValue::Block(block)
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
@@ -29,15 +55,18 @@ impl PropBlock {
         match selector.as_str() {
             "vis" => self.selector = Some(PropSelector::Vis),
             "sat" => self.selector = Some(PropSelector::SAT),
-            _ => unreachable!(),
+            _ => self.selector = Some(PropSelector::Invalid(selector)),
         }
 
         self
     }
 
-    #[inline]
-    pub fn get_selector(&self) -> Option<PropSelector> {
-        self.selector
+    pub fn get_selector(&self) -> Result<Option<PropSelector>, AscesisError> {
+        if let Some(PropSelector::Invalid(ref selector)) = self.selector {
+            Err(AscesisError::InvalidPropSelector(selector.to_owned()))
+        } else {
+            Ok(self.selector.as_ref().cloned())
+        }
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
@@ -165,7 +194,11 @@ impl PropBlock {
             match encoding {
                 "port-link" => Ok(Some(sat::Encoding::PortLink)),
                 "fork-join" => Ok(Some(sat::Encoding::ForkJoin)),
-                _ => Err(AscesisError::InvalidSATProp("encoding".to_owned(), encoding.to_owned())),
+                _ => Err(AscesisError::InvalidPropValue(
+                    "SAT".to_owned(),
+                    "encoding".to_owned(),
+                    encoding.to_owned(),
+                )),
             }
         } else {
             Ok(None)
@@ -177,7 +210,27 @@ impl PropBlock {
             match search {
                 "min" => Ok(Some(sat::Search::MinSolutions)),
                 "all" => Ok(Some(sat::Search::AllSolutions)),
-                _ => Err(AscesisError::InvalidSATProp("search".to_owned(), search.to_owned())),
+                _ => Err(AscesisError::InvalidPropValue(
+                    "SAT".to_owned(),
+                    "search".to_owned(),
+                    search.to_owned(),
+                )),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_vis_title(&self) -> Result<Option<&str>, AscesisError> {
+        Ok(self.get_name("title").or_else(|| self.get_identifier("title")))
+    }
+
+    pub fn get_vis_labels(&self) -> Result<Option<&BTreeMap<String, PropValue>>, AscesisError> {
+        if let Some(value) = self.fields.get("labels") {
+            if let PropValue::Block(block) = value {
+                Ok(Some(&block.fields))
+            } else {
+                Ok(None)
             }
         } else {
             Ok(None)
@@ -187,55 +240,52 @@ impl PropBlock {
 
 impl Compilable for PropBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
-        if let Some(selector) = self.selector {
-            let mut ctx = ctx.lock().unwrap();
-
+        if let Some(selector) = self.get_selector()? {
             match selector {
                 PropSelector::Vis => {
-                    // FIXME
+                    if let Some(title) = self.get_vis_title()? {
+                        ctx.lock().unwrap().set_title(title);
+                    }
+
+                    if let Some(labels) = self.get_vis_labels()? {
+                        for (node_name, node_label) in labels {
+                            match node_label {
+                                PropValue::Lit(Literal::Name(ref label))
+                                | PropValue::Identifier(ref label) => {
+                                    let mut ctx = ctx.lock().unwrap();
+                                    let node_id = ctx.share_node_name(node_name);
+
+                                    ctx.set_label(node_id, label);
+                                }
+                                _ => {
+                                    return Err(AscesisError::InvalidPropType(
+                                        "Vis".to_owned(),
+                                        "labels".to_owned(),
+                                    )
+                                    .into())
+                                }
+                            }
+                        }
+                    }
                 }
                 PropSelector::SAT => {
                     if let Some(encoding) = self.get_sat_encoding()? {
                         info!("Using encoding '{:?}'", encoding);
-                        ctx.set_encoding(encoding);
+                        ctx.lock().unwrap().set_encoding(encoding);
                     }
 
                     if let Some(search) = self.get_sat_search()? {
                         info!("Using '{:?}' search", search);
-                        ctx.set_search(search);
+                        ctx.lock().unwrap().set_search(search);
                     }
                 }
+                _ => unreachable!(),
             }
 
             Ok(true)
         } else {
             Err(AscesisError::MissingPropSelector.into())
         }
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum PropValue {
-    Lit(Literal),
-    Identifier(String),
-    Block(PropBlock),
-}
-
-impl From<Literal> for PropValue {
-    fn from(lit: Literal) -> Self {
-        PropValue::Lit(lit)
-    }
-}
-
-impl From<String> for PropValue {
-    fn from(identifier: String) -> Self {
-        PropValue::Identifier(identifier)
-    }
-}
-
-impl From<PropBlock> for PropValue {
-    fn from(block: PropBlock) -> Self {
-        PropValue::Block(block)
     }
 }
 
