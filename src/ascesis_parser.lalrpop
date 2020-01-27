@@ -240,6 +240,7 @@ Identifier: String = r"[A-Za-z_][A-Za-z0-9_-]*" => <>.to_owned();
 // Literals
 
 FiniteSize: Literal = r"[0-9]+" => Literal::from_digits(<>).unwrap();
-Infinity: Literal = "@@" => Literal::infinity();
-Size: Literal = { FiniteSize, Infinity };
+Omega: Literal = r"[Ωω]" => Literal::omega();
+Theta: Literal = r"[Θθ]" => Literal::theta();
+Size: Literal = { FiniteSize, Omega };
 Name: Literal = r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap();

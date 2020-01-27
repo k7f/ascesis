@@ -233,7 +233,8 @@ impl CompilableMut for CesFile {
                 CesFileBlock::Inh(ref inh) => {
                     inh.compile(ctx)?;
                 }
-                _ => {} // FIXME
+                CesFileBlock::SAT(_) | CesFileBlock::Vis(_) => {}
+                CesFileBlock::Err(err) => return Err(err.clone().into()),
             }
         }
 

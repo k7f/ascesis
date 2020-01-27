@@ -355,7 +355,7 @@ impl CapacityBlock {
     pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
         let capacity = match size {
             Literal::Size(sz) => Capacity::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
-            Literal::Infinity => Capacity::omega(),
+            Literal::Omega => Capacity::omega(),
             _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
         };
         let nodes: NodeList = nodes.try_into()?;
@@ -387,10 +387,11 @@ impl Compilable for CapacityBlock {
     }
 }
 
-/// An alphabetically ordered and deduplicated list of multiplicities.
+/// An alphabetically ordered and deduplicated list of transfer
+/// multiplicities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct MultiplicityBlock {
-    multiplicities: Vec<Multiplicity>,
+    xfer_multiplicities: Vec<XferMultiplicity>,
 }
 
 impl MultiplicityBlock {
@@ -401,22 +402,22 @@ impl MultiplicityBlock {
     ) -> Result<Self, Box<dyn Error>> {
         let weight = match size {
             Literal::Size(sz) => Weight::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
-            Literal::Infinity => Weight::omega(),
+            Literal::Omega => Weight::omega(),
             _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
         };
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
 
-        let multiplicities = post_nodes
+        let xfer_multiplicities = post_nodes
             .nodes
             .into_iter()
             .map(|post_node| {
-                Multiplicity::Rx(RxMultiplicity { weight, post_node, pre_set: pre_set.clone() })
+                XferMultiplicity::Rx(RxMultiplicity { weight, post_node, pre_set: pre_set.clone() })
             })
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
 
-        Ok(MultiplicityBlock { multiplicities })
+        Ok(MultiplicityBlock { xfer_multiplicities })
     }
 
     pub fn new_effects(
@@ -426,32 +427,32 @@ impl MultiplicityBlock {
     ) -> Result<Self, Box<dyn Error>> {
         let weight = match size {
             Literal::Size(sz) => Weight::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
-            Literal::Infinity => Weight::omega(),
+            Literal::Omega => Weight::omega(),
             _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
         };
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;
 
-        let multiplicities = pre_nodes
+        let xfer_multiplicities = pre_nodes
             .nodes
             .into_iter()
             .map(|pre_node| {
-                Multiplicity::Tx(TxMultiplicity { weight, pre_node, post_set: post_set.clone() })
+                XferMultiplicity::Tx(TxMultiplicity { weight, pre_node, post_set: post_set.clone() })
             })
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
 
-        Ok(MultiplicityBlock { multiplicities })
+        Ok(MultiplicityBlock { xfer_multiplicities })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
         for mut block in more {
-            self.multiplicities.append(&mut block.multiplicities);
+            self.xfer_multiplicities.append(&mut block.xfer_multiplicities);
         }
 
-        self.multiplicities.sort();
-        let len = self.multiplicities.partition_dedup().0.len();
-        self.multiplicities.truncate(len);
+        self.xfer_multiplicities.sort();
+        let len = self.xfer_multiplicities.partition_dedup().0.len();
+        self.xfer_multiplicities.truncate(len);
 
         self
     }
@@ -461,14 +462,14 @@ impl Compilable for MultiplicityBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for mul in self.multiplicities.iter() {
+        for mul in self.xfer_multiplicities.iter() {
             match mul {
-                Multiplicity::Rx(rx) => {
+                XferMultiplicity::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
                     ctx.set_weight_by_name(Face::Rx, rx.post_node.as_ref(), suit_names, rx.weight);
                 }
-                Multiplicity::Tx(tx) => {
+                XferMultiplicity::Tx(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
                     ctx.set_weight_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names, tx.weight);
@@ -481,12 +482,12 @@ impl Compilable for MultiplicityBlock {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Multiplicity {
+enum XferMultiplicity {
     Rx(RxMultiplicity),
     Tx(TxMultiplicity),
 }
 
-impl cmp::Ord for Multiplicity {
+impl cmp::Ord for XferMultiplicity {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self {
             Self::Rx(s) => match other {
@@ -501,14 +502,14 @@ impl cmp::Ord for Multiplicity {
     }
 }
 
-impl cmp::PartialOrd for Multiplicity {
+impl cmp::PartialOrd for XferMultiplicity {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct RxMultiplicity {
+struct RxMultiplicity {
     weight:    Weight,
     post_node: Node,
     pre_set:   NodeList,
@@ -533,7 +534,7 @@ impl cmp::PartialOrd for RxMultiplicity {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TxMultiplicity {
+struct TxMultiplicity {
     weight:   Weight,
     pre_node: Node,
     post_set: NodeList,

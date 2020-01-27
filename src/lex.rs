@@ -5,7 +5,8 @@ use crate::AscesisError;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Literal {
     Size(u64),
-    Infinity,
+    Omega,
+    Theta,
     Name(String),
 }
 
@@ -15,8 +16,13 @@ impl Literal {
     }
 
     #[inline]
-    pub(crate) fn infinity() -> Self {
-        Literal::Infinity
+    pub(crate) fn omega() -> Self {
+        Literal::Omega
+    }
+
+    #[inline]
+    pub(crate) fn theta() -> Self {
+        Literal::Theta
     }
 
     pub(crate) fn from_quoted_str(quoted: &str) -> Result<Self, Box<dyn Error>> {
