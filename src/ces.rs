@@ -21,25 +21,17 @@ impl CesFile {
     pub fn from_script<S: AsRef<str>>(script: S) -> Result<Self, Box<dyn Error>> {
         let script = script.as_ref();
         let mut errors = Vec::new();
-        let mut result = CesFileParser::new().parse(&mut errors, script).unwrap();
+        match CesFileParser::new().parse(&mut errors, script) {
+            Ok(mut result) => {
+                if errors.is_empty() {
+                    result.script = Some(script.to_owned());
 
-        if errors.is_empty() {
-            result.script = Some(script.to_owned());
-
-            Ok(result)
-        } else {
-            for error in errors.iter() {
-                println!("Error: {}", error.error);
-
-                if let Some(token) = error.dropped_tokens.first() {
-                    // FIXME print relevant lines of the script
-                    println!("{}..{}: {:?}", token.0, token.2, token);
+                    Ok(result)
+                } else {
+                    Err(AscesisError::from(errors).into())
                 }
             }
-
-            let err: AscesisError = errors[0].error.clone().into();
-
-            Err(err.into())
+            Err(err) => Err(AscesisError::from(err).into()),
         }
     }
 
@@ -234,7 +226,9 @@ impl CompilableMut for CesFile {
                     inh.compile(ctx)?;
                 }
                 CesFileBlock::SAT(_) | CesFileBlock::Vis(_) => {}
-                CesFileBlock::Err(err) => return Err(err.clone().into()),
+                CesFileBlock::Bad(err) => {
+                    println!("{:?}", err);
+                }
             }
         }
 
@@ -313,7 +307,7 @@ pub enum CesFileBlock {
     Cap(CapacityBlock),
     Mul(MultiplicityBlock),
     Inh(InhibitorBlock),
-    Err(AscesisError),
+    Bad(AscesisError),
 }
 
 impl From<ImmediateDef> for CesFileBlock {
@@ -326,11 +320,11 @@ impl From<PropBlock> for CesFileBlock {
     fn from(props: PropBlock) -> Self {
         match props.get_selector() {
             Ok(PropSelector::AnonymousBlock) => {
-                CesFileBlock::Err(AscesisError::MissingPropSelector)
+                CesFileBlock::Bad(AscesisError::MissingPropSelector)
             }
             Ok(PropSelector::Vis) => CesFileBlock::Vis(props),
             Ok(PropSelector::SAT) => CesFileBlock::SAT(props),
-            Err(err) => CesFileBlock::Err(err),
+            Err(err) => CesFileBlock::Bad(err),
             _ => unreachable!(),
         }
     }

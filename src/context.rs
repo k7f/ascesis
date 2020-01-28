@@ -437,7 +437,11 @@ impl MultiplicityBlock {
             .nodes
             .into_iter()
             .map(|pre_node| {
-                XferMultiplicity::Tx(TxMultiplicity { weight, pre_node, post_set: post_set.clone() })
+                XferMultiplicity::Tx(TxMultiplicity {
+                    weight,
+                    pre_node,
+                    post_set: post_set.clone(),
+                })
             })
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.

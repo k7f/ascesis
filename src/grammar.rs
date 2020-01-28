@@ -162,7 +162,7 @@ impl Grammar {
 
     #[inline]
     pub fn terminal_ids(&self) -> Range<SymbolID> {
-        (0..self.num_terminals)
+        0..self.num_terminals
     }
 
     #[inline]
@@ -181,7 +181,7 @@ impl Grammar {
 
     #[inline]
     pub fn nonterminal_ids(&self) -> Range<SymbolID> {
-        (self.num_terminals..self.symbols.len())
+        self.num_terminals..self.symbols.len()
     }
 
     pub fn id_of_nonterminal<S: AsRef<str>>(&self, name: S) -> Option<SymbolID> {

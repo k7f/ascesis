@@ -19,7 +19,7 @@ pub CesFileBlock: CesFileBlock = {
     <InhBlock> => <>.into(),
     ! => {
         errors.push(<>);
-        CesFileBlock::Err(AscesisError::ParsingRecovery)
+        CesFileBlock::Bad(AscesisError::ParsingFailure)
     },
 };
 

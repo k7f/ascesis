@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, iter::FromIterator, str::FromStr, error::Error};
 use enquote::unquote;
-use crate::{ParsingError, ParsingResult, bnf_parser::SyntaxParser};
+use crate::{error::ParserError, bnf_parser::SyntaxParser};
 
 fn first_unquoted_semi<S: AsRef<str>>(line: S) -> Option<usize> {
     let mut is_quoted = false;
@@ -58,7 +58,7 @@ impl Syntax {
         self
     }
 
-    pub fn from_phrase<S: AsRef<str>>(phrase: S) -> ParsingResult<Self> {
+    pub fn from_phrase<S: AsRef<str>>(phrase: S) -> Result<Self, ParserError> {
         let phrase = without_comments(phrase);
         let mut errors = Vec::new();
 
@@ -119,9 +119,9 @@ impl Syntax {
 }
 
 impl FromStr for Syntax {
-    type Err = ParsingError;
+    type Err = ParserError;
 
-    fn from_str(s: &str) -> ParsingResult<Self> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::from_phrase(s)
     }
 }

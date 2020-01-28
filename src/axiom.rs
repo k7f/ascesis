@@ -7,8 +7,7 @@ use crate::ascesis_parser::{
 };
 use crate::{
     CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplicityBlock,
-    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, ParsingError,
-    ParsingResult,
+    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, error::ParserError,
 };
 
 #[derive(Clone, Debug)]
@@ -102,7 +101,7 @@ impl Axiom {
 }
 
 pub trait FromPhrase: fmt::Debug {
-    fn from_phrase<S>(phrase: S) -> ParsingResult<Self>
+    fn from_phrase<S>(phrase: S) -> Result<Self, ParserError>
     where
         S: AsRef<str>,
         Self: Sized;
@@ -111,7 +110,7 @@ pub trait FromPhrase: fmt::Debug {
 macro_rules! impl_from_phrase_for {
     ($nt:ty, $parser:ty) => {
         impl FromPhrase for $nt {
-            fn from_phrase<S: AsRef<str>>(phrase: S) -> ParsingResult<Self> {
+            fn from_phrase<S: AsRef<str>>(phrase: S) -> Result<Self, ParserError> {
                 let phrase = phrase.as_ref();
                 let mut errors = Vec::new();
 
@@ -141,9 +140,9 @@ impl_from_phrase_for!(Polynomial, PolynomialParser);
 macro_rules! impl_from_str_for {
     ($nt:ty) => {
         impl FromStr for $nt {
-            type Err = ParsingError;
+            type Err = ParserError;
 
-            fn from_str(s: &str) -> ParsingResult<Self> {
+            fn from_str(s: &str) -> Result<Self, ParserError> {
                 Self::from_phrase(s)
             }
         }

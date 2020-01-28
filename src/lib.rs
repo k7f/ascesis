@@ -9,11 +9,13 @@ extern crate lalrpop_util;
 
 lalrpop_mod!(
     #[allow(clippy::all)]
+    #[allow(unused_parens)]
     pub ascesis_parser
 );
 
 lalrpop_mod!(
     #[allow(clippy::all)]
+    #[allow(unused_parens)]
     pub bnf_parser
 );
 
@@ -32,7 +34,7 @@ mod lex;
 
 pub use aces::*;
 
-pub use error::{AscesisError, ParsingError, ParsingResult};
+pub use error::AscesisError;
 pub use axiom::Axiom;
 pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
 pub use context::{
