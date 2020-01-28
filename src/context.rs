@@ -361,7 +361,7 @@ impl CapacityBlock {
     pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
         let capacity = match size {
             Literal::Size(sz) => Capacity::finite(sz)
-                .ok_or(AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
+                .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Capacity::omega(),
             _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
         };
@@ -409,7 +409,7 @@ impl MultiplicityBlock {
     ) -> Result<Self, Box<dyn Error>> {
         let weight = match size {
             Literal::Size(sz) => Weight::finite(sz)
-                .ok_or(AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
+                .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Weight::omega(),
             _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
         };
@@ -435,7 +435,7 @@ impl MultiplicityBlock {
     ) -> Result<Self, Box<dyn Error>> {
         let weight = match size {
             Literal::Size(sz) => Weight::finite(sz)
-                .ok_or(AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
+                .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Weight::omega(),
             _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
         };

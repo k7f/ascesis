@@ -77,7 +77,7 @@ impl Axiom {
     pub fn parse<S: AsRef<str>>(&self, phrase: S) -> Result<Box<dyn FromPhrase>, AscesisError> {
         macro_rules! from_phrase_as {
             ($typ:ty, $phrase:expr) => {{
-                let object: $typ = $phrase.parse().map_err(|err| AscesisErrorKind::from(err))?;
+                let object: $typ = $phrase.parse().map_err(AscesisErrorKind::from)?;
                 Ok(Box::new(object))
             }};
         }
