@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, convert::TryInto, cmp, fmt, error::Error};
 use aces::{ContextHandle, Compilable, Face, Capacity, Weight, sat};
-use crate::{Polynomial, Node, NodeList, Literal, AscesisError};
+use crate::{Polynomial, Node, NodeList, Literal, AscesisError, AscesisErrorKind};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum PropSelector {
@@ -84,7 +84,7 @@ impl PropBlock {
 
     pub fn get_selector(&self) -> Result<PropSelector, AscesisError> {
         if let PropSelector::Invalid(ref selector) = self.selector {
-            Err(AscesisError::InvalidPropSelector(selector.to_owned()))
+            Err(AscesisErrorKind::InvalidPropSelector(selector.to_owned()).into())
         } else {
             Ok(self.selector.clone())
         }
@@ -96,7 +96,7 @@ impl PropBlock {
         if actual == expected {
             Ok(())
         } else {
-            Err(AscesisError::BlockSelectorMismatch(expected, actual))
+            Err(AscesisErrorKind::BlockSelectorMismatch(expected, actual).into())
         }
     }
 
@@ -159,7 +159,10 @@ impl PropBlock {
             match value {
                 PropValue::Lit(Literal::Name(name)) => Ok(Some(name.as_str())),
                 PropValue::Identifier(identifier) => Ok(Some(identifier.as_str())),
-                _ => Err(AscesisError::InvalidPropType(self.selector.clone(), "key".to_owned())),
+                _ => {
+                    Err(AscesisErrorKind::InvalidPropType(self.selector.clone(), "key".to_owned())
+                        .into())
+                }
             }
         } else {
             Ok(None)
@@ -242,11 +245,12 @@ impl PropBlock {
             match encoding {
                 "port-link" => Ok(Some(sat::Encoding::PortLink)),
                 "fork-join" => Ok(Some(sat::Encoding::ForkJoin)),
-                _ => Err(AscesisError::InvalidPropValue(
+                _ => Err(AscesisErrorKind::InvalidPropValue(
                     PropSelector::SAT,
                     "encoding".to_owned(),
                     encoding.to_owned(),
-                )),
+                )
+                .into()),
             }
         } else {
             Ok(None)
@@ -260,11 +264,12 @@ impl PropBlock {
             match search {
                 "min" => Ok(Some(sat::Search::MinSolutions)),
                 "all" => Ok(Some(sat::Search::AllSolutions)),
-                _ => Err(AscesisError::InvalidPropValue(
+                _ => Err(AscesisErrorKind::InvalidPropValue(
                     PropSelector::SAT,
                     "search".to_owned(),
                     search.to_owned(),
-                )),
+                )
+                .into()),
             }
         } else {
             Ok(None)
@@ -284,7 +289,8 @@ impl PropBlock {
             if let PropValue::Block(block) = value {
                 Ok(Some(&block.fields))
             } else {
-                Err(AscesisError::InvalidPropType(self.selector.clone(), "labels".to_owned()))
+                Err(AscesisErrorKind::InvalidPropType(self.selector.clone(), "labels".to_owned())
+                    .into())
             }
         } else {
             Ok(None)
@@ -311,10 +317,10 @@ impl Compilable for PropBlock {
                                 ctx.set_label(node_id, label);
                             }
                             _ => {
-                                return Err(AscesisError::InvalidPropType(
+                                return Err(AscesisError::from(AscesisErrorKind::InvalidPropType(
                                     PropSelector::Vis,
                                     "labels".to_owned(),
-                                )
+                                ))
                                 .into())
                             }
                         }
@@ -354,9 +360,10 @@ impl CapacityBlock {
 
     pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
         let capacity = match size {
-            Literal::Size(sz) => Capacity::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
+            Literal::Size(sz) => Capacity::finite(sz)
+                .ok_or(AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Capacity::omega(),
-            _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
+            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
         };
         let nodes: NodeList = nodes.try_into()?;
 
@@ -401,9 +408,10 @@ impl MultiplicityBlock {
         pre_set: Polynomial,
     ) -> Result<Self, Box<dyn Error>> {
         let weight = match size {
-            Literal::Size(sz) => Weight::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
+            Literal::Size(sz) => Weight::finite(sz)
+                .ok_or(AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Weight::omega(),
-            _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
+            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
         };
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
@@ -426,9 +434,10 @@ impl MultiplicityBlock {
         post_set: Polynomial,
     ) -> Result<Self, Box<dyn Error>> {
         let weight = match size {
-            Literal::Size(sz) => Weight::finite(sz).ok_or(AscesisError::SizeLiteralOverflow)?,
+            Literal::Size(sz) => Weight::finite(sz)
+                .ok_or(AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Weight::omega(),
-            _ => return Err(AscesisError::ExpectedSizeLiteral.into()),
+            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
         };
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;

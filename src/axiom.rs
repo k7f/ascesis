@@ -7,7 +7,8 @@ use crate::ascesis_parser::{
 };
 use crate::{
     CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplicityBlock,
-    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, error::ParserError,
+    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, AscesisErrorKind,
+    error::ParserError,
 };
 
 #[derive(Clone, Debug)]
@@ -76,7 +77,7 @@ impl Axiom {
     pub fn parse<S: AsRef<str>>(&self, phrase: S) -> Result<Box<dyn FromPhrase>, AscesisError> {
         macro_rules! from_phrase_as {
             ($typ:ty, $phrase:expr) => {{
-                let object: $typ = $phrase.parse()?;
+                let object: $typ = $phrase.parse().map_err(|err| AscesisErrorKind::from(err))?;
                 Ok(Box::new(object))
             }};
         }
@@ -95,7 +96,7 @@ impl Axiom {
             "ThinArrowRule" => from_phrase_as!(ThinArrowRule, phrase),
             "FatArrowRule" => from_phrase_as!(FatArrowRule, phrase),
             "Polynomial" => from_phrase_as!(Polynomial, phrase),
-            _ => Err(AscesisError::AxiomUnknown(self.0.clone())),
+            _ => Err(AscesisErrorKind::AxiomUnknown(self.0.clone()).with_script(phrase)),
         }
     }
 }

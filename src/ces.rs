@@ -6,7 +6,7 @@ use aces::{
 };
 use crate::{
     PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, AscesisError,
-    ascesis_parser::CesFileParser,
+    AscesisErrorKind, ascesis_parser::CesFileParser,
 };
 
 #[derive(Default, Debug)]
@@ -28,10 +28,10 @@ impl CesFile {
 
                     Ok(result)
                 } else {
-                    Err(AscesisError::from(errors).into())
+                    Err(AscesisErrorKind::from(errors).with_script(script.to_owned()).into())
                 }
             }
-            Err(err) => Err(AscesisError::from(err).into()),
+            Err(err) => Err(AscesisErrorKind::from(err).with_script(script.to_owned()).into()),
         }
     }
 
@@ -46,7 +46,10 @@ impl CesFile {
                     if self.root.is_none() {
                         self.root = Some(ndx);
                     } else {
-                        return Err(AscesisError::RootRedefined(root_name.to_owned()).into())
+                        return Err(AscesisError::from(AscesisErrorKind::RootRedefined(
+                            root_name.to_owned(),
+                        ))
+                        .into())
                     }
                 }
             }
@@ -55,7 +58,7 @@ impl CesFile {
         if self.root.is_some() {
             Ok(())
         } else {
-            Err(AscesisError::RootMissing(root_name.to_owned()).into())
+            Err(AscesisError::from(AscesisErrorKind::RootMissing(root_name.to_owned())).into())
         }
     }
 
@@ -65,13 +68,13 @@ impl CesFile {
                 if let CesFileBlock::Imm(ref root) = block {
                     Ok(root)
                 } else {
-                    Err(AscesisError::RootBlockMismatch)
+                    Err(AscesisErrorKind::RootBlockMismatch.into())
                 }
             } else {
-                Err(AscesisError::RootBlockMissing)
+                Err(AscesisErrorKind::RootBlockMissing.into())
             }
         } else {
-            Err(AscesisError::RootUnset)
+            Err(AscesisErrorKind::RootUnset.into())
         }
     }
 
@@ -83,7 +86,7 @@ impl CesFile {
                 unreachable!()
             }
         } else {
-            Err(AscesisError::RootUnset)
+            Err(AscesisErrorKind::RootUnset.into())
         }
     }
 
@@ -91,7 +94,7 @@ impl CesFile {
         if let Some(ref content) = self.content {
             Ok(content)
         } else {
-            self.get_root_verified().and(Err(AscesisError::ScriptUncompiled))
+            self.get_root_verified().and(Err(AscesisErrorKind::ScriptUncompiled.into()))
         }
     }
 
@@ -99,7 +102,7 @@ impl CesFile {
         if let Some(ref mut content) = self.content {
             Ok(content)
         } else {
-            self.get_root_verified().and(Err(AscesisError::ScriptUncompiled))
+            self.get_root_verified().and(Err(AscesisErrorKind::ScriptUncompiled.into()))
         }
     }
 
@@ -260,7 +263,7 @@ impl CompilableMut for CesFile {
 
             Ok(true)
         } else {
-            Err(AscesisError::RootUnresolvable.into())
+            Err(AscesisError::from(AscesisErrorKind::RootUnresolvable).into())
         }
     }
 }
@@ -320,7 +323,7 @@ impl From<PropBlock> for CesFileBlock {
     fn from(props: PropBlock) -> Self {
         match props.get_selector() {
             Ok(PropSelector::AnonymousBlock) => {
-                CesFileBlock::Bad(AscesisError::MissingPropSelector)
+                CesFileBlock::Bad(AscesisErrorKind::MissingPropSelector.into())
             }
             Ok(PropSelector::Vis) => CesFileBlock::Vis(props),
             Ok(PropSelector::SAT) => CesFileBlock::SAT(props),
@@ -429,7 +432,7 @@ impl CompilableAsContent for ImmediateDef {
         if let Some(content) = ctx.lock().unwrap().get_content(&self.name) {
             Ok(content.clone())
         } else if let Some(dep_name) = self.compile_as_dependency(ctx)? {
-            Err(AscesisError::UnexpectedDependency(dep_name).into())
+            Err(AscesisError::from(AscesisErrorKind::UnexpectedDependency(dep_name)).into())
         } else if let Some(content) = ctx.lock().unwrap().get_content(&self.name) {
             Ok(content.clone())
         } else {

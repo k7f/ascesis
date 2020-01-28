@@ -34,7 +34,7 @@ mod lex;
 
 pub use aces::*;
 
-pub use error::AscesisError;
+pub use error::{AscesisError, AscesisErrorKind};
 pub use axiom::Axiom;
 pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
 pub use context::{

@@ -3,7 +3,7 @@ use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
     PropBlock, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
-    AscesisError,
+    AscesisErrorKind,
 };
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
@@ -19,7 +19,7 @@ pub CesFileBlock: CesFileBlock = {
     <InhBlock> => <>.into(),
     ! => {
         errors.push(<>);
-        CesFileBlock::Bad(AscesisError::ParsingFailure)
+        CesFileBlock::Bad(AscesisErrorKind::ParsingFailure.into())
     },
 };
 

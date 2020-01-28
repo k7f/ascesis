@@ -1,7 +1,9 @@
 use std::{convert::TryInto, error::Error};
 use log::Level::Debug;
 use aces::{ContextHandle, PartialContent, CompilableAsContent};
-use crate::{CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError};
+use crate::{
+    CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError, AscesisErrorKind,
+};
 
 pub(crate) type RexID = usize;
 
@@ -192,7 +194,7 @@ impl CompilableAsContent for Rex {
                         if i > pos {
                             parent_pos[i] = pos;
                         } else {
-                            return Err(AscesisError::InvalidAST.into())
+                            return Err(AscesisError::from(AscesisErrorKind::InvalidAST).into())
                         }
                     }
                 }
@@ -203,7 +205,7 @@ impl CompilableAsContent for Rex {
         for pos in (0..rex.kinds.len()).rev() {
             let content = match &rex.kinds[pos] {
                 RexKind::Thin(tar) => tar.get_compiled_content(ctx)?,
-                RexKind::Fat(_) => return Err(AscesisError::FatLeak.into()),
+                RexKind::Fat(_) => return Err(AscesisError::from(AscesisErrorKind::FatLeak).into()),
                 RexKind::Instance(instance) => {
                     // FIXME
                     println!("--> in rex, {}", instance.name);
@@ -212,16 +214,17 @@ impl CompilableAsContent for Rex {
                     if let Some(content) = ctx.get_content(&instance.name) {
                         content.clone()
                     } else {
-                        return Err(
-                            AscesisError::UnexpectedDependency((*instance.name).clone()).into()
-                        )
+                        return Err(AscesisError::from(AscesisErrorKind::UnexpectedDependency(
+                            (*instance.name).clone(),
+                        ))
+                        .into())
                     }
                 }
                 RexKind::Product(_) | RexKind::Sum(_) => {
                     if let Some(content) = merged_content[pos].take() {
                         content
                     } else {
-                        return Err(AscesisError::InvalidAST.into())
+                        return Err(AscesisError::from(AscesisErrorKind::InvalidAST).into())
                     }
                 }
             };
@@ -237,10 +240,10 @@ impl CompilableAsContent for Rex {
                         RexKind::Sum(_) => {
                             *parent_content += content;
                         }
-                        _ => return Err(AscesisError::InvalidAST.into()),
+                        _ => return Err(AscesisError::from(AscesisErrorKind::InvalidAST).into()),
                     }
                 } else {
-                    return Err(AscesisError::InvalidAST.into())
+                    return Err(AscesisError::from(AscesisErrorKind::InvalidAST).into())
                 }
             } else {
                 return Ok(content)

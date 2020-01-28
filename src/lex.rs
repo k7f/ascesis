@@ -1,6 +1,6 @@
 use std::{fmt, convert::TryFrom, str::FromStr, error::Error};
 use enquote::unquote;
-use crate::AscesisError;
+use crate::{AscesisError, AscesisErrorKind};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Literal {
@@ -37,7 +37,7 @@ impl TryFrom<Literal> for u64 {
         if let Literal::Size(size) = lit {
             Ok(size)
         } else {
-            Err(AscesisError::ExpectedSizeLiteral)
+            Err(AscesisErrorKind::ExpectedSizeLiteral.into())
         }
     }
 }

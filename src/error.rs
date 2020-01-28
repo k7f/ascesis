@@ -3,8 +3,51 @@ use crate::PropSelector;
 
 pub(crate) type ParserError = lalrpop_util::ParseError<usize, String, String>;
 
+fn format_location(mut pos: usize, script: &str) -> String {
+    let mut num_lines = 0;
+
+    for line in script.lines() {
+        match pos.checked_sub(line.len() + 1) {
+            Some(p) => pos = p,
+            None => break,
+        }
+        num_lines += 1;
+    }
+
+    format!("[{}:{}]", num_lines + 1, pos + 1)
+}
+
+fn display_parsing_recovery(
+    errors: &[ParserError],
+    script: Option<&str>,
+    f: &mut fmt::Formatter,
+) -> fmt::Result {
+    for (num, err) in errors.iter().enumerate() {
+        let message = if let Some(script) = script {
+            format!("{}", err.clone().map_location(|pos| format_location(pos, script)))
+        } else {
+            format!("{}", err)
+        };
+        let mut lines = message.lines();
+
+        if let Some(line) = lines.next() {
+            if num > 0 {
+                write!(f, "\nerror: {}", line)?;
+            } else {
+                write!(f, "{}", line)?;
+            }
+
+            for line in lines {
+                write!(f, "\n\t{}", line)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[derive(Clone, Debug)]
-pub enum AscesisError {
+pub enum AscesisErrorKind {
     ParsingRecovery(Vec<ParserError>),
     ParsingFailure,
     AxiomUnknown(String),
@@ -28,31 +71,12 @@ pub enum AscesisError {
     ExpectedNameLiteral,
 }
 
-impl fmt::Display for AscesisError {
+impl fmt::Display for AscesisErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use AscesisError::*;
+        use AscesisErrorKind::*;
 
         match self {
-            ParsingRecovery(errors) => {
-                for (num, err) in errors.iter().enumerate() {
-                    let message = format!("{}", err);
-                    let mut lines = message.lines();
-
-                    if let Some(line) = lines.next() {
-                        if num > 0 {
-                            write!(f, "\nerror: {}", line)?;
-                        } else {
-                            write!(f, "{}", line)?;
-                        }
-
-                        for line in lines {
-                            write!(f, "\n\t{}", line)?;
-                        }
-                    }
-                }
-
-                Ok(())
-            }
+            ParsingRecovery(ref errors) => display_parsing_recovery(errors, None, f),
             ParsingFailure => write!(f, "Recovering from ascesis parsing errors"),
             AxiomUnknown(symbol) => write!(f, "Unknown axiom '{}'", symbol),
             RootUnset => write!(f, "Undeclared root structure"),
@@ -81,21 +105,24 @@ impl fmt::Display for AscesisError {
     }
 }
 
-impl Error for AscesisError {}
-
+impl AscesisErrorKind {
+    pub fn with_script<S: AsRef<str>>(self, script: S) -> AscesisError {
+        AscesisError { script: Some(script.as_ref().to_owned()), kind: self }
+    }
+}
 impl<L: Into<usize>, T: fmt::Display, E: Into<String>> From<lalrpop_util::ParseError<L, T, E>>
-    for AscesisError
+    for AscesisErrorKind
 {
     fn from(err: lalrpop_util::ParseError<L, T, E>) -> Self {
         let err =
             err.map_location(|l| l.into()).map_token(|t| t.to_string()).map_error(|e| e.into());
 
-        AscesisError::ParsingRecovery(vec![err])
+        AscesisErrorKind::ParsingRecovery(vec![err])
     }
 }
 
 impl<L: Into<usize>, T: fmt::Display, E: Into<String>>
-    From<Vec<lalrpop_util::ErrorRecovery<L, T, E>>> for AscesisError
+    From<Vec<lalrpop_util::ErrorRecovery<L, T, E>>> for AscesisErrorKind
 {
     fn from(err: Vec<lalrpop_util::ErrorRecovery<L, T, E>>) -> Self {
         let err = err
@@ -108,6 +135,35 @@ impl<L: Into<usize>, T: fmt::Display, E: Into<String>>
             })
             .collect();
 
-        AscesisError::ParsingRecovery(err)
+        AscesisErrorKind::ParsingRecovery(err)
     }
 }
+
+#[derive(Clone, Debug)]
+pub struct AscesisError {
+    script: Option<String>,
+    kind:   AscesisErrorKind,
+}
+
+impl From<AscesisErrorKind> for AscesisError {
+    fn from(kind: AscesisErrorKind) -> Self {
+        AscesisError { script: None, kind }
+    }
+}
+
+impl fmt::Display for AscesisError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use AscesisErrorKind::*;
+
+        if let Some(ref script) = self.script {
+            match self.kind {
+                ParsingRecovery(ref errors) => display_parsing_recovery(errors, Some(script), f),
+                ref kind => kind.fmt(f),
+            }
+        } else {
+            self.kind.fmt(f)
+        }
+    }
+}
+
+impl Error for AscesisError {}
