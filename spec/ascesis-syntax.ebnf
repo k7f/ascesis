@@ -39,10 +39,12 @@ prop_selector = "vis" | "sat" ;
 prop_block = prop_selector "{" prop_list "}" ;
 prop_list = prop_field { "," prop_field } [ "," ] ;
 prop_field = identifier ":" prop_value ;
+prop_value_array = prop_value { "," prop_value } [ "," ] ;
 
-prop_value = size
-           | name
-           | identifier
+prop_value = name
+           | size_list
+           | node_list
+           | "[" prop_value_array "]"
            | "{" prop_list "}" ;
 
 cap_block = "cap" "{" cap_list "}" ;
@@ -90,6 +92,7 @@ fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
 bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 
 node_list = identifier { identifier } ;
+size_list = size { size } ;
 
 # multi-polynomial rule with implicit node lists
 fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;

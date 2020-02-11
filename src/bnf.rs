@@ -1,6 +1,8 @@
 use std::{collections::BTreeMap, iter::FromIterator, str::FromStr, error::Error};
 use enquote::unquote;
-use crate::{error::ParserError, bnf_parser::SyntaxParser};
+use crate::bnf_parser::SyntaxParser;
+
+type ParserError = lalrpop_util::ParseError<usize, String, &'static str>;
 
 fn first_unquoted_semi<S: AsRef<str>>(line: S) -> Option<usize> {
     let mut is_quoted = false;
@@ -64,7 +66,7 @@ impl Syntax {
 
         let mut result = SyntaxParser::new()
             .parse(&mut errors, &phrase)
-            .map_err(|err| err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned()))?;
+            .map_err(|err| err.map_token(|t| format!("{}", t)))?;
 
         // Sort rules and merge these with common LHS.
         // FIXME merging

@@ -276,7 +276,7 @@ impl From<Vec<CesFileBlock>> for CesFile {
 
 impl Content for CesFile {
     fn get_script(&self) -> Option<&str> {
-        self.script.as_ref().map(|s| s.as_str())
+        self.script.as_deref()
     }
 
     fn get_name(&self) -> Option<&str> {

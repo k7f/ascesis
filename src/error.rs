@@ -1,7 +1,23 @@
 use std::{fmt, error::Error};
-use crate::PropSelector;
+use crate::{PropSelector, ascesis_parser::Token};
 
-pub(crate) type ParserError = lalrpop_util::ParseError<usize, String, String>;
+pub(crate) type ParserError = lalrpop_util::ParseError<usize, String, AscesisError>;
+pub(crate) type RawParserError<'input> =
+    lalrpop_util::ParseError<usize, Token<'input>, AscesisError>;
+pub(crate) type RawParserRecovery<'input> =
+    lalrpop_util::ErrorRecovery<usize, Token<'input>, AscesisError>;
+
+impl From<AscesisError> for ParserError {
+    fn from(error: AscesisError) -> Self {
+        ParserError::User { error }
+    }
+}
+
+impl<'input> From<AscesisError> for RawParserError<'input> {
+    fn from(error: AscesisError) -> Self {
+        RawParserError::User { error }
+    }
+}
 
 fn format_location(mut pos: usize, script: &str) -> String {
     let mut num_lines = 0;
@@ -65,6 +81,7 @@ pub enum AscesisErrorKind {
     InvalidPropSelector(String),
     InvalidPropType(PropSelector, String),
     InvalidPropValue(PropSelector, String, String),
+    InvalidPropValueType(String),
     BlockSelectorMismatch(PropSelector, PropSelector),
     SizeLiteralOverflow,
     ExpectedSizeLiteral,
@@ -95,6 +112,7 @@ impl fmt::Display for AscesisErrorKind {
             InvalidPropValue(selector, prop, value) => {
                 write!(f, "Invalid {} {} '{}'", selector, prop, value)
             }
+            InvalidPropValueType(given) => write!(f, "Property value type not a {}", given),
             BlockSelectorMismatch(expected, actual) => {
                 write!(f, "Expecting {} selector, got {}", expected, actual)
             }
@@ -110,30 +128,22 @@ impl AscesisErrorKind {
         AscesisError { script: Some(script.as_ref().to_owned()), kind: self }
     }
 }
-impl<L: Into<usize>, T: fmt::Display, E: Into<String>> From<lalrpop_util::ParseError<L, T, E>>
-    for AscesisErrorKind
-{
-    fn from(err: lalrpop_util::ParseError<L, T, E>) -> Self {
-        let err =
-            err.map_location(|l| l.into()).map_token(|t| t.to_string()).map_error(|e| e.into());
 
+impl From<ParserError> for AscesisErrorKind {
+    fn from(err: ParserError) -> Self {
         AscesisErrorKind::ParsingRecovery(vec![err])
     }
 }
 
-impl<L: Into<usize>, T: fmt::Display, E: Into<String>>
-    From<Vec<lalrpop_util::ErrorRecovery<L, T, E>>> for AscesisErrorKind
-{
-    fn from(err: Vec<lalrpop_util::ErrorRecovery<L, T, E>>) -> Self {
-        let err = err
-            .into_iter()
-            .map(|e| {
-                e.error
-                    .map_location(|l| l.into())
-                    .map_token(|t| t.to_string())
-                    .map_error(|e| e.into())
-            })
-            .collect();
+impl<'input> From<RawParserError<'input>> for AscesisErrorKind {
+    fn from(err: RawParserError<'input>) -> Self {
+        AscesisErrorKind::ParsingRecovery(vec![err.map_token(|t| t.to_string())])
+    }
+}
+
+impl<'input> From<Vec<RawParserRecovery<'input>>> for AscesisErrorKind {
+    fn from(err: Vec<RawParserRecovery<'input>>) -> Self {
+        let err = err.into_iter().map(|e| e.error.map_token(|t| t.to_string())).collect();
 
         AscesisErrorKind::ParsingRecovery(err)
     }

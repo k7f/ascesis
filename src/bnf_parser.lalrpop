@@ -3,6 +3,11 @@ use crate::bnf::{Syntax, Rule, Expression, List, Term};
 
 grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
 
+extern {
+    type Location = usize;
+    type Error = &'static str;
+}
+
 pub Syntax: Syntax = {
     <Rule> => Syntax::from_rule(<>),
     <head: Rule> <tail: Syntax> => Syntax::from_rule(head).with_more(tail),

@@ -32,26 +32,57 @@ impl fmt::Display for PropSelector {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum PropValue {
-    Lit(Literal),
+    Literal(Literal),
     Identifier(String),
+    SizeList(Vec<Literal>),
+    IdentifierList(Vec<String>),
+    Nodes(NodeList),
+    Array(Vec<PropValue>),
     Block(PropBlock),
 }
 
-impl From<Literal> for PropValue {
-    fn from(lit: Literal) -> Self {
-        PropValue::Lit(lit)
-    }
-}
+impl PropValue {
+    pub(crate) fn into_array_with_more(self, more: Vec<Self>) -> Self {
+        let mut values = match self {
+            PropValue::Array(v) => v,
+            _ => vec![self],
+        };
 
-impl From<String> for PropValue {
-    fn from(identifier: String) -> Self {
-        PropValue::Identifier(identifier)
+        values.extend(more.into_iter());
+
+        PropValue::Array(values)
+    }
+
+    pub(crate) fn new_name(lit: Literal) -> Result<Self, AscesisError> {
+        if matches!(lit, Literal::Name(_)) {
+            Ok(PropValue::Literal(lit))
+        } else {
+            Err(AscesisErrorKind::InvalidPropValueType("Name".into()).into())
+        }
+    }
+
+    pub(crate) fn new_size_list(lits: Vec<Literal>) -> Result<Self, AscesisError> {
+        if lits.iter().all(|lit| matches!(lit, Literal::Size(_))) {
+            Ok(PropValue::SizeList(lits))
+        } else {
+            Err(AscesisErrorKind::InvalidPropValueType("Size".into()).into())
+        }
+    }
+
+    pub(crate) fn new_node_list(names: Vec<String>) -> Result<Self, AscesisError> {
+        Ok(PropValue::Nodes(names.into()))
     }
 }
 
 impl From<PropBlock> for PropValue {
     fn from(block: PropBlock) -> Self {
         PropValue::Block(block)
+    }
+}
+
+impl From<Vec<PropValue>> for PropValue {
+    fn from(vals: Vec<PropValue>) -> Self {
+        PropValue::Array(vals)
     }
 }
 
@@ -117,7 +148,7 @@ impl PropBlock {
         let key = key.as_ref();
 
         self.fields.get(key).and_then(|value| {
-            if let PropValue::Lit(Literal::Size(size)) = value {
+            if let PropValue::Literal(Literal::Size(size)) = value {
                 Some(*size)
             } else {
                 None
@@ -129,7 +160,7 @@ impl PropBlock {
         let key = key.as_ref();
 
         self.fields.get(key).and_then(|value| {
-            if let PropValue::Lit(Literal::Name(name)) = value {
+            if let PropValue::Literal(Literal::Name(name)) = value {
                 Some(name.as_str())
             } else {
                 None
@@ -157,7 +188,7 @@ impl PropBlock {
 
         if let Some(value) = self.fields.get(key) {
             match value {
-                PropValue::Lit(Literal::Name(name)) => Ok(Some(name.as_str())),
+                PropValue::Literal(Literal::Name(name)) => Ok(Some(name.as_str())),
                 PropValue::Identifier(identifier) => Ok(Some(identifier.as_str())),
                 _ => {
                     Err(AscesisErrorKind::InvalidPropType(self.selector.clone(), "key".to_owned())
@@ -309,7 +340,7 @@ impl Compilable for PropBlock {
                 if let Some(labels) = self.get_vis_labels()? {
                     for (node_name, node_label) in labels {
                         match node_label {
-                            PropValue::Lit(Literal::Name(ref label))
+                            PropValue::Literal(Literal::Name(ref label))
                             | PropValue::Identifier(ref label) => {
                                 let mut ctx = ctx.lock().unwrap();
                                 let node_id = ctx.share_node_name(node_name);

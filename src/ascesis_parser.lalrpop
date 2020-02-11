@@ -3,10 +3,15 @@ use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
     PropBlock, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
-    AscesisErrorKind,
+    AscesisError, AscesisErrorKind,
 };
 
-grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, &'static str>>);
+grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, AscesisError>>);
+
+extern {
+    type Location = usize;
+    type Error = AscesisError;
+}
 
 // ces_file = { immediate_def | template_def | context_block } ;
 pub CesFile: CesFile = <CesFileBlock*> => <>.into();
@@ -96,14 +101,23 @@ PropField: PropBlock =
     <key: Identifier> ":" <value: PropValue> =>
         PropBlock::new().with_prop(key, value);
 
-// prop_value = size
-//            | string
-//            | identifier
+// prop_value_array = prop_value { "," prop_value } [ "," ] ;
+PropValueArray: PropValue =
+    <head: PropValue> <tail: CommaThenPropValue*> ","? =>
+        head.into_array_with_more(tail);
+
+CommaThenPropValue: PropValue = "," <PropValue>;
+
+// prop_value = name
+//            | size_list
+//            | node_list
+//            | "[" prop_value_array "]"
 //            | "{" prop_list "}" ;
 PropValue: PropValue = {
-    <FiniteSize> => <>.into(),
-    <Name> => <>.into(),
-    <Identifier> => <>.into(),
+    <Name> =>? Ok(PropValue::new_name(<>)?),
+    <SizeList> =>? Ok(PropValue::new_size_list(<>)?),
+    <IdentifierList> =>? Ok(PropValue::new_node_list(<>)?),
+    "[" <PropValueArray> "]" => <>.into(),
     "{" <PropList> "}" => <>.into(),
 };
 
@@ -235,9 +249,13 @@ FatOp: BinOp = { "=>" => BinOp::FatTx, "<=" => BinOp::FatRx, "<=>" => BinOp::Fat
 
 // Identifiers
 
+IdentifierList: Vec<String> = <Identifier+>;
+
 Identifier: String = r"[A-Za-z_][A-Za-z0-9_-]*" => <>.to_owned();
 
 // Literals
+
+SizeList: Vec<Literal> = <Size+>;
 
 FiniteSize: Literal = r"[0-9]+" => Literal::from_digits(<>).unwrap();
 Omega: Literal = r"[Ωω]" => Literal::omega();
