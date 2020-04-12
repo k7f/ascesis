@@ -5,8 +5,8 @@ use aces::{
     CompilableAsDependency, ContextHandle, NodeID, sat,
 };
 use crate::{
-    PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, AscesisError,
-    AscesisErrorKind, ascesis_parser::CesFileParser,
+    PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, Lexer,
+    AscesisError, AscesisErrorKind, ascesis_parser::CesFileParser,
 };
 
 #[derive(Default, Debug)]
@@ -21,7 +21,8 @@ impl CesFile {
     pub fn from_script<S: AsRef<str>>(script: S) -> Result<Self, Box<dyn Error>> {
         let script = script.as_ref();
         let mut errors = Vec::new();
-        match CesFileParser::new().parse(&mut errors, script) {
+        let lexer = Lexer::new(script);
+        match CesFileParser::new().parse(&mut errors, lexer) {
             Ok(mut result) => {
                 if errors.is_empty() {
                     result.script = Some(script.to_owned());

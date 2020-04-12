@@ -7,8 +7,8 @@ use crate::ascesis_parser::{
 };
 use crate::{
     CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplicityBlock,
-    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, AscesisError, AscesisErrorKind,
-    error::ParserError,
+    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, Lexer, AscesisError,
+    AscesisErrorKind, error::ParserError,
 };
 
 #[derive(Clone, Debug)]
@@ -114,8 +114,9 @@ macro_rules! impl_from_phrase_for {
             fn from_phrase<S: AsRef<str>>(phrase: S) -> Result<Self, ParserError> {
                 let phrase = phrase.as_ref();
                 let mut errors = Vec::new();
+                let lexer = Lexer::new(phrase);
 
-                let result = <$parser>::new().parse(&mut errors, phrase).map_err(|err| {
+                let result = <$parser>::new().parse(&mut errors, lexer).map_err(|err| {
                     err.map_token(|t| format!("{}", t)).map_error(|e| e.to_owned())
                 })?;
 

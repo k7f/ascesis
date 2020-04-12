@@ -1,10 +1,21 @@
 #!/bin/bash
 
-CRATES="log fern clap regex lazy_static rand enquote lalrpop-util lalrpop"
+CRATES="log fern clap regex lazy_static rand enquote logos lalrpop-util lalrpop"
+
+print_requested_version() {
+    crate=${1}
+
+    version=$(grep -m 1 "$crate = " Cargo.toml | cut -d\" -f2)
+    if [ -z ${version} ] ; then
+        version=$(grep -m 1 -A 5 -e "\[\(.\+-\)\?dependencies\.${crate}\]" Cargo.toml | grep -m 1 "version" | cut -d\" -f2)
+    fi
+
+    echo -n \"${version}\"
+}
 
 for crate in $CRATES ; do
     echo -n "$crate = "
-    grep -m 1 "$crate = " Cargo.toml | cut -z -d\" -f2
+    print_requested_version ${crate}
     echo -n " -> "
     cargo search --limit 1 $crate | head -1 | awk '{print $3}'
 done

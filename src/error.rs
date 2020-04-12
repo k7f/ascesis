@@ -1,5 +1,5 @@
 use std::{fmt, error::Error};
-use crate::{PropSelector, ascesis_parser::Token};
+use crate::{PropSelector, Token};
 
 pub(crate) type ParserError = lalrpop_util::ParseError<usize, String, AscesisError>;
 pub(crate) type RawParserError<'input> =
@@ -20,17 +20,61 @@ impl<'input> From<AscesisError> for RawParserError<'input> {
 }
 
 fn format_location(mut pos: usize, script: &str) -> String {
-    let mut num_lines = 0;
-
-    for line in script.lines() {
+    for (num_lines, line) in script.lines().enumerate() {
         match pos.checked_sub(line.len() + 1) {
             Some(p) => pos = p,
-            None => break,
+            None => return format!("[{}:{}]", num_lines + 1, pos + 1),
         }
-        num_lines += 1;
     }
 
-    format!("[{}:{}]", num_lines + 1, pos + 1)
+    // FIXME
+    "<outside>".into()
+}
+
+fn format_span(span: &logos::Span, script: &str) -> String {
+    let mut start_location = None;
+    let mut end_location = None;
+    let mut pos = span.start;
+
+    for (num_lines, line) in script.lines().enumerate() {
+        match pos.checked_sub(line.len() + 1) {
+            Some(p) => pos = p,
+            None => {
+                if start_location.is_none() {
+                    start_location = Some((num_lines + 1, pos + 1));
+
+                    if span.end > span.start {
+                        let remaining = line.len() + 1 - pos;
+                        let end_pos = span.end - span.start;
+
+                        if end_pos > remaining {
+                            pos = end_pos - remaining;
+                        } else {
+                            end_location = Some((num_lines + 1, pos + end_pos + 1));
+                            break
+                        }
+                    } else {
+                        break
+                    }
+                } else {
+                    end_location = Some((num_lines + 1, pos + 1));
+                    break
+                }
+            }
+        }
+    }
+
+    if let Some((start_line, start_pos)) = start_location {
+        if let Some((end_line, end_pos)) = end_location {
+            format!("[{}:{}]..[{}:{}]", start_line, start_pos, end_line, end_pos)
+        } else {
+            // FIXME
+            format!("[{}:{}]", start_line, start_pos)
+        }
+    } else {
+        // FIXME
+        "<empty-span>".into()
+    }
 }
 
 fn display_parsing_recovery(
@@ -62,9 +106,19 @@ fn display_parsing_recovery(
     Ok(())
 }
 
+fn display_lexing_failure(
+    token: &str,
+    span: &logos::Span,
+    script: &str,
+    f: &mut fmt::Formatter,
+) -> fmt::Result {
+    write!(f, "Invalid token \"{}\" at {}", token, format_span(span, script))
+}
+
 #[derive(Clone, Debug)]
 pub enum AscesisErrorKind {
     ParsingRecovery(Vec<ParserError>),
+    LexingFailure(String, logos::Span),
     ParsingFailure,
     AxiomUnknown(String),
     RootUnset,
@@ -94,6 +148,7 @@ impl fmt::Display for AscesisErrorKind {
 
         match self {
             ParsingRecovery(ref errors) => display_parsing_recovery(errors, None, f),
+            LexingFailure(token, span) => write!(f, "Invalid token \"{}\" at {:?}", token, span),
             ParsingFailure => write!(f, "Recovering from ascesis parsing errors"),
             AxiomUnknown(symbol) => write!(f, "Unknown axiom '{}'", symbol),
             RootUnset => write!(f, "Undeclared root structure"),
@@ -156,6 +211,7 @@ pub struct AscesisError {
 }
 
 impl From<AscesisErrorKind> for AscesisError {
+    #[inline]
     fn from(kind: AscesisErrorKind) -> Self {
         AscesisError { script: None, kind }
     }
@@ -163,11 +219,14 @@ impl From<AscesisErrorKind> for AscesisError {
 
 impl fmt::Display for AscesisError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use AscesisErrorKind::*;
-
         if let Some(ref script) = self.script {
+            use AscesisErrorKind::*;
+
             match self.kind {
                 ParsingRecovery(ref errors) => display_parsing_recovery(errors, Some(script), f),
+                LexingFailure(ref token, ref span) => {
+                    display_lexing_failure(token.as_str(), span, script, f)
+                }
                 ref kind => kind.fmt(f),
             }
         } else {

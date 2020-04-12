@@ -3,15 +3,10 @@ use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
     PropBlock, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
-    AscesisError, AscesisErrorKind,
+    Token, AscesisError, AscesisErrorKind,
 };
 
-grammar<'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, AscesisError>>);
-
-extern {
-    type Location = usize;
-    type Error = AscesisError;
-}
+grammar<'input, 'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, AscesisError>>);
 
 // ces_file = { immediate_def | template_def | context_block } ;
 pub CesFile: CesFile = <CesFileBlock*> => <>.into();
@@ -262,3 +257,38 @@ Omega: Literal = r"[Ωω]" => Literal::omega();
 Theta: Literal = r"[Θθ]" => Literal::theta();
 Size: Literal = { FiniteSize, Omega };
 Name: Literal = r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap();
+
+extern {
+    type Location = usize;
+    type Error = AscesisError;
+
+    enum Token<'input> {
+        r"[A-Za-z_][A-Za-z0-9_-]*" => Token::Identifier(<&'input str>),
+        r"[0-9]+" => Token::LiteralFiniteSize(<&'input str>),
+        r#""[^"]*""# => Token::LiteralName(<&'input str>),
+        r"[Ωω]" => Token::Omega,
+        r"[Θθ]" => Token::Theta,
+        ";" => Token::Semicolon,
+        "," => Token::Comma,
+        ":" => Token::Colon,
+        "{" => Token::OpenCurly,
+        "}" => Token::CloseCurly,
+        "(" => Token::OpenParen,
+        ")" => Token::CloseParen,
+        "[" => Token::OpenBracket,
+        "]" => Token::CloseBracket,
+        "+" => Token::Add,
+        "->" => Token::ThinArrow,
+        "<-" => Token::ThinBackArrow,
+        "=>" => Token::FatArrow,
+        "<=" => Token::FatBackArrow,
+        "<=>" => Token::FatTwowayArrow,
+        "!" => Token::Bang,
+        "ces" => Token::Ces,
+        "vis" => Token::Vis,
+        "sat" => Token::Sat,
+        "cap" => Token::Cap,
+        "mul" => Token::Mul,
+        "inh" => Token::Inh,
+    }
+}

@@ -30,7 +30,7 @@ mod content;
 mod rex;
 mod polynomial;
 mod node;
-mod lex;
+mod lexer;
 
 pub use aces::*;
 
@@ -44,4 +44,4 @@ pub use content::AscesisFormat;
 pub use rex::{Rex, ThinArrowRule, FatArrowRule};
 pub use polynomial::Polynomial;
 pub use node::{Node, ToNode, NodeList};
-pub use lex::{Literal, BinOp};
+pub use lexer::{Lexer, Token, Literal, BinOp};

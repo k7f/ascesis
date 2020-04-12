@@ -1,10 +1,7 @@
 fn main() {
-    let mut conf = lalrpop::Configuration::new();
-    let conf = conf.use_cargo_dir_conventions();
+    let mut lalrpop_conf = lalrpop::Configuration::new();
+    lalrpop_conf.use_cargo_dir_conventions().emit_rerun_directives(true).emit_report(true);
 
-    conf.process_file("src/ascesis_parser.lalrpop").unwrap();
-    conf.process_file("src/bnf_parser.lalrpop").unwrap();
-
-    println!("cargo:rerun-if-changed=src/ascesis_parser.lalrpop");
-    println!("cargo:rerun-if-changed=src/bnf_parser.lalrpop");
+    lalrpop_conf.process_file("src/ascesis_parser.lalrpop").unwrap();
+    lalrpop_conf.process_file("src/bnf_parser.lalrpop").unwrap();
 }
