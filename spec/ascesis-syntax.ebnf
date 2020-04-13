@@ -33,7 +33,12 @@ arg_value = identifier | size | name ;
 
 ## Context
 
-context_block = prop_block | cap_block | mul_block | inh_block ;
+context_block = prop_block
+              | caps_block
+              | unbounded_block
+              | weights_block
+              | inhibit_block
+              | hold_block ;
 
 prop_selector = "vis" | "sat" ;
 prop_block = prop_selector "{" prop_list "}" ;
@@ -47,17 +52,23 @@ prop_value = name
            | "[" prop_value_array "]"
            | "{" prop_list "}" ;
 
-cap_block = "cap" "{" cap_list "}" ;
+caps_block = "caps" "{" cap_list "}" ;
 cap_list = cap_field { "," cap_field } [ "," ] ;
 cap_field = size node_list ;
 
-mul_block = "mul" "{" mul_list "}" ;
-mul_list = mul_field { "," mul_field } [ "," ] ;
-mul_field = size node_list ( "->" | "<-" ) node_list ;
+unbounded_block = "unbounded" "{" node_list "}" ;
 
-inh_block = "inh" "{" inh_list "}" ;
-inh_list = inh_field { "," inh_field } [ "," ] ;
-inh_field = node_list ( "->" | "<-" ) node_list ;
+weights_block = "weights" "{" weight_list "}" ;
+weight_list = weight_field { "," weight_field } [ "," ] ;
+weight_field = size node_list ( "->" | "<-" ) node_list ;
+
+inhibit_block = "inhibit" "{" inhibit_list "}" ;
+inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
+inhibit_field = node_list ( "->" | "<-" ) node_list ;
+
+hold_block = "hold" "{" hold_list "}" ;
+hold_list = hold_field { "," hold_field } [ "," ] ;
+hold_field = node_list ( "->" | "<-" ) node_list ;
 
 ## Rule expression
 

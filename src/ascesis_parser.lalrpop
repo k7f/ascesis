@@ -1,7 +1,7 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
-    CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance,
-    PropBlock, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
+    CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance, PropBlock, PropValue,
+    CapacitiesBlock, UnboundedBlock, WeightsBlock, InhibitorsBlock, HoldersBlock,
     Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
     Token, AscesisError, AscesisErrorKind,
 };
@@ -14,9 +14,11 @@ pub CesFile: CesFile = <CesFileBlock*> => <>.into();
 pub CesFileBlock: CesFileBlock = {
     <ImmediateDef> => <>.into(),
     <PropBlock> => <>.into(),
-    <CapBlock> => <>.into(),
-    <MulBlock> => <>.into(),
-    <InhBlock> => <>.into(),
+    <CapsBlock> => <>.into(),
+    <UnboundedBlock> => <>.into(),
+    <WeightsBlock> => <>.into(),
+    <InhibitBlock> => <>.into(),
+    <HoldBlock> => <>.into(),
     ! => {
         errors.push(<>);
         CesFileBlock::Bad(AscesisErrorKind::ParsingFailure.into())
@@ -71,7 +73,12 @@ ArgValue: String = <Identifier>;
 
 // Context
 
-// context_block = prop_block | cap_block | mul_block | inh_block ;
+// context_block = prop_block
+//               | caps_block
+//               | unbounded_block
+//               | weights_block
+//               | inhibit_block
+//               | hold_block ;
 
 // prop_selector = "vis" | "sat" ;
 PropSelector: String = {
@@ -116,49 +123,70 @@ PropValue: PropValue = {
     "{" <PropList> "}" => <>.into(),
 };
 
-// cap_block = "cap" "{" cap_list "}" ;
-pub CapBlock: CapacityBlock =
-    "cap" "{" <head: CapField> <tail: CommaThenCapField*> ","? "}" =>
+// caps_block = "caps" "{" cap_list "}" ;
+pub CapsBlock: CapacitiesBlock =
+    "caps" "{" <head: CapField> <tail: CommaThenCapField*> ","? "}" =>
         head.with_more(tail);
 
 // cap_list = cap_field { "," cap_field } [ "," ] ;
-CommaThenCapField: CapacityBlock = "," <CapField>;
+CommaThenCapField: CapacitiesBlock = "," <CapField>;
 
 // cap_field = size node_list ;
-CapField: CapacityBlock =
+CapField: CapacitiesBlock =
     <size: Size> <nodes: NodeList> =>
-        CapacityBlock::new().with_nodes(size, nodes).unwrap();
+        CapacitiesBlock::new().with_nodes(size, nodes).unwrap();
 
-// mul_block = "mul" "{" mul_list "}" ;
-pub MulBlock: MultiplicityBlock =
-    "mul" "{" <head: MulField> <tail: CommaThenMulField*> ","? "}" =>
+// unbounded_block = "unbounded" "{" node_list "}" ;
+pub UnboundedBlock: UnboundedBlock =
+    "unbounded" "{" <nodes: NodeList> "}" =>
+        UnboundedBlock::from_nodes(nodes).unwrap();
+
+// weights_block = "weights" "{" weight_list "}" ;
+pub WeightsBlock: WeightsBlock =
+    "weights" "{" <head: WeightField> <tail: CommaThenWeightField*> ","? "}" =>
         head.with_more(tail);
 
-// mul_list = mul_field { "," mul_field } [ "," ] ;
-CommaThenMulField: MultiplicityBlock = "," <MulField>;
+// weight_list = weight_field { "," weight_field } [ "," ] ;
+CommaThenWeightField: WeightsBlock = "," <WeightField>;
 
-// mul_field = size node_list ( "->" | "<-" ) node_list ;
-MulField: MultiplicityBlock = {
+// weight_field = size node_list ( "->" | "<-" ) node_list ;
+WeightField: WeightsBlock = {
     <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        MultiplicityBlock::new_effects(size, pre_nodes, post_set).unwrap(),
+        WeightsBlock::new_effects(size, pre_nodes, post_set).unwrap(),
     <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        MultiplicityBlock::new_causes(size, post_nodes, pre_set).unwrap(),
+        WeightsBlock::new_causes(size, post_nodes, pre_set).unwrap(),
 };
 
-// inh_block = "inh" "{" inh_list "}" ;
-pub InhBlock: InhibitorBlock =
-    "inh" "{" <head: InhField> <tail: CommaThenInhField*> ","? "}" =>
+// inhibit_block = "inhibit" "{" inhibit_list "}" ;
+pub InhibitBlock: InhibitorsBlock =
+    "inhibit" "{" <head: InhibitField> <tail: CommaThenInhibitField*> ","? "}" =>
         head.with_more(tail);
 
-// inh_list = inh_field { "," inh_field } [ "," ] ;
-CommaThenInhField: InhibitorBlock = "," <InhField>;
+// inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
+CommaThenInhibitField: InhibitorsBlock = "," <InhibitField>;
 
-// inh_field = node_list ( "->" | "<-" ) node_list ;
-InhField: InhibitorBlock = {
+// inhibit_field = node_list ( "->" | "<-" ) node_list ;
+InhibitField: InhibitorsBlock = {
     <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        InhibitorBlock::new_effects(pre_nodes, post_set).unwrap(),
+        InhibitorsBlock::new_effects(pre_nodes, post_set).unwrap(),
     <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        InhibitorBlock::new_causes(post_nodes, pre_set).unwrap(),
+        InhibitorsBlock::new_causes(post_nodes, pre_set).unwrap(),
+};
+
+// hold_block = "hold" "{" hold_list "}" ;
+pub HoldBlock: HoldersBlock =
+    "hold" "{" <head: HoldField> <tail: CommaThenHoldField*> ","? "}" =>
+        head.with_more(tail);
+
+// hold_list = hold_field { "," hold_field } [ "," ] ;
+CommaThenHoldField: HoldersBlock = "," <HoldField>;
+
+// hold_field = node_list ( "->" | "<-" ) node_list ;
+HoldField: HoldersBlock = {
+    <pre_nodes: NodeList> "->" <post_set: NodeList> =>
+        HoldersBlock::new_effects(pre_nodes, post_set).unwrap(),
+    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
+        HoldersBlock::new_causes(post_nodes, pre_set).unwrap(),
 };
 
 // Rule expression
@@ -263,6 +291,7 @@ extern {
     type Error = AscesisError;
 
     enum Token<'input> {
+        r"///.*\n" => Token::DocComment(<&'input str>),
         r"[A-Za-z_][A-Za-z0-9_-]*" => Token::Identifier(<&'input str>),
         r"[0-9]+" => Token::LiteralFiniteSize(<&'input str>),
         r#""[^"]*""# => Token::LiteralName(<&'input str>),
@@ -287,8 +316,10 @@ extern {
         "ces" => Token::Ces,
         "vis" => Token::Vis,
         "sat" => Token::Sat,
-        "cap" => Token::Cap,
-        "mul" => Token::Mul,
-        "inh" => Token::Inh,
+        "caps" => Token::Caps,
+        "unbounded" => Token::Unbounded,
+        "weights" => Token::Weights,
+        "inhibit" => Token::Inhibit,
+        "hold" => Token::Hold,
     }
 }

@@ -188,13 +188,22 @@ impl PropBlock {
 
         if let Some(value) = self.fields.get(key) {
             match value {
-                PropValue::Literal(Literal::Name(name)) => Ok(Some(name.as_str())),
-                PropValue::Identifier(identifier) => Ok(Some(identifier.as_str())),
-                _ => {
-                    Err(AscesisErrorKind::InvalidPropType(self.selector.clone(), "key".to_owned())
-                        .into())
+                PropValue::Literal(Literal::Name(name)) => return Ok(Some(name.as_str())),
+                PropValue::Identifier(identifier) => return Ok(Some(identifier.as_str())),
+                PropValue::Nodes(nodes) => {
+                    if nodes.nodes.len() == 1 {
+                        return Ok(nodes.nodes.first().map(|n| n.as_ref()))
+                    }
                 }
-            }
+                PropValue::IdentifierList(ids) => {
+                    if ids.len() == 1 {
+                        return Ok(ids.first().map(|i| i.as_str()))
+                    }
+                }
+                _ => {}
+            };
+
+            Err(AscesisErrorKind::InvalidPropType(self.selector.clone(), "key".to_owned()).into())
         } else {
             Ok(None)
         }
@@ -380,11 +389,11 @@ impl Compilable for PropBlock {
 
 /// A map from nodes to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
-pub struct CapacityBlock {
+pub struct CapacitiesBlock {
     capacities: BTreeMap<Node, Capacity>,
 }
 
-impl CapacityBlock {
+impl CapacitiesBlock {
     pub fn new() -> Self {
         Default::default()
     }
@@ -413,7 +422,7 @@ impl CapacityBlock {
     }
 }
 
-impl Compilable for CapacityBlock {
+impl Compilable for CapacitiesBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
@@ -425,14 +434,40 @@ impl Compilable for CapacityBlock {
     }
 }
 
+/// A vector of unbounded capacity nodes.
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
+pub struct UnboundedBlock {
+    nodes: Vec<Node>,
+}
+
+impl UnboundedBlock {
+    pub fn from_nodes(nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
+        let nodes: NodeList = nodes.try_into()?;
+
+        Ok(UnboundedBlock { nodes: nodes.nodes })
+    }
+}
+
+impl Compilable for UnboundedBlock {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
+        let mut ctx = ctx.lock().unwrap();
+
+        for node in self.nodes.iter() {
+            ctx.set_capacity_by_name(node.as_ref(), Capacity::omega());
+        }
+
+        Ok(true)
+    }
+}
+
 /// An alphabetically ordered and deduplicated list of transfer
 /// multiplicities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
-pub struct MultiplicityBlock {
+pub struct WeightsBlock {
     xfer_multiplicities: Vec<XferMultiplicity>,
 }
 
-impl MultiplicityBlock {
+impl WeightsBlock {
     pub fn new_causes(
         size: Literal,
         post_nodes: Polynomial,
@@ -451,12 +486,12 @@ impl MultiplicityBlock {
             .nodes
             .into_iter()
             .map(|post_node| {
-                XferMultiplicity::Rx(RxMultiplicity { weight, post_node, pre_set: pre_set.clone() })
+                XferMultiplicity::Rx(RxWeight { weight, post_node, pre_set: pre_set.clone() })
             })
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
 
-        Ok(MultiplicityBlock { xfer_multiplicities })
+        Ok(WeightsBlock { xfer_multiplicities })
     }
 
     pub fn new_effects(
@@ -477,16 +512,12 @@ impl MultiplicityBlock {
             .nodes
             .into_iter()
             .map(|pre_node| {
-                XferMultiplicity::Tx(TxMultiplicity {
-                    weight,
-                    pre_node,
-                    post_set: post_set.clone(),
-                })
+                XferMultiplicity::Tx(TxWeight { weight, pre_node, post_set: post_set.clone() })
             })
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
 
-        Ok(MultiplicityBlock { xfer_multiplicities })
+        Ok(WeightsBlock { xfer_multiplicities })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
@@ -502,12 +533,12 @@ impl MultiplicityBlock {
     }
 }
 
-impl Compilable for MultiplicityBlock {
+impl Compilable for WeightsBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for mul in self.xfer_multiplicities.iter() {
-            match mul {
+        for weight in self.xfer_multiplicities.iter() {
+            match weight {
                 XferMultiplicity::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
@@ -527,8 +558,8 @@ impl Compilable for MultiplicityBlock {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 enum XferMultiplicity {
-    Rx(RxMultiplicity),
-    Tx(TxMultiplicity),
+    Rx(RxWeight),
+    Tx(TxWeight),
 }
 
 impl cmp::Ord for XferMultiplicity {
@@ -553,13 +584,13 @@ impl cmp::PartialOrd for XferMultiplicity {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-struct RxMultiplicity {
+struct RxWeight {
     weight:    Weight,
     post_node: Node,
     pre_set:   NodeList,
 }
 
-impl cmp::Ord for RxMultiplicity {
+impl cmp::Ord for RxWeight {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.post_node.cmp(&other.post_node) {
             cmp::Ordering::Equal => match self.pre_set.cmp(&other.pre_set) {
@@ -571,20 +602,20 @@ impl cmp::Ord for RxMultiplicity {
     }
 }
 
-impl cmp::PartialOrd for RxMultiplicity {
+impl cmp::PartialOrd for RxWeight {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-struct TxMultiplicity {
+struct TxWeight {
     weight:   Weight,
     pre_node: Node,
     post_set: NodeList,
 }
 
-impl cmp::Ord for TxMultiplicity {
+impl cmp::Ord for TxWeight {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.pre_node.cmp(&other.pre_node) {
             cmp::Ordering::Equal => match self.post_set.cmp(&other.post_set) {
@@ -596,7 +627,7 @@ impl cmp::Ord for TxMultiplicity {
     }
 }
 
-impl cmp::PartialOrd for TxMultiplicity {
+impl cmp::PartialOrd for TxWeight {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
@@ -604,11 +635,11 @@ impl cmp::PartialOrd for TxMultiplicity {
 
 /// An alphabetically ordered and deduplicated list of `Inhibitor`s.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
-pub struct InhibitorBlock {
+pub struct InhibitorsBlock {
     inhibitors: Vec<Inhibitor>,
 }
 
-impl InhibitorBlock {
+impl InhibitorsBlock {
     pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
@@ -620,7 +651,7 @@ impl InhibitorBlock {
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
 
-        Ok(InhibitorBlock { inhibitors })
+        Ok(InhibitorsBlock { inhibitors })
     }
 
     pub fn new_effects(
@@ -637,7 +668,7 @@ impl InhibitorBlock {
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
 
-        Ok(InhibitorBlock { inhibitors })
+        Ok(InhibitorsBlock { inhibitors })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
@@ -653,12 +684,12 @@ impl InhibitorBlock {
     }
 }
 
-impl Compilable for InhibitorBlock {
+impl Compilable for InhibitorsBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for inh in self.inhibitors.iter() {
-            match inh {
+        for inhibitor in self.inhibitors.iter() {
+            match inhibitor {
                 Inhibitor::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
@@ -740,6 +771,149 @@ impl cmp::Ord for TxInhibitor {
 }
 
 impl cmp::PartialOrd for TxInhibitor {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// An alphabetically ordered and deduplicated list of `Holder`s.
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
+pub struct HoldersBlock {
+    holders: Vec<Holder>,
+}
+
+impl HoldersBlock {
+    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
+        let post_nodes: NodeList = post_nodes.try_into()?;
+        let pre_set: NodeList = pre_set.try_into()?;
+
+        let holders = post_nodes
+            .nodes
+            .into_iter()
+            .map(|post_node| Holder::Rx(RxHolder { post_node, pre_set: pre_set.clone() }))
+            .collect();
+        // No need to sort: `post_nodes` are already ordered and deduplicated.
+
+        Ok(HoldersBlock { holders })
+    }
+
+    pub fn new_effects(
+        pre_nodes: Polynomial,
+        post_set: Polynomial,
+    ) -> Result<Self, Box<dyn Error>> {
+        let pre_nodes: NodeList = pre_nodes.try_into()?;
+        let post_set: NodeList = post_set.try_into()?;
+
+        let holders = pre_nodes
+            .nodes
+            .into_iter()
+            .map(|pre_node| Holder::Tx(TxHolder { pre_node, post_set: post_set.clone() }))
+            .collect();
+        // No need to sort: `pre_nodes` are already ordered and deduplicated.
+
+        Ok(HoldersBlock { holders })
+    }
+
+    pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
+        for mut block in more {
+            self.holders.append(&mut block.holders);
+        }
+
+        self.holders.sort();
+        let len = self.holders.partition_dedup().0.len();
+        self.holders.truncate(len);
+
+        self
+    }
+}
+
+impl Compilable for HoldersBlock {
+    fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
+        let mut ctx = ctx.lock().unwrap();
+
+        for holder in self.holders.iter() {
+            match holder {
+                Holder::Rx(rx) => {
+                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+
+                    ctx.set_holder_by_name(Face::Rx, rx.post_node.as_ref(), suit_names);
+                }
+                Holder::Tx(tx) => {
+                    let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+
+                    ctx.set_holder_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names);
+                }
+            }
+        }
+
+        Ok(true)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Holder {
+    Rx(RxHolder),
+    Tx(TxHolder),
+}
+
+impl cmp::Ord for Holder {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        match self {
+            Self::Rx(s) => match other {
+                Self::Rx(o) => s.cmp(o),
+                Self::Tx(_) => cmp::Ordering::Less,
+            },
+            Self::Tx(s) => match other {
+                Self::Rx(_) => cmp::Ordering::Greater,
+                Self::Tx(o) => s.cmp(o),
+            },
+        }
+    }
+}
+
+impl cmp::PartialOrd for Holder {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct RxHolder {
+    post_node: Node,
+    pre_set:   NodeList,
+}
+
+impl cmp::Ord for RxHolder {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        match self.post_node.cmp(&other.post_node) {
+            cmp::Ordering::Equal => self.pre_set.cmp(&other.pre_set),
+            result => result,
+        }
+    }
+}
+
+impl cmp::PartialOrd for RxHolder {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct TxHolder {
+    pre_node: Node,
+    post_set: NodeList,
+}
+
+impl cmp::Ord for TxHolder {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        match self.pre_node.cmp(&other.pre_node) {
+            cmp::Ordering::Equal => self.post_set.cmp(&other.post_set),
+            result => result,
+        }
+    }
+}
+
+impl cmp::PartialOrd for TxHolder {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }

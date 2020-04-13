@@ -5,8 +5,8 @@ use aces::{
     CompilableAsDependency, ContextHandle, NodeID, sat,
 };
 use crate::{
-    PropBlock, PropSelector, CapacityBlock, MultiplicityBlock, InhibitorBlock, Rex, Lexer,
-    AscesisError, AscesisErrorKind, ascesis_parser::CesFileParser,
+    PropBlock, PropSelector, CapacitiesBlock, UnboundedBlock, WeightsBlock, InhibitorsBlock,
+    HoldersBlock, Rex, Lexer, AscesisError, AscesisErrorKind, ascesis_parser::CesFileParser,
 };
 
 #[derive(Default, Debug)]
@@ -48,7 +48,7 @@ impl CesFile {
                         self.root = Some(ndx);
                     } else {
                         return Err(AscesisError::from(AscesisErrorKind::RootRedefined(
-                            root_name.to_owned(),
+                            root_name.into(),
                         ))
                         .into())
                     }
@@ -59,7 +59,7 @@ impl CesFile {
         if self.root.is_some() {
             Ok(())
         } else {
-            Err(AscesisError::from(AscesisErrorKind::RootMissing(root_name.to_owned())).into())
+            Err(AscesisError::from(AscesisErrorKind::RootMissing(root_name.into())).into())
         }
     }
 
@@ -220,14 +220,20 @@ impl CompilableMut for CesFile {
                 CesFileBlock::Imm(ref mut imm) => {
                     imm.compile(ctx)?;
                 }
-                CesFileBlock::Cap(ref cap) => {
-                    cap.compile(ctx)?;
+                CesFileBlock::Caps(ref caps) => {
+                    caps.compile(ctx)?;
                 }
-                CesFileBlock::Mul(ref mul) => {
-                    mul.compile(ctx)?;
+                CesFileBlock::Unbounded(ref unbounded) => {
+                    unbounded.compile(ctx)?;
                 }
-                CesFileBlock::Inh(ref inh) => {
-                    inh.compile(ctx)?;
+                CesFileBlock::Weights(ref weights) => {
+                    weights.compile(ctx)?;
+                }
+                CesFileBlock::Inhibit(ref inhibit) => {
+                    inhibit.compile(ctx)?;
+                }
+                CesFileBlock::Hold(ref hold) => {
+                    hold.compile(ctx)?;
                 }
                 CesFileBlock::SAT(_) | CesFileBlock::Vis(_) => {}
                 CesFileBlock::Bad(err) => {
@@ -308,13 +314,16 @@ pub enum CesFileBlock {
     Imm(ImmediateDef),
     Vis(PropBlock),
     SAT(PropBlock),
-    Cap(CapacityBlock),
-    Mul(MultiplicityBlock),
-    Inh(InhibitorBlock),
+    Caps(CapacitiesBlock),
+    Unbounded(UnboundedBlock),
+    Weights(WeightsBlock),
+    Inhibit(InhibitorsBlock),
+    Hold(HoldersBlock),
     Bad(AscesisError),
 }
 
 impl From<ImmediateDef> for CesFileBlock {
+    #[inline]
     fn from(imm: ImmediateDef) -> Self {
         CesFileBlock::Imm(imm)
     }
@@ -334,21 +343,38 @@ impl From<PropBlock> for CesFileBlock {
     }
 }
 
-impl From<CapacityBlock> for CesFileBlock {
-    fn from(cap: CapacityBlock) -> Self {
-        CesFileBlock::Cap(cap)
+impl From<CapacitiesBlock> for CesFileBlock {
+    #[inline]
+    fn from(caps: CapacitiesBlock) -> Self {
+        CesFileBlock::Caps(caps)
     }
 }
 
-impl From<MultiplicityBlock> for CesFileBlock {
-    fn from(mul: MultiplicityBlock) -> Self {
-        CesFileBlock::Mul(mul)
+impl From<UnboundedBlock> for CesFileBlock {
+    #[inline]
+    fn from(unbounded: UnboundedBlock) -> Self {
+        CesFileBlock::Unbounded(unbounded)
     }
 }
 
-impl From<InhibitorBlock> for CesFileBlock {
-    fn from(inh: InhibitorBlock) -> Self {
-        CesFileBlock::Inh(inh)
+impl From<WeightsBlock> for CesFileBlock {
+    #[inline]
+    fn from(weights: WeightsBlock) -> Self {
+        CesFileBlock::Weights(weights)
+    }
+}
+
+impl From<InhibitorsBlock> for CesFileBlock {
+    #[inline]
+    fn from(inhibit: InhibitorsBlock) -> Self {
+        CesFileBlock::Inhibit(inhibit)
+    }
+}
+
+impl From<HoldersBlock> for CesFileBlock {
+    #[inline]
+    fn from(hold: HoldersBlock) -> Self {
+        CesFileBlock::Hold(hold)
     }
 }
 
@@ -358,24 +384,28 @@ pub struct CesName(String);
 impl Deref for CesName {
     type Target = String;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
 impl From<String> for CesName {
+    #[inline]
     fn from(name: String) -> Self {
         CesName(name)
     }
 }
 
 impl AsRef<str> for CesName {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.0.as_str()
     }
 }
 
 impl fmt::Display for CesName {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
     }
@@ -386,6 +416,7 @@ pub trait ToCesName {
 }
 
 impl<S: AsRef<str>> ToCesName for S {
+    #[inline]
     fn to_ces_name(&self) -> CesName {
         self.as_ref().to_string().into()
     }

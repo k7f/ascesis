@@ -1,4 +1,5 @@
 #![feature(slice_partition_dedup)]
+#![feature(str_strip)]
 
 #[macro_use]
 extern crate log;
@@ -38,7 +39,8 @@ pub use error::{AscesisError, AscesisErrorKind};
 pub use axiom::Axiom;
 pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
 pub use context::{
-    PropBlock, PropSelector, PropValue, CapacityBlock, MultiplicityBlock, InhibitorBlock,
+    PropBlock, PropSelector, PropValue, CapacitiesBlock, UnboundedBlock, WeightsBlock,
+    InhibitorsBlock, HoldersBlock,
 };
 pub use content::AscesisFormat;
 pub use rex::{Rex, ThinArrowRule, FatArrowRule};

@@ -3,9 +3,11 @@
 
 <CesFileBlock> ::= <ImmediateDef>
                  | <PropBlock>
-                 | <CapBlock>
-                 | <MulBlock>
-                 | <InhBlock> ;
+                 | <CapsBlock>
+                 | <UnboundedBlock>
+                 | <WeightsBlock>
+                 | <InhibitBlock>
+                 | <HoldBlock> ;
 
 ;; Structure definition, immediate form
 
@@ -54,7 +56,7 @@
 
 ;; Capacities
 
-<CapBlock> ::= "cap" "{" <CapList> "}" ;
+<CapsBlock> ::= "caps" "{" <CapList> "}" ;
 
 <CapList> ::= <PlainCapList>
             | <PlainCapList> "," ;
@@ -64,31 +66,46 @@
 
 <CapField> ::= <Size> <NodeList>
 
-;; Multiplicities
+<UnboundedBlock> ::= "unbounded" "{" <NodeList> "}" ;
 
-<MulBlock> ::= "mul" "{" <MulList> "}" ;
+;; Weights
 
-<MulList> ::= <PlainMulList>
-            | <PlainMulList> "," ;
+<WeightsBlock> ::= "weights" "{" <WeightList> "}" ;
 
-<PlainMulList> ::= <MulField>
-                 | <MulField> "," <PlainMulList> ;
+<WeightList> ::= <PlainWeightList>
+               | <PlainWeightList> "," ;
 
-<MulField> ::= <Size> <NodeList> "->" <NodeList>
-             | <Size> <NodeList> "<-" <NodeList>;
+<PlainWeightList> ::= <WeightField>
+                    | <WeightField> "," <PlainWeightList> ;
+
+<WeightField> ::= <Size> <NodeList> "->" <NodeList>
+                | <Size> <NodeList> "<-" <NodeList>;
 
 ;; Inhibitors
 
-<InhBlock> ::= "inh" "{" <InhList> "}" ;
+<InhibitBlock> ::= "inhibit" "{" <InhibitList> "}" ;
 
-<InhList> ::= <PlainInhList>
-            | <PlainInhList> "," ;
+<InhibitList> ::= <PlainInhibitList>
+                | <PlainInhibitList> "," ;
 
-<PlainInhList> ::= <InhField>
-                 | <InhField> "," <PlainInhList> ;
+<PlainInhibitList> ::= <InhibitField>
+                     | <InhibitField> "," <PlainInhibitList> ;
 
-<InhField> ::= <NodeList> "->" <NodeList>
-             | <NodeList> "<-" <NodeList>;
+<InhibitField> ::= <NodeList> "->" <NodeList>
+                 | <NodeList> "<-" <NodeList>;
+
+;; Holders
+
+<HoldBlock> ::= "hold" "{" <HoldList> "}" ;
+
+<HoldList> ::= <PlainHoldList>
+             | <PlainHoldList> "," ;
+
+<PlainHoldList> ::= <HoldField>
+                  | <HoldField> "," <PlainHoldList> ;
+
+<HoldField> ::= <NodeList> "->" <NodeList>
+              | <NodeList> "<-" <NodeList>;
 
 ;; Rule expression
 

@@ -10,15 +10,15 @@ pub enum Token<'input> {
     #[regex(r"\p{White_Space}", logos::skip)]
     WhiteSpace,
     // FIXME trim
-    #[regex(r"///.*\n", |tok| tok.slice())]
+    #[regex(r"///.*\n", |lex| lex.slice().strip_prefix("///").unwrap_or(""))]
     DocComment(&'input str),
     #[regex(r"//.*\n", logos::skip)]
     Comment,
-    #[regex(r"[A-Za-z_][A-Za-z0-9_-]*", |tok| tok.slice())]
+    #[regex(r"[A-Za-z_][A-Za-z0-9_-]*", |lex| lex.slice())]
     Identifier(&'input str),
-    #[regex(r"[0-9]+", |tok| tok.slice())]
+    #[regex(r"[0-9]+", |lex| lex.slice())]
     LiteralFiniteSize(&'input str),
-    #[regex(r#""[^"]*""#, |tok| tok.slice())]
+    #[regex(r#""[^"]*""#, |lex| lex.slice())]
     LiteralName(&'input str),
     #[token = "Ω"]
     #[token = "ω"]
@@ -64,12 +64,16 @@ pub enum Token<'input> {
     Vis,
     #[token = "sat"]
     Sat,
-    #[token = "cap"]
-    Cap,
-    #[token = "mul"]
-    Mul,
-    #[token = "inh"]
-    Inh,
+    #[token = "caps"]
+    Caps,
+    #[token = "unbounded"]
+    Unbounded,
+    #[token = "weights"]
+    Weights,
+    #[token = "inhibit"]
+    Inhibit,
+    #[token = "hold"]
+    Hold,
 }
 
 impl<'input> fmt::Display for Token<'input> {
@@ -105,9 +109,11 @@ impl<'input> fmt::Display for Token<'input> {
             Ces => write!(f, "ces"),
             Vis => write!(f, "vis"),
             Sat => write!(f, "sat"),
-            Cap => write!(f, "cap"),
-            Mul => write!(f, "mul"),
-            Inh => write!(f, "inh"),
+            Caps => write!(f, "caps"),
+            Unbounded => write!(f, "unbounded"),
+            Weights => write!(f, "weights"),
+            Inhibit => write!(f, "inhibit"),
+            Hold => write!(f, "hold"),
         }
     }
 }
@@ -135,12 +141,14 @@ impl<'input> Iterator for Lexer<'input> {
     type Item = Result<(usize, Token<'input>, usize), AscesisError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|token| {
-            let span = self.0.span();
+        let lexer = &mut self.0;
+
+        lexer.next().map(|token| {
+            let span = lexer.span();
 
             match token {
-                Token::Error => Err(AscesisErrorKind::LexingFailure(self.0.slice().into(), span)
-                    .with_script(self.0.source())),
+                Token::Error => Err(AscesisErrorKind::LexingFailure(lexer.slice().into(), span)
+                    .with_script(lexer.source())),
                 _ => Ok((span.start, token, span.end)),
             }
         })

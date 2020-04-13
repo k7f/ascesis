@@ -2,13 +2,13 @@ use std::{fmt, str::FromStr};
 use regex::Regex;
 use crate::ascesis_parser::{
     CesFileParser, CesFileBlockParser, ImmediateDefParser, CesInstanceParser, PropBlockParser,
-    CapBlockParser, MulBlockParser, InhBlockParser, RexParser, ThinArrowRuleParser,
-    FatArrowRuleParser, PolynomialParser,
+    CapsBlockParser, UnboundedBlockParser, WeightsBlockParser, InhibitBlockParser, HoldBlockParser,
+    RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
 };
 use crate::{
-    CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacityBlock, MultiplicityBlock,
-    InhibitorBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial, Lexer, AscesisError,
-    AscesisErrorKind, error::ParserError,
+    CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacitiesBlock, UnboundedBlock,
+    WeightsBlock, InhibitorsBlock, HoldersBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
+    Lexer, AscesisError, AscesisErrorKind, error::ParserError,
 };
 
 #[derive(Clone, Debug)]
@@ -19,10 +19,9 @@ impl Axiom {
         let symbol = symbol.as_ref();
 
         match symbol {
-            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "PropBlock" | "CapBlock"
-            | "MulBlock" | "InhBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => {
-                Some(Axiom(symbol.to_owned()))
-            }
+            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "PropBlock" | "CapsBlock"
+            | "UnboundedBlock" | "WeightsBlock" | "InhibitBlock" | "HoldBlock" | "Rex"
+            | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => Some(Axiom(symbol.to_owned())),
             _ => None,
         }
     }
@@ -32,9 +31,11 @@ impl Axiom {
             static ref IMM_RE: Regex = Regex::new(r"^ces\s+[[:alpha:]][[:word:]]*\s*\{").unwrap();
             static ref VIS_RE: Regex = Regex::new(r"^vis\s*\{").unwrap();
             static ref SAT_RE: Regex = Regex::new(r"^sat\s*\{").unwrap();
-            static ref CAP_RE: Regex = Regex::new(r"^cap\s*\{").unwrap();
-            static ref MUL_RE: Regex = Regex::new(r"^mul\s*\{").unwrap();
-            static ref INH_RE: Regex = Regex::new(r"^inh\s*\{").unwrap();
+            static ref CAPS_RE: Regex = Regex::new(r"^caps\s*\{").unwrap();
+            static ref UNBOUNDED_RE: Regex = Regex::new(r"^unbounded\s*\{").unwrap();
+            static ref WEIGHTS_RE: Regex = Regex::new(r"^weights\s*\{").unwrap();
+            static ref INHIBIT_RE: Regex = Regex::new(r"^inhibit\s*\{").unwrap();
+            static ref HOLD_RE: Regex = Regex::new(r"^hold\s*\{").unwrap();
             static ref TIN_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*!\s*\(").unwrap();
             static ref IIN_RE: Regex =
                 Regex::new(r"^[[:alpha:]][[:word:]]*\s*\(\s*\)\s*$").unwrap();
@@ -49,12 +50,16 @@ impl Axiom {
             Axiom("ImmediateDef".to_owned())
         } else if VIS_RE.is_match(phrase) || SAT_RE.is_match(phrase) {
             Axiom("PropBlock".to_owned())
-        } else if CAP_RE.is_match(phrase) {
-            Axiom("CapBlock".to_owned())
-        } else if MUL_RE.is_match(phrase) {
-            Axiom("MulBlock".to_owned())
-        } else if INH_RE.is_match(phrase) {
-            Axiom("InhBlock".to_owned())
+        } else if CAPS_RE.is_match(phrase) {
+            Axiom("CapsBlock".to_owned())
+        } else if UNBOUNDED_RE.is_match(phrase) {
+            Axiom("UnboundedBlock".to_owned())
+        } else if WEIGHTS_RE.is_match(phrase) {
+            Axiom("WeightsBlock".to_owned())
+        } else if INHIBIT_RE.is_match(phrase) {
+            Axiom("InhibitBlock".to_owned())
+        } else if HOLD_RE.is_match(phrase) {
+            Axiom("HoldBlock".to_owned())
         } else if TIN_RE.is_match(phrase) || IIN_RE.is_match(phrase) {
             Axiom("CesInstance".to_owned())
         } else if REX_RE.is_match(phrase) {
@@ -89,14 +94,16 @@ impl Axiom {
             "ImmediateDef" => from_phrase_as!(ImmediateDef, phrase),
             "CesInstance" => from_phrase_as!(CesInstance, phrase),
             "PropBlock" => from_phrase_as!(PropBlock, phrase),
-            "CapBlock" => from_phrase_as!(CapacityBlock, phrase),
-            "MulBlock" => from_phrase_as!(MultiplicityBlock, phrase),
-            "InhBlock" => from_phrase_as!(InhibitorBlock, phrase),
+            "CapsBlock" => from_phrase_as!(CapacitiesBlock, phrase),
+            "UnboundedBlock" => from_phrase_as!(UnboundedBlock, phrase),
+            "WeightsBlock" => from_phrase_as!(WeightsBlock, phrase),
+            "InhibitBlock" => from_phrase_as!(InhibitorsBlock, phrase),
+            "HoldBlock" => from_phrase_as!(HoldersBlock, phrase),
             "Rex" => from_phrase_as!(Rex, phrase),
             "ThinArrowRule" => from_phrase_as!(ThinArrowRule, phrase),
             "FatArrowRule" => from_phrase_as!(FatArrowRule, phrase),
             "Polynomial" => from_phrase_as!(Polynomial, phrase),
-            _ => Err(AscesisErrorKind::AxiomUnknown(self.0.clone()).with_script(phrase)),
+            symbol => Err(AscesisErrorKind::AxiomUnknown(symbol.into()).with_script(phrase)),
         }
     }
 }
@@ -131,9 +138,11 @@ impl_from_phrase_for!(CesFileBlock, CesFileBlockParser);
 impl_from_phrase_for!(ImmediateDef, ImmediateDefParser);
 impl_from_phrase_for!(CesInstance, CesInstanceParser);
 impl_from_phrase_for!(PropBlock, PropBlockParser);
-impl_from_phrase_for!(CapacityBlock, CapBlockParser);
-impl_from_phrase_for!(MultiplicityBlock, MulBlockParser);
-impl_from_phrase_for!(InhibitorBlock, InhBlockParser);
+impl_from_phrase_for!(CapacitiesBlock, CapsBlockParser);
+impl_from_phrase_for!(UnboundedBlock, UnboundedBlockParser);
+impl_from_phrase_for!(WeightsBlock, WeightsBlockParser);
+impl_from_phrase_for!(InhibitorsBlock, InhibitBlockParser);
+impl_from_phrase_for!(HoldersBlock, HoldBlockParser);
 impl_from_phrase_for!(Rex, RexParser);
 impl_from_phrase_for!(ThinArrowRule, ThinArrowRuleParser);
 impl_from_phrase_for!(FatArrowRule, FatArrowRuleParser);
@@ -156,9 +165,11 @@ impl_from_str_for!(CesFileBlock);
 impl_from_str_for!(ImmediateDef);
 impl_from_str_for!(CesInstance);
 impl_from_str_for!(PropBlock);
-impl_from_str_for!(CapacityBlock);
-impl_from_str_for!(MultiplicityBlock);
-impl_from_str_for!(InhibitorBlock);
+impl_from_str_for!(CapacitiesBlock);
+impl_from_str_for!(UnboundedBlock);
+impl_from_str_for!(WeightsBlock);
+impl_from_str_for!(InhibitorsBlock);
+impl_from_str_for!(HoldersBlock);
 impl_from_str_for!(Rex);
 impl_from_str_for!(ThinArrowRule);
 impl_from_str_for!(FatArrowRule);

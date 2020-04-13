@@ -81,8 +81,8 @@ these mappings are declared implicitly as
 
 ```rust
 vis { labels: { a: "a", b: "b" } }
-cap { 1 a b }
-mul { 1 a -> b, 1 b <- a }
+caps { 1 a b }
+weights { 1 a -> b, 1 b <- a }
 ```
 
 What follows is a parameterized definition of a single-arrow
@@ -93,7 +93,7 @@ specified node labels and increased capacity of node `a`.
 ces Arrow(x: Node, y: Node) { x => y }
 
 vis { labels: { a: "Source", z: "Sink" } }
-cap { 3 a }
+caps { 3 a }
 
 ces Main { Arrow!(a, z) }
 ```
