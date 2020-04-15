@@ -493,6 +493,17 @@ impl CompilableAsDependency for ImmediateDef {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
+pub struct CesImmediate {
+    pub(crate) name: CesName,
+}
+
+impl CesImmediate {
+    pub(crate) fn new(name: CesName) -> Self {
+        CesImmediate { name }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct CesInstance {
     pub(crate) name: CesName,
     pub(crate) args: Vec<String>,
@@ -500,7 +511,7 @@ pub struct CesInstance {
 
 impl CesInstance {
     pub(crate) fn new(name: CesName) -> Self {
-        println!("CesInstance of '{}'", name);
+        debug!("CesInstance of '{}'", name);
         CesInstance { name, args: Vec::new() }
     }
 

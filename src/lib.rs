@@ -37,7 +37,7 @@ pub use aces::*;
 
 pub use error::{AscesisError, AscesisErrorKind};
 pub use axiom::Axiom;
-pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesInstance};
+pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesImmediate, CesInstance};
 pub use context::{
     PropBlock, PropSelector, PropValue, CapacitiesBlock, UnboundedBlock, WeightsBlock,
     InhibitorsBlock, HoldersBlock,

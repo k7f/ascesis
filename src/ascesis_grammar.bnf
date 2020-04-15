@@ -11,13 +11,16 @@
 
 ;; Structure definition, immediate form
 
-<ImmediateDef> ::= <ImmediateSig> "{" <Rex> "}" ;
+<ImmediateDef> ::= <ImmediateSig> "{" "}"
+                 | <ImmediateSig> "{" <Rex> "}" ;
 
 <ImmediateSig> ::= "ces" <Identifier> ;
 
 ;; Structure instantiation
 
-<CesInstance> ::= <Identifier> "(" ")"
+<CesImmediate> ::= <Identifier> "(" ")" ;
+
+<CesInstance> ::= <Identifier> "!" "(" ")"
                 | <Identifier> "!" "(" <InstanceArgs> ")" ;
 
 <InstanceArgs> ::= <PlainInstanceArgs>
@@ -32,7 +35,8 @@
 
 <PropSelector> ::= "vis" | "sat" ;
 
-<PropBlock> ::= <PropSelector> "{" <PropList> "}" ;
+<PropBlock> ::= <PropSelector> "{" "}"
+              | <PropSelector> "{" <PropList> "}" ;
 
 <PropList> ::= <PlainPropList>
              | <PlainPropList> "," ;
@@ -56,7 +60,8 @@
 
 ;; Capacities
 
-<CapsBlock> ::= "caps" "{" <CapList> "}" ;
+<CapsBlock> ::= "caps" "{" "}"
+              | "caps" "{" <CapList> "}" ;
 
 <CapList> ::= <PlainCapList>
             | <PlainCapList> "," ;
@@ -66,11 +71,13 @@
 
 <CapField> ::= <Size> <NodeList>
 
-<UnboundedBlock> ::= "unbounded" "{" <NodeList> "}" ;
+<UnboundedBlock> ::= "unbounded" "{" "}"
+                   | "unbounded" "{" <NodeList> "}" ;
 
 ;; Weights
 
-<WeightsBlock> ::= "weights" "{" <WeightList> "}" ;
+<WeightsBlock> ::= "weights" "{" "}"
+                 | "weights" "{" <WeightList> "}" ;
 
 <WeightList> ::= <PlainWeightList>
                | <PlainWeightList> "," ;
@@ -83,7 +90,8 @@
 
 ;; Inhibitors
 
-<InhibitBlock> ::= "inhibit" "{" <InhibitList> "}" ;
+<InhibitBlock> ::= "inhibit" "{" "}"
+                 | "inhibit" "{" <InhibitList> "}" ;
 
 <InhibitList> ::= <PlainInhibitList>
                 | <PlainInhibitList> "," ;
@@ -96,7 +104,8 @@
 
 ;; Holders
 
-<HoldBlock> ::= "hold" "{" <HoldList> "}" ;
+<HoldBlock> ::= "hold" "{" "}"
+              | "hold" "{" <HoldList> "}" ;
 
 <HoldList> ::= <PlainHoldList>
              | <PlainHoldList> "," ;
@@ -117,7 +126,8 @@
                | <RexTerm> <RexTermSeq>
                | <RexTerm> "+" <RexTermSeq> ;
 
-<RexTerm> ::= <CesInstance>
+<RexTerm> ::= <CesImmediate>
+            | <CesInstance>
             | "{" <Rex> "}" ;
 
 ;; Arrow rules

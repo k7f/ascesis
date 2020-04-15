@@ -1,14 +1,14 @@
 use std::{fmt, str::FromStr};
 use regex::Regex;
 use crate::ascesis_parser::{
-    CesFileParser, CesFileBlockParser, ImmediateDefParser, CesInstanceParser, PropBlockParser,
-    CapsBlockParser, UnboundedBlockParser, WeightsBlockParser, InhibitBlockParser, HoldBlockParser,
-    RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
+    CesFileParser, CesFileBlockParser, ImmediateDefParser, CesImmediateParser, CesInstanceParser,
+    PropBlockParser, CapsBlockParser, UnboundedBlockParser, WeightsBlockParser, InhibitBlockParser,
+    HoldBlockParser, RexParser, ThinArrowRuleParser, FatArrowRuleParser, PolynomialParser,
 };
 use crate::{
-    CesFile, CesFileBlock, ImmediateDef, CesInstance, PropBlock, CapacitiesBlock, UnboundedBlock,
-    WeightsBlock, InhibitorsBlock, HoldersBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
-    Lexer, AscesisError, AscesisErrorKind, error::ParserError,
+    CesFile, CesFileBlock, ImmediateDef, CesImmediate, CesInstance, PropBlock, CapacitiesBlock,
+    UnboundedBlock, WeightsBlock, InhibitorsBlock, HoldersBlock, Rex, ThinArrowRule, FatArrowRule,
+    Polynomial, Lexer, AscesisError, AscesisErrorKind, error::ParserError,
 };
 
 #[derive(Clone, Debug)]
@@ -19,9 +19,11 @@ impl Axiom {
         let symbol = symbol.as_ref();
 
         match symbol {
-            "CesFileBlock" | "ImmediateDef" | "CesInstance" | "PropBlock" | "CapsBlock"
-            | "UnboundedBlock" | "WeightsBlock" | "InhibitBlock" | "HoldBlock" | "Rex"
-            | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => Some(Axiom(symbol.to_owned())),
+            "CesFileBlock" | "ImmediateDef" | "CesImmediate" | "CesInstance" | "PropBlock"
+            | "CapsBlock" | "UnboundedBlock" | "WeightsBlock" | "InhibitBlock" | "HoldBlock"
+            | "Rex" | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => {
+                Some(Axiom(symbol.to_owned()))
+            }
             _ => None,
         }
     }
@@ -60,7 +62,9 @@ impl Axiom {
             Axiom("InhibitBlock".to_owned())
         } else if HOLD_RE.is_match(phrase) {
             Axiom("HoldBlock".to_owned())
-        } else if TIN_RE.is_match(phrase) || IIN_RE.is_match(phrase) {
+        } else if IIN_RE.is_match(phrase) {
+            Axiom("CesImmediate".to_owned())
+        } else if TIN_RE.is_match(phrase) {
             Axiom("CesInstance".to_owned())
         } else if REX_RE.is_match(phrase) {
             Axiom("Rex".to_owned())
@@ -92,6 +96,7 @@ impl Axiom {
         match self.0.as_str() {
             "CesFileBlock" => from_phrase_as!(CesFileBlock, phrase),
             "ImmediateDef" => from_phrase_as!(ImmediateDef, phrase),
+            "CesImmediate" => from_phrase_as!(CesImmediate, phrase),
             "CesInstance" => from_phrase_as!(CesInstance, phrase),
             "PropBlock" => from_phrase_as!(PropBlock, phrase),
             "CapsBlock" => from_phrase_as!(CapacitiesBlock, phrase),
@@ -136,6 +141,7 @@ macro_rules! impl_from_phrase_for {
 impl_from_phrase_for!(CesFile, CesFileParser);
 impl_from_phrase_for!(CesFileBlock, CesFileBlockParser);
 impl_from_phrase_for!(ImmediateDef, ImmediateDefParser);
+impl_from_phrase_for!(CesImmediate, CesImmediateParser);
 impl_from_phrase_for!(CesInstance, CesInstanceParser);
 impl_from_phrase_for!(PropBlock, PropBlockParser);
 impl_from_phrase_for!(CapacitiesBlock, CapsBlockParser);
@@ -163,6 +169,7 @@ macro_rules! impl_from_str_for {
 impl_from_str_for!(CesFile);
 impl_from_str_for!(CesFileBlock);
 impl_from_str_for!(ImmediateDef);
+impl_from_str_for!(CesImmediate);
 impl_from_str_for!(CesInstance);
 impl_from_str_for!(PropBlock);
 impl_from_str_for!(CapacitiesBlock);

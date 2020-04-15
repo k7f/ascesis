@@ -1,9 +1,9 @@
 use lalrpop_util::ErrorRecovery;
 use crate::{
-    CesFile, CesFileBlock, CesName, ImmediateDef, CesInstance, PropBlock, PropValue,
-    CapacitiesBlock, UnboundedBlock, WeightsBlock, InhibitorsBlock, HoldersBlock,
-    Rex, ThinArrowRule, FatArrowRule, Polynomial, Node, BinOp, Literal,
-    Token, AscesisError, AscesisErrorKind,
+    CesFile, CesFileBlock, CesName, ImmediateDef, CesImmediate, CesInstance,
+    PropBlock, PropValue, CapacitiesBlock, UnboundedBlock, WeightsBlock,
+    InhibitorsBlock, HoldersBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
+    Node, BinOp, Literal, Token, AscesisError, AscesisErrorKind,
 };
 
 grammar<'input, 'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, AscesisError>>);
@@ -27,10 +27,13 @@ pub CesFileBlock: CesFileBlock = {
 
 // Structure definition, immediate form
 
-// immediate_def = immediate_sig "{" rex "}" ;
-pub ImmediateDef: ImmediateDef =
+// immediate_def = immediate_sig "{" { rex } "}" ;
+pub ImmediateDef: ImmediateDef = {
+    <sig: ImmediateSig> "{" "}" =>
+        ImmediateDef::new(sig, Rex::new()),
     <sig: ImmediateSig> "{" <rex: Rex> "}" =>
-        ImmediateDef::new(sig, rex);
+        ImmediateDef::new(sig, rex),
+};
 
 // immediate_sig = "ces" identifier ;
 ImmediateSig: CesName =
@@ -40,17 +43,21 @@ ImmediateSig: CesName =
 // Structure definition, template form
 
 // FIXME
-// template_def = template_sig "{" rex "}" ;
-// template_sig = "ces" identifier "(" template_args ")" ;
+// template_def = template_sig "{" { rex } "}" ;
+// template_sig = "ces" identifier "(" { template_args } ")" ;
 // template_args = arg_decl { "," arg_decl } [ "," ] ;
 // arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
 
 // Structure instantiation
 
-// ces_instance = identifier "(" ")"
-//              | identifier "!" "(" instance_args ")" ;
-pub CesInstance: CesInstance = {
+// ces_immediate = identifier "(" ")" ;
+pub CesImmediate: CesImmediate =
     <name: Identifier> "(" ")" =>
+        CesImmediate::new(CesName::from(name));
+
+// ces_instance = identifier "!" "(" { instance_args } ")" ;
+pub CesInstance: CesInstance = {
+    <name: Identifier> "!" "(" ")" =>
         CesInstance::new(CesName::from(name)),
     <name: Identifier> "!" "(" <args: InstanceArgs> ")" =>
         CesInstance::new(CesName::from(name)).with_args(args),
@@ -86,10 +93,13 @@ PropSelector: String = {
     "sat" => <>.into(),
 };
 
-// prop_block = prop_selector "{" prop_list "}" ;
-pub PropBlock: PropBlock =
+// prop_block = prop_selector "{" { prop_list } "}" ;
+pub PropBlock: PropBlock = {
+    <sel: PropSelector> "{" "}" =>
+        PropBlock::new().with_selector(sel),
     <sel: PropSelector> "{" <blk: PropList> "}" =>
-        blk.with_selector(sel);
+        blk.with_selector(sel),
+};
 
 // prop_list = prop_field { "," prop_field } [ "," ] ;
 PropList: PropBlock =
@@ -123,10 +133,12 @@ PropValue: PropValue = {
     "{" <PropList> "}" => <>.into(),
 };
 
-// caps_block = "caps" "{" cap_list "}" ;
-pub CapsBlock: CapacitiesBlock =
+// caps_block = "caps" "{" { cap_list } "}" ;
+pub CapsBlock: CapacitiesBlock = {
+    "caps" "{" "}" => CapacitiesBlock::new(),
     "caps" "{" <head: CapField> <tail: CommaThenCapField*> ","? "}" =>
-        head.with_more(tail);
+        head.with_more(tail),
+};
 
 // cap_list = cap_field { "," cap_field } [ "," ] ;
 CommaThenCapField: CapacitiesBlock = "," <CapField>;
@@ -136,15 +148,19 @@ CapField: CapacitiesBlock =
     <size: Size> <nodes: NodeList> =>
         CapacitiesBlock::new().with_nodes(size, nodes).unwrap();
 
-// unbounded_block = "unbounded" "{" node_list "}" ;
-pub UnboundedBlock: UnboundedBlock =
+// unbounded_block = "unbounded" "{" { node_list } "}" ;
+pub UnboundedBlock: UnboundedBlock = {
+    "unbounded" "{" "}" => UnboundedBlock::new(),
     "unbounded" "{" <nodes: NodeList> "}" =>
-        UnboundedBlock::from_nodes(nodes).unwrap();
+        UnboundedBlock::from_nodes(nodes).unwrap(),
+};
 
-// weights_block = "weights" "{" weight_list "}" ;
-pub WeightsBlock: WeightsBlock =
+// weights_block = "weights" "{" { weight_list } "}" ;
+pub WeightsBlock: WeightsBlock = {
+    "weights" "{" "}" => WeightsBlock::new(),
     "weights" "{" <head: WeightField> <tail: CommaThenWeightField*> ","? "}" =>
-        head.with_more(tail);
+        head.with_more(tail),
+};
 
 // weight_list = weight_field { "," weight_field } [ "," ] ;
 CommaThenWeightField: WeightsBlock = "," <WeightField>;
@@ -157,10 +173,12 @@ WeightField: WeightsBlock = {
         WeightsBlock::new_causes(size, post_nodes, pre_set).unwrap(),
 };
 
-// inhibit_block = "inhibit" "{" inhibit_list "}" ;
-pub InhibitBlock: InhibitorsBlock =
+// inhibit_block = "inhibit" "{" { inhibit_list } "}" ;
+pub InhibitBlock: InhibitorsBlock = {
+    "inhibit" "{" "}" => InhibitorsBlock::new(),
     "inhibit" "{" <head: InhibitField> <tail: CommaThenInhibitField*> ","? "}" =>
-        head.with_more(tail);
+        head.with_more(tail),
+};
 
 // inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
 CommaThenInhibitField: InhibitorsBlock = "," <InhibitField>;
@@ -173,10 +191,12 @@ InhibitField: InhibitorsBlock = {
         InhibitorsBlock::new_causes(post_nodes, pre_set).unwrap(),
 };
 
-// hold_block = "hold" "{" hold_list "}" ;
-pub HoldBlock: HoldersBlock =
+// hold_block = "hold" "{" { hold_list } "}" ;
+pub HoldBlock: HoldersBlock = {
+    "hold" "{" "}" => HoldersBlock::new(),
     "hold" "{" <head: HoldField> <tail: CommaThenHoldField*> ","? "}" =>
-        head.with_more(tail);
+        head.with_more(tail),
+};
 
 // hold_list = hold_field { "," hold_field } [ "," ] ;
 CommaThenHoldField: HoldersBlock = "," <HoldField>;
@@ -200,8 +220,9 @@ pub Rex: Rex = {
     <head: RexTerm> <tail: (<AddOp?> <RexTerm>)*> => head.with_more(tail),
 };
 
-// rex_term = ces_instance | "{" rex "}" ;
+// rex_term = ces_immediate | ces_instance | "{" rex "}" ;
 RexTerm: Rex = {
+    <CesImmediate> => <>.into(),
     <CesInstance> => <>.into(),
     "{" <Rex> "}",
 };

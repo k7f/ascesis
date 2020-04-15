@@ -93,7 +93,8 @@ pub struct PropBlock {
 }
 
 impl PropBlock {
-    pub fn new() -> Self {
+    #[inline]
+    pub(crate) fn new() -> Self {
         Default::default()
     }
 
@@ -394,7 +395,8 @@ pub struct CapacitiesBlock {
 }
 
 impl CapacitiesBlock {
-    pub fn new() -> Self {
+    #[inline]
+    pub(crate) fn new() -> Self {
         Default::default()
     }
 
@@ -441,6 +443,11 @@ pub struct UnboundedBlock {
 }
 
 impl UnboundedBlock {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
     pub fn from_nodes(nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
         let nodes: NodeList = nodes.try_into()?;
 
@@ -468,6 +475,11 @@ pub struct WeightsBlock {
 }
 
 impl WeightsBlock {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
     pub fn new_causes(
         size: Literal,
         post_nodes: Polynomial,
@@ -640,6 +652,11 @@ pub struct InhibitorsBlock {
 }
 
 impl InhibitorsBlock {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
     pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
@@ -783,6 +800,11 @@ pub struct HoldersBlock {
 }
 
 impl HoldersBlock {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        Default::default()
+    }
+
     pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;

@@ -2,7 +2,8 @@ use std::{convert::TryInto, error::Error};
 use log::Level::Debug;
 use aces::{ContextHandle, PartialContent, CompilableAsContent};
 use crate::{
-    CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError, AscesisErrorKind,
+    CesImmediate, CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError,
+    AscesisErrorKind,
 };
 
 pub(crate) type RexID = usize;
@@ -24,6 +25,11 @@ pub struct Rex {
 }
 
 impl Rex {
+    #[inline]
+    pub(crate) fn new() -> Self {
+        Rex { kinds: Vec::new() }
+    }
+
     pub(crate) fn with_more(self, rexlist: Vec<(Option<BinOp>, Rex)>) -> Self {
         if rexlist.is_empty() {
             return self
@@ -164,7 +170,11 @@ impl CompilableAsContent for Rex {
         let ctx = ctx.lock().unwrap();
 
         for kind in self.kinds.iter() {
-            if let RexKind::Instance(instance) = kind {
+            if let RexKind::Immediate(immediate) = kind {
+                if !ctx.has_content(&immediate.name) {
+                    return Some((*immediate.name).clone())
+                }
+            } else if let RexKind::Instance(instance) = kind {
                 if !ctx.has_content(&instance.name) {
                     return Some((*instance.name).clone())
                 }
@@ -206,9 +216,21 @@ impl CompilableAsContent for Rex {
             let content = match &rex.kinds[pos] {
                 RexKind::Thin(tar) => tar.get_compiled_content(ctx)?,
                 RexKind::Fat(_) => return Err(AscesisError::from(AscesisErrorKind::FatLeak).into()),
+                RexKind::Immediate(immediate) => {
+                    let ctx = ctx.lock().unwrap();
+
+                    if let Some(content) = ctx.get_content(&immediate.name) {
+                        content.clone()
+                    } else {
+                        return Err(AscesisError::from(AscesisErrorKind::UnexpectedDependency(
+                            (*immediate.name).clone(),
+                        ))
+                        .into())
+                    }
+                }
                 RexKind::Instance(instance) => {
                     // FIXME
-                    println!("--> in rex, {}", instance.name);
+                    debug!("--> in rex, {}", instance.name);
                     let ctx = ctx.lock().unwrap();
 
                     if let Some(content) = ctx.get_content(&instance.name) {
@@ -266,6 +288,12 @@ impl From<FatArrowRule> for Rex {
     }
 }
 
+impl From<CesImmediate> for Rex {
+    fn from(immediate: CesImmediate) -> Self {
+        Rex { kinds: vec![RexKind::Immediate(immediate)] }
+    }
+}
+
 impl From<CesInstance> for Rex {
     fn from(instance: CesInstance) -> Self {
         Rex { kinds: vec![RexKind::Instance(instance)] }
@@ -276,6 +304,7 @@ impl From<CesInstance> for Rex {
 pub(crate) enum RexKind {
     Thin(ThinArrowRule),
     Fat(FatArrowRule),
+    Immediate(CesImmediate),
     Instance(CesInstance),
     Product(RexTree),
     Sum(RexTree),
@@ -554,8 +583,8 @@ mod tests {
 
     #[test]
     fn test_rex_singles() {
-        let phrase =
-            "{ a => b <= c } { d() + e!(f) g!(h, i) } + { { j -> k -> l } { j -> k } { l <- k } }";
+        let phrase = "{ a => b <= c } { d!() + e!(f) g!(h, i) } + { { j -> k -> l } { j -> k \
+                      } { l <- k } } m()";
         let rex: Rex = phrase.parse().unwrap();
 
         assert_eq!(
@@ -587,7 +616,8 @@ mod tests {
                         name: "g".to_ces_name(),
                         args: vec!["h".to_string(), "i".to_string()],
                     }),
-                    RexKind::Product(RexTree { ids: vec![9, 10, 11] }),
+                    RexKind::Product(RexTree { ids: vec![9, 13] }),
+                    RexKind::Product(RexTree { ids: vec![10, 11, 12] }),
                     RexKind::Thin(ThinArrowRule {
                         nodes:  NodeList::from(vec!["k"]),
                         cause:  Polynomial::from("j"),
@@ -603,6 +633,7 @@ mod tests {
                         cause:  Polynomial::from("k"),
                         effect: Polynomial::default(),
                     }),
+                    RexKind::Immediate(CesImmediate { name: "m".to_ces_name() }),
                 ],
             }
         );
