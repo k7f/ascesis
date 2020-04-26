@@ -793,77 +793,123 @@ impl cmp::PartialOrd for TxInhibitor {
     }
 }
 
-/// An alphabetically ordered and deduplicated list of `Holder`s.
+/// An alphabetically ordered and deduplicated list of `Weightless` splits.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
-pub struct HoldersBlock {
-    holders: Vec<Holder>,
+pub struct WeightlessBlock {
+    pub(crate) face:   Option<Face>,
+    pub(crate) splits: Vec<Weightless>,
 }
 
-impl HoldersBlock {
+impl WeightlessBlock {
     #[inline]
     pub(crate) fn new() -> Self {
         Default::default()
     }
 
     pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
+        let face = Some(Face::Rx);
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
 
-        let holders = post_nodes
+        let splits = post_nodes
             .nodes
             .into_iter()
-            .map(|post_node| Holder::Rx(RxHolder { post_node, pre_set: pre_set.clone() }))
+            .map(|post_node| Weightless::Drop(RxWeightless { post_node, pre_set: pre_set.clone() }))
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
 
-        Ok(HoldersBlock { holders })
+        Ok(WeightlessBlock { face, splits })
     }
 
     pub fn new_effects(
         pre_nodes: Polynomial,
         post_set: Polynomial,
     ) -> Result<Self, Box<dyn Error>> {
+        let face = Some(Face::Tx);
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;
 
-        let holders = pre_nodes
+        let splits = pre_nodes
             .nodes
             .into_iter()
-            .map(|pre_node| Holder::Tx(TxHolder { pre_node, post_set: post_set.clone() }))
+            .map(|pre_node| Weightless::Hold(TxWeightless { pre_node, post_set: post_set.clone() }))
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
 
-        Ok(HoldersBlock { holders })
+        Ok(WeightlessBlock { face, splits })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
         for mut block in more {
-            self.holders.append(&mut block.holders);
+            if self.face.is_some() && block.face != self.face {
+                self.face = None;
+            }
+
+            self.splits.append(&mut block.splits);
         }
 
-        self.holders.sort();
-        let len = self.holders.partition_dedup().0.len();
-        self.holders.truncate(len);
+        self.splits.sort();
+        let len = self.splits.partition_dedup().0.len();
+        self.splits.truncate(len);
 
         self
     }
+
+    #[inline]
+    pub fn get_face(&self) -> Option<Face> {
+        self.face
+    }
 }
 
-impl Compilable for HoldersBlock {
+impl From<WeightlessBlock> for WeightsBlock {
+    fn from(block: WeightlessBlock) -> Self {
+        let mut more_weights = Vec::new();
+
+        for split in block.splits {
+            // FIXME unwraps
+            match split {
+                Weightless::Hold(hold) => {
+                    more_weights.push(
+                        WeightsBlock::new_effects(
+                            Literal::Size(0),
+                            hold.pre_node.into(),
+                            hold.post_set.into(),
+                        )
+                        .unwrap(),
+                    );
+                }
+                Weightless::Drop(drop) => {
+                    more_weights.push(
+                        WeightsBlock::new_causes(
+                            Literal::Size(0),
+                            drop.post_node.into(),
+                            drop.pre_set.into(),
+                        )
+                        .unwrap(),
+                    );
+                }
+            }
+        }
+
+        WeightsBlock::new().with_more(more_weights)
+    }
+}
+
+impl Compilable for WeightlessBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for holder in self.holders.iter() {
+        for holder in self.splits.iter() {
             match holder {
-                Holder::Rx(rx) => {
-                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
-
-                    ctx.set_holder_by_name(Face::Rx, rx.post_node.as_ref(), suit_names);
-                }
-                Holder::Tx(tx) => {
+                Weightless::Hold(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
                     ctx.set_holder_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names);
+                }
+                Weightless::Drop(rx) => {
+                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+
+                    ctx.set_holder_by_name(Face::Rx, rx.post_node.as_ref(), suit_names);
                 }
             }
         }
@@ -873,60 +919,39 @@ impl Compilable for HoldersBlock {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Holder {
-    Rx(RxHolder),
-    Tx(TxHolder),
+pub enum Weightless {
+    Hold(TxWeightless),
+    Drop(RxWeightless),
 }
 
-impl cmp::Ord for Holder {
+impl cmp::Ord for Weightless {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self {
-            Self::Rx(s) => match other {
-                Self::Rx(o) => s.cmp(o),
-                Self::Tx(_) => cmp::Ordering::Less,
+            Self::Hold(s) => match other {
+                Self::Hold(o) => s.cmp(o),
+                Self::Drop(_) => cmp::Ordering::Greater,
             },
-            Self::Tx(s) => match other {
-                Self::Rx(_) => cmp::Ordering::Greater,
-                Self::Tx(o) => s.cmp(o),
+            Self::Drop(s) => match other {
+                Self::Hold(_) => cmp::Ordering::Less,
+                Self::Drop(o) => s.cmp(o),
             },
         }
     }
 }
 
-impl cmp::PartialOrd for Holder {
+impl cmp::PartialOrd for Weightless {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct RxHolder {
-    post_node: Node,
-    pre_set:   NodeList,
-}
-
-impl cmp::Ord for RxHolder {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.post_node.cmp(&other.post_node) {
-            cmp::Ordering::Equal => self.pre_set.cmp(&other.pre_set),
-            result => result,
-        }
-    }
-}
-
-impl cmp::PartialOrd for RxHolder {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TxHolder {
+pub struct TxWeightless {
     pre_node: Node,
     post_set: NodeList,
 }
 
-impl cmp::Ord for TxHolder {
+impl cmp::Ord for TxWeightless {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self.pre_node.cmp(&other.pre_node) {
             cmp::Ordering::Equal => self.post_set.cmp(&other.post_set),
@@ -935,7 +960,28 @@ impl cmp::Ord for TxHolder {
     }
 }
 
-impl cmp::PartialOrd for TxHolder {
+impl cmp::PartialOrd for TxWeightless {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct RxWeightless {
+    post_node: Node,
+    pre_set:   NodeList,
+}
+
+impl cmp::Ord for RxWeightless {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        match self.post_node.cmp(&other.post_node) {
+            cmp::Ordering::Equal => self.pre_set.cmp(&other.pre_set),
+            result => result,
+        }
+    }
+}
+
+impl cmp::PartialOrd for RxWeightless {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }

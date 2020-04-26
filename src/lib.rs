@@ -40,7 +40,7 @@ pub use axiom::Axiom;
 pub use ces::{CesFile, CesFileBlock, CesName, ToCesName, ImmediateDef, CesImmediate, CesInstance};
 pub use context::{
     PropBlock, PropSelector, PropValue, CapacitiesBlock, UnboundedBlock, WeightsBlock,
-    InhibitorsBlock, HoldersBlock,
+    InhibitorsBlock, WeightlessBlock,
 };
 pub use content::AscesisFormat;
 pub use rex::{Rex, ThinArrowRule, FatArrowRule};

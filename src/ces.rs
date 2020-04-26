@@ -2,11 +2,11 @@ use std::{ops::Deref, fmt, error::Error};
 use log::Level::Debug;
 use aces::{
     Content, PartialContent, Compilable, CompilableMut, CompilableAsContent,
-    CompilableAsDependency, ContextHandle, NodeID, sat,
+    CompilableAsDependency, ContextHandle, NodeID, Face, sat,
 };
 use crate::{
     PropBlock, PropSelector, CapacitiesBlock, UnboundedBlock, WeightsBlock, InhibitorsBlock,
-    HoldersBlock, Rex, Lexer, AscesisError, AscesisErrorKind, ascesis_parser::CesFileParser,
+    WeightlessBlock, Rex, Lexer, AscesisError, AscesisErrorKind, ascesis_parser::CesFileParser,
 };
 
 #[derive(Default, Debug)]
@@ -235,6 +235,9 @@ impl CompilableMut for CesFile {
                 CesFileBlock::Hold(ref hold) => {
                     hold.compile(ctx)?;
                 }
+                CesFileBlock::Drop(ref drop) => {
+                    drop.compile(ctx)?;
+                }
                 CesFileBlock::SAT(_) | CesFileBlock::Vis(_) => {}
                 CesFileBlock::Bad(err) => {
                     println!("{:?}", err);
@@ -318,7 +321,8 @@ pub enum CesFileBlock {
     Unbounded(UnboundedBlock),
     Weights(WeightsBlock),
     Inhibit(InhibitorsBlock),
-    Hold(HoldersBlock),
+    Hold(WeightlessBlock),
+    Drop(WeightlessBlock),
     Bad(AscesisError),
 }
 
@@ -371,10 +375,14 @@ impl From<InhibitorsBlock> for CesFileBlock {
     }
 }
 
-impl From<HoldersBlock> for CesFileBlock {
+impl From<WeightlessBlock> for CesFileBlock {
     #[inline]
-    fn from(hold: HoldersBlock) -> Self {
-        CesFileBlock::Hold(hold)
+    fn from(block: WeightlessBlock) -> Self {
+        match block.get_face() {
+            Some(Face::Tx) => CesFileBlock::Hold(block),
+            Some(Face::Rx) => CesFileBlock::Drop(block),
+            None => CesFileBlock::Weights(block.into()),
+        }
     }
 }
 

@@ -583,8 +583,8 @@ mod tests {
 
     #[test]
     fn test_rex_singles() {
-        let phrase = "{ a => b <= c } { d!() + e!(f) g!(h, i) } + { { j -> k -> l } { j -> k \
-                      } { l <- k } } m()";
+        let phrase = "{ a => b <= c } { d!() + e!(f) g!(h, i) } + { { j -> k -> l } { j -> k } { \
+                      l <- k } } m()";
         let rex: Rex = phrase.parse().unwrap();
 
         assert_eq!(

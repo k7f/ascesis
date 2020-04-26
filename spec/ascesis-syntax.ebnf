@@ -7,14 +7,14 @@ ces_file = { immediate_def | template_def | context_block } ;
 
 ## Structure definition, immediate form
 
-immediate_def = immediate_sig "{" { rex } "}" ;
+immediate_def = immediate_sig "{" [ rex ] "}" ;
 immediate_sig = "ces" identifier ;
 
 ## Structure definition, template form
 
 # Empty argument list is valid (defines a _black hole_).
 
-template_def = template_sig "{" { rex } "}" ;
+template_def = template_sig "{" [ rex ] "}" ;
 template_sig = "ces" identifier "(" { template_args } ")" ;
 template_args = arg_decl { "," arg_decl } [ "," ] ;
 arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "Name" ) ;
@@ -23,7 +23,7 @@ arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "Name" ) ;
 
 ces_immediate = identifier "(" ")" ;
 
-ces_instance = identifier "!" "(" { instance_args } ")" ;
+ces_instance = identifier "!" "(" [ instance_args ] ")" ;
 
 instance_args = arg_value { ","  arg_value } [ "," ] ;
 
@@ -36,10 +36,11 @@ context_block = prop_block
               | unbounded_block
               | weights_block
               | inhibit_block
-              | hold_block ;
+              | hold_block
+              | drop_block ;
 
 prop_selector = "vis" | "sat" ;
-prop_block = prop_selector "{" { prop_list } "}" ;
+prop_block = prop_selector "{" [ prop_list ] "}" ;
 prop_list = prop_field { "," prop_field } [ "," ] ;
 prop_field = identifier ":" prop_value ;
 prop_value_array = prop_value { "," prop_value } [ "," ] ;
@@ -50,23 +51,27 @@ prop_value = name
            | "[" prop_value_array "]"
            | "{" prop_list "}" ;
 
-caps_block = "caps" "{" { cap_list } "}" ;
+caps_block = "caps" "{" [ cap_list ] "}" ;
 cap_list = cap_field { "," cap_field } [ "," ] ;
 cap_field = size node_list ;
 
-unbounded_block = "unbounded" "{" { node_list } "}" ;
+unbounded_block = "unbounded" "{" [ node_list ] "}" ;
 
-weights_block = "weights" "{" { weight_list } "}" ;
+weights_block = "weights" "{" [ weight_list ] "}" ;
 weight_list = weight_field { "," weight_field } [ "," ] ;
 weight_field = size node_list ( "->" | "<-" ) node_list ;
 
-inhibit_block = "inhibit" "{" { inhibit_list } "}" ;
+inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
 inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
 inhibit_field = node_list ( "->" | "<-" ) node_list ;
 
-hold_block = "hold" "{" { hold_list } "}" ;
+hold_block = "hold" "{" [ hold_list ] "}" ;
 hold_list = hold_field { "," hold_field } [ "," ] ;
-hold_field = node_list ( "->" | "<-" ) node_list ;
+hold_field = node_list "->" node_list ;
+
+drop_block = "drop" "{" [ drop_list ] "}" ;
+drop_list = drop_field { "," drop_field } [ "," ] ;
+drop_field = node_list "<-" node_list ;
 
 ## Rule expression
 

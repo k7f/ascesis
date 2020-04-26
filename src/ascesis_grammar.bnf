@@ -7,7 +7,8 @@
                  | <UnboundedBlock>
                  | <WeightsBlock>
                  | <InhibitBlock>
-                 | <HoldBlock> ;
+                 | <HoldBlock>
+                 | <DropBlock> ;
 
 ;; Structure definition, immediate form
 
@@ -102,7 +103,7 @@
 <InhibitField> ::= <NodeList> "->" <NodeList>
                  | <NodeList> "<-" <NodeList>;
 
-;; Holders
+;; Zero-weight splits
 
 <HoldBlock> ::= "hold" "{" "}"
               | "hold" "{" <HoldList> "}" ;
@@ -113,8 +114,18 @@
 <PlainHoldList> ::= <HoldField>
                   | <HoldField> "," <PlainHoldList> ;
 
-<HoldField> ::= <NodeList> "->" <NodeList>
-              | <NodeList> "<-" <NodeList>;
+<HoldField> ::= <NodeList> "->" <NodeList> ;
+
+<DropBlock> ::= "drop" "{" "}"
+              | "drop" "{" <DropList> "}" ;
+
+<DropList> ::= <PlainDropList>
+             | <PlainDropList> "," ;
+
+<PlainDropList> ::= <DropField>
+                  | <DropField> "," <PlainDropList> ;
+
+<DropField> ::= <NodeList> "<-" <NodeList> ;
 
 ;; Rule expression
 

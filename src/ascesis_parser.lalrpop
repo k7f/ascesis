@@ -2,7 +2,7 @@ use lalrpop_util::ErrorRecovery;
 use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesImmediate, CesInstance,
     PropBlock, PropValue, CapacitiesBlock, UnboundedBlock, WeightsBlock,
-    InhibitorsBlock, HoldersBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
+    InhibitorsBlock, WeightlessBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
     Node, BinOp, Literal, Token, AscesisError, AscesisErrorKind,
 };
 
@@ -18,7 +18,7 @@ pub CesFileBlock: CesFileBlock = {
     <UnboundedBlock> => <>.into(),
     <WeightsBlock> => <>.into(),
     <InhibitBlock> => <>.into(),
-    <HoldBlock> => <>.into(),
+    <WeightlessBlock> => <>.into(),
     ! => {
         errors.push(<>);
         CesFileBlock::Bad(AscesisErrorKind::ParsingFailure.into())
@@ -27,7 +27,7 @@ pub CesFileBlock: CesFileBlock = {
 
 // Structure definition, immediate form
 
-// immediate_def = immediate_sig "{" { rex } "}" ;
+// immediate_def = immediate_sig "{" [ rex ] "}" ;
 pub ImmediateDef: ImmediateDef = {
     <sig: ImmediateSig> "{" "}" =>
         ImmediateDef::new(sig, Rex::new()),
@@ -43,7 +43,7 @@ ImmediateSig: CesName =
 // Structure definition, template form
 
 // FIXME
-// template_def = template_sig "{" { rex } "}" ;
+// template_def = template_sig "{" [ rex ] "}" ;
 // template_sig = "ces" identifier "(" { template_args } ")" ;
 // template_args = arg_decl { "," arg_decl } [ "," ] ;
 // arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
@@ -55,7 +55,7 @@ pub CesImmediate: CesImmediate =
     <name: Identifier> "(" ")" =>
         CesImmediate::new(CesName::from(name));
 
-// ces_instance = identifier "!" "(" { instance_args } ")" ;
+// ces_instance = identifier "!" "(" [ instance_args ] ")" ;
 pub CesInstance: CesInstance = {
     <name: Identifier> "!" "(" ")" =>
         CesInstance::new(CesName::from(name)),
@@ -85,7 +85,8 @@ ArgValue: String = <Identifier>;
 //               | unbounded_block
 //               | weights_block
 //               | inhibit_block
-//               | hold_block ;
+//               | hold_block
+//               | drop_block ;
 
 // prop_selector = "vis" | "sat" ;
 PropSelector: String = {
@@ -93,7 +94,7 @@ PropSelector: String = {
     "sat" => <>.into(),
 };
 
-// prop_block = prop_selector "{" { prop_list } "}" ;
+// prop_block = prop_selector "{" [ prop_list ] "}" ;
 pub PropBlock: PropBlock = {
     <sel: PropSelector> "{" "}" =>
         PropBlock::new().with_selector(sel),
@@ -133,7 +134,7 @@ PropValue: PropValue = {
     "{" <PropList> "}" => <>.into(),
 };
 
-// caps_block = "caps" "{" { cap_list } "}" ;
+// caps_block = "caps" "{" [ cap_list ] "}" ;
 pub CapsBlock: CapacitiesBlock = {
     "caps" "{" "}" => CapacitiesBlock::new(),
     "caps" "{" <head: CapField> <tail: CommaThenCapField*> ","? "}" =>
@@ -148,14 +149,14 @@ CapField: CapacitiesBlock =
     <size: Size> <nodes: NodeList> =>
         CapacitiesBlock::new().with_nodes(size, nodes).unwrap();
 
-// unbounded_block = "unbounded" "{" { node_list } "}" ;
+// unbounded_block = "unbounded" "{" [ node_list ] "}" ;
 pub UnboundedBlock: UnboundedBlock = {
     "unbounded" "{" "}" => UnboundedBlock::new(),
     "unbounded" "{" <nodes: NodeList> "}" =>
         UnboundedBlock::from_nodes(nodes).unwrap(),
 };
 
-// weights_block = "weights" "{" { weight_list } "}" ;
+// weights_block = "weights" "{" [ weight_list ] "}" ;
 pub WeightsBlock: WeightsBlock = {
     "weights" "{" "}" => WeightsBlock::new(),
     "weights" "{" <head: WeightField> <tail: CommaThenWeightField*> ","? "}" =>
@@ -173,7 +174,7 @@ WeightField: WeightsBlock = {
         WeightsBlock::new_causes(size, post_nodes, pre_set).unwrap(),
 };
 
-// inhibit_block = "inhibit" "{" { inhibit_list } "}" ;
+// inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
 pub InhibitBlock: InhibitorsBlock = {
     "inhibit" "{" "}" => InhibitorsBlock::new(),
     "inhibit" "{" <head: InhibitField> <tail: CommaThenInhibitField*> ","? "}" =>
@@ -191,23 +192,37 @@ InhibitField: InhibitorsBlock = {
         InhibitorsBlock::new_causes(post_nodes, pre_set).unwrap(),
 };
 
-// hold_block = "hold" "{" { hold_list } "}" ;
-pub HoldBlock: HoldersBlock = {
-    "hold" "{" "}" => HoldersBlock::new(),
+pub WeightlessBlock: WeightlessBlock = { HoldBlock, DropBlock };
+
+// hold_block = "hold" "{" [ hold_list ] "}" ;
+pub HoldBlock: WeightlessBlock = {
+    "hold" "{" "}" => WeightlessBlock::new(),
     "hold" "{" <head: HoldField> <tail: CommaThenHoldField*> ","? "}" =>
         head.with_more(tail),
 };
 
 // hold_list = hold_field { "," hold_field } [ "," ] ;
-CommaThenHoldField: HoldersBlock = "," <HoldField>;
+CommaThenHoldField: WeightlessBlock = "," <HoldField>;
 
-// hold_field = node_list ( "->" | "<-" ) node_list ;
-HoldField: HoldersBlock = {
+// hold_field = node_list "->" node_list ;
+HoldField: WeightlessBlock =
     <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        HoldersBlock::new_effects(pre_nodes, post_set).unwrap(),
-    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        HoldersBlock::new_causes(post_nodes, pre_set).unwrap(),
+        WeightlessBlock::new_effects(pre_nodes, post_set).unwrap();
+
+// drop_block = "drop" "{" [ drop_list ] "}" ;
+pub DropBlock: WeightlessBlock = {
+    "drop" "{" "}" => WeightlessBlock::new(),
+    "drop" "{" <head: DropField> <tail: CommaThenDropField*> ","? "}" =>
+        head.with_more(tail),
 };
+
+// drop_list = drop_field { "," drop_field } [ "," ] ;
+CommaThenDropField: WeightlessBlock = "," <DropField>;
+
+// drop_field = node_list "<-" node_list ;
+DropField: WeightlessBlock =
+    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
+        WeightlessBlock::new_causes(post_nodes, pre_set).unwrap();
 
 // Rule expression
 
@@ -342,5 +357,6 @@ extern {
         "weights" => Token::Weights,
         "inhibit" => Token::Inhibit,
         "hold" => Token::Hold,
+        "drop" => Token::Drop,
     }
 }

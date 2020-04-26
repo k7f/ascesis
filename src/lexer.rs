@@ -20,60 +20,62 @@ pub enum Token<'input> {
     LiteralFiniteSize(&'input str),
     #[regex(r#""[^"]*""#, |lex| lex.slice())]
     LiteralName(&'input str),
-    #[token = "Ω"]
-    #[token = "ω"]
+    #[token("Ω")]
+    #[token("ω")]
     Omega,
-    #[token = "Θ"]
-    #[token = "θ"]
+    #[token("Θ")]
+    #[token("θ")]
     Theta,
-    #[token = ";"]
+    #[token(";")]
     Semicolon,
-    #[token = ","]
+    #[token(",")]
     Comma,
-    #[token = ":"]
+    #[token(":")]
     Colon,
-    #[token = "{"]
+    #[token("{")]
     OpenCurly,
-    #[token = "}"]
+    #[token("}")]
     CloseCurly,
-    #[token = "("]
+    #[token("(")]
     OpenParen,
-    #[token = ")"]
+    #[token(")")]
     CloseParen,
-    #[token = "["]
+    #[token("[")]
     OpenBracket,
-    #[token = "]"]
+    #[token(")]")]
     CloseBracket,
-    #[token = "+"]
+    #[token("+")]
     Add,
-    #[token = "->"]
+    #[token("->")]
     ThinArrow,
-    #[token = "<-"]
+    #[token("<-")]
     ThinBackArrow,
-    #[token = "=>"]
+    #[token("=>")]
     FatArrow,
-    #[token = "<="]
+    #[token("<=")]
     FatBackArrow,
-    #[token = "<=>"]
+    #[token("<=>")]
     FatTwowayArrow,
-    #[token = "!"]
+    #[token("!")]
     Bang,
-    #[token = "ces"]
+    #[token("ces")]
     Ces,
-    #[token = "vis"]
+    #[token("vis")]
     Vis,
-    #[token = "sat"]
+    #[token("sat")]
     Sat,
-    #[token = "caps"]
+    #[token("caps")]
     Caps,
-    #[token = "unbounded"]
+    #[token("unbounded")]
     Unbounded,
-    #[token = "weights"]
+    #[token("weights")]
     Weights,
-    #[token = "inhibit"]
+    #[token("inhibit")]
     Inhibit,
-    #[token = "hold"]
+    #[token("hold")]
     Hold,
+    #[token("drop")]
+    Drop,
 }
 
 impl<'input> fmt::Display for Token<'input> {
@@ -114,6 +116,7 @@ impl<'input> fmt::Display for Token<'input> {
             Weights => write!(f, "weights"),
             Inhibit => write!(f, "inhibit"),
             Hold => write!(f, "hold"),
+            Drop => write!(f, "drop"),
         }
     }
 }
