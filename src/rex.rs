@@ -342,7 +342,7 @@ impl ThinArrowRule {
         Default::default()
     }
 
-    pub(crate) fn with_nodes(mut self, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
+    pub(crate) fn with_nodes(mut self, nodes: Polynomial) -> Result<Self, AscesisError> {
         self.nodes = nodes.try_into()?;
         Ok(self)
     }

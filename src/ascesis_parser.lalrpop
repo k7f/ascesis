@@ -146,14 +146,14 @@ CommaThenCapField: CapacitiesBlock = "," <CapField>;
 
 // cap_field = size node_list ;
 CapField: CapacitiesBlock =
-    <size: Size> <nodes: NodeList> =>
-        CapacitiesBlock::new().with_nodes(size, nodes).unwrap();
+    <size: Size> <nodes: NodeList> =>?
+        Ok(CapacitiesBlock::new().with_nodes(size, nodes)?);
 
 // unbounded_block = "unbounded" "{" [ node_list ] "}" ;
 pub UnboundedBlock: UnboundedBlock = {
     "unbounded" "{" "}" => UnboundedBlock::new(),
-    "unbounded" "{" <nodes: NodeList> "}" =>
-        UnboundedBlock::from_nodes(nodes).unwrap(),
+    "unbounded" "{" <nodes: NodeList> "}" =>?
+        Ok(UnboundedBlock::from_nodes(nodes)?),
 };
 
 // weights_block = "weights" "{" [ weight_list ] "}" ;
@@ -168,10 +168,10 @@ CommaThenWeightField: WeightsBlock = "," <WeightField>;
 
 // weight_field = size node_list ( "->" | "<-" ) node_list ;
 WeightField: WeightsBlock = {
-    <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        WeightsBlock::new_effects(size, pre_nodes, post_set).unwrap(),
-    <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        WeightsBlock::new_causes(size, post_nodes, pre_set).unwrap(),
+    <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>?
+        Ok(WeightsBlock::new_effects(size, pre_nodes, post_set)?),
+    <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>?
+        Ok(WeightsBlock::new_causes(size, post_nodes, pre_set)?),
 };
 
 // inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
@@ -186,10 +186,10 @@ CommaThenInhibitField: InhibitorsBlock = "," <InhibitField>;
 
 // inhibit_field = node_list ( "->" | "<-" ) node_list ;
 InhibitField: InhibitorsBlock = {
-    <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        InhibitorsBlock::new_effects(pre_nodes, post_set).unwrap(),
-    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        InhibitorsBlock::new_causes(post_nodes, pre_set).unwrap(),
+    <pre_nodes: NodeList> "->" <post_set: NodeList> =>?
+        Ok(InhibitorsBlock::new_effects(pre_nodes, post_set)?),
+    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>?
+        Ok(InhibitorsBlock::new_causes(post_nodes, pre_set)?),
 };
 
 pub WeightlessBlock: WeightlessBlock = { HoldBlock, DropBlock };
@@ -206,8 +206,8 @@ CommaThenHoldField: WeightlessBlock = "," <HoldField>;
 
 // hold_field = node_list "->" node_list ;
 HoldField: WeightlessBlock =
-    <pre_nodes: NodeList> "->" <post_set: NodeList> =>
-        WeightlessBlock::new_effects(pre_nodes, post_set).unwrap();
+    <pre_nodes: NodeList> "->" <post_set: NodeList> =>?
+        Ok(WeightlessBlock::new_effects(pre_nodes, post_set)?);
 
 // drop_block = "drop" "{" [ drop_list ] "}" ;
 pub DropBlock: WeightlessBlock = {
@@ -221,8 +221,8 @@ CommaThenDropField: WeightlessBlock = "," <DropField>;
 
 // drop_field = node_list "<-" node_list ;
 DropField: WeightlessBlock =
-    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>
-        WeightlessBlock::new_causes(post_nodes, pre_set).unwrap();
+    <post_nodes: NodeList> "<-" <pre_set: NodeList> =>?
+        Ok(WeightlessBlock::new_causes(post_nodes, pre_set)?);
 
 // Rule expression
 
@@ -253,29 +253,28 @@ RexTerm: Rex = {
 // bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
 pub ThinArrowRule: ThinArrowRule = {
     // effect-only rule
-    <nodes: Polynomial> "->" <effect: Polynomial> => {
-        ThinArrowRule::new().with_nodes(nodes).unwrap().with_effect(effect)
-    },
-    // cause-only rule
-    <nodes: Polynomial> "<-" <cause: Polynomial> => {
-        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause)
-    },
+    <nodes: Polynomial> "->" <effect: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_effect(effect)),
+
+   // cause-only rule
+    <nodes: Polynomial> "<-" <cause: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause)),
+
     // effect-then-cause rule
-    <nodes: Polynomial> "->" <effect: Polynomial> "<-" <cause: Polynomial> => {
-        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
-    },
+    <nodes: Polynomial> "->" <effect: Polynomial> "<-" <cause: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+
     // cause-then-effect rule
-    <nodes: Polynomial> "<-" <cause: Polynomial> "->" <effect: Polynomial> => {
-        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
-    },
+    <nodes: Polynomial> "<-" <cause: Polynomial> "->" <effect: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+
     // forward rule
-    <cause: Polynomial> "->" <nodes: Polynomial> "->" <effect: Polynomial> => {
-        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
-    },
+    <cause: Polynomial> "->" <nodes: Polynomial> "->" <effect: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+
     // backward rule
-    <effect: Polynomial> "<-" <nodes: Polynomial> "<-" <cause: Polynomial> => {
-        ThinArrowRule::new().with_nodes(nodes).unwrap().with_cause(cause).with_effect(effect)
-    },
+    <effect: Polynomial> "<-" <nodes: Polynomial> "<-" <cause: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
 };
 
 // fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;
@@ -298,7 +297,15 @@ PolyTerm: Polynomial = {
     "(" <Polynomial> ")",
 };
 
-NodeList: Polynomial = <Polynomial>;
+// Node list
+
+// node_list = identifier { identifier } ;
+pub NodeList: Polynomial =
+    <head: NodeListTerm> <tail: NodeListTerm*> => head.with_product_multiplied(tail);
+
+#[inline]
+NodeListTerm: Polynomial =
+    <Identifier> => Polynomial::from(Node::from(<>));
 
 // Operators
 
@@ -316,11 +323,11 @@ Identifier: String = r"[A-Za-z_][A-Za-z0-9_-]*" => <>.to_owned();
 
 SizeList: Vec<Literal> = <Size+>;
 
-FiniteSize: Literal = r"[0-9]+" => Literal::from_digits(<>).unwrap();
+FiniteSize: Literal = r"[0-9]+" =>? Ok(Literal::from_digits(<>)?);
 Omega: Literal = r"[Ωω]" => Literal::omega();
 Theta: Literal = r"[Θθ]" => Literal::theta();
 Size: Literal = { FiniteSize, Omega };
-Name: Literal = r#""[^"]*""# => Literal::from_quoted_str(<>).unwrap();
+Name: Literal = r#""[^"]*""# =>? Ok(Literal::from_quoted_str(<>)?);
 
 extern {
     type Location = usize;

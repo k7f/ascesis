@@ -1,5 +1,5 @@
 use std::{convert::TryFrom, iter::FromIterator};
-use crate::Polynomial;
+use crate::{Polynomial, AscesisError, AscesisErrorKind};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub struct Node(String);
@@ -66,7 +66,7 @@ impl<T: ToNode> From<Vec<T>> for NodeList {
 }
 
 impl TryFrom<Polynomial> for NodeList {
-    type Error = &'static str;
+    type Error = AscesisError;
 
     fn try_from(poly: Polynomial) -> Result<Self, Self::Error> {
         if poly.is_flat {
@@ -80,13 +80,13 @@ impl TryFrom<Polynomial> for NodeList {
                 if monomials.next().is_none() {
                     Ok(NodeList { nodes })
                 } else {
-                    Err("Not a node list")
+                    Err(AscesisErrorKind::NotANodeList.into())
                 }
             } else {
                 Ok(Default::default())
             }
         } else {
-            Err("Not a node list")
+            Err(AscesisErrorKind::NotANodeList.into())
         }
     }
 }

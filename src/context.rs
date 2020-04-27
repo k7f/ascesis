@@ -400,12 +400,12 @@ impl CapacitiesBlock {
         Default::default()
     }
 
-    pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
+    pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, AscesisError> {
         let capacity = match size {
             Literal::Size(sz) => Capacity::finite(sz)
                 .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Capacity::omega(),
-            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
+            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral)),
         };
         let nodes: NodeList = nodes.try_into()?;
 
@@ -448,7 +448,7 @@ impl UnboundedBlock {
         Default::default()
     }
 
-    pub fn from_nodes(nodes: Polynomial) -> Result<Self, Box<dyn Error>> {
+    pub fn from_nodes(nodes: Polynomial) -> Result<Self, AscesisError> {
         let nodes: NodeList = nodes.try_into()?;
 
         Ok(UnboundedBlock { nodes: nodes.nodes })
@@ -484,12 +484,12 @@ impl WeightsBlock {
         size: Literal,
         post_nodes: Polynomial,
         pre_set: Polynomial,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, AscesisError> {
         let weight = match size {
             Literal::Size(sz) => Weight::finite(sz)
                 .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Weight::omega(),
-            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
+            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral)),
         };
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
@@ -510,12 +510,12 @@ impl WeightsBlock {
         size: Literal,
         pre_nodes: Polynomial,
         post_set: Polynomial,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, AscesisError> {
         let weight = match size {
             Literal::Size(sz) => Weight::finite(sz)
                 .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Weight::omega(),
-            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral).into()),
+            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral)),
         };
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;
@@ -657,7 +657,7 @@ impl InhibitorsBlock {
         Default::default()
     }
 
-    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
+    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, AscesisError> {
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
 
@@ -671,10 +671,7 @@ impl InhibitorsBlock {
         Ok(InhibitorsBlock { inhibitors })
     }
 
-    pub fn new_effects(
-        pre_nodes: Polynomial,
-        post_set: Polynomial,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn new_effects(pre_nodes: Polynomial, post_set: Polynomial) -> Result<Self, AscesisError> {
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;
 
@@ -806,7 +803,7 @@ impl WeightlessBlock {
         Default::default()
     }
 
-    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, Box<dyn Error>> {
+    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, AscesisError> {
         let face = Some(Face::Rx);
         let post_nodes: NodeList = post_nodes.try_into()?;
         let pre_set: NodeList = pre_set.try_into()?;
@@ -821,10 +818,7 @@ impl WeightlessBlock {
         Ok(WeightlessBlock { face, splits })
     }
 
-    pub fn new_effects(
-        pre_nodes: Polynomial,
-        post_set: Polynomial,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn new_effects(pre_nodes: Polynomial, post_set: Polynomial) -> Result<Self, AscesisError> {
         let face = Some(Face::Tx);
         let pre_nodes: NodeList = pre_nodes.try_into()?;
         let post_set: NodeList = post_set.try_into()?;

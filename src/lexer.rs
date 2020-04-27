@@ -1,4 +1,4 @@
-use std::{fmt, convert::TryFrom, str::FromStr, error::Error};
+use std::{fmt, convert::TryFrom, str::FromStr};
 use logos::Logos;
 use enquote::unquote;
 use crate::{AscesisError, AscesisErrorKind};
@@ -42,7 +42,7 @@ pub enum Token<'input> {
     CloseParen,
     #[token("[")]
     OpenBracket,
-    #[token(")]")]
+    #[token("]")]
     CloseBracket,
     #[token("+")]
     Add,
@@ -167,8 +167,8 @@ pub enum Literal {
 }
 
 impl Literal {
-    pub(crate) fn from_digits(digits: &str) -> Result<Self, Box<dyn Error>> {
-        Ok(Literal::Size(u64::from_str(digits)?))
+    pub(crate) fn from_digits(digits: &str) -> Result<Self, AscesisError> {
+        Ok(u64::from_str(digits).map(Literal::Size).map_err(Into::<AscesisErrorKind>::into)?)
     }
 
     #[inline]
@@ -181,8 +181,11 @@ impl Literal {
         Literal::Theta
     }
 
-    pub(crate) fn from_quoted_str(quoted: &str) -> Result<Self, Box<dyn Error>> {
-        Ok(Literal::Name(unquote(quoted)?))
+    pub(crate) fn from_quoted_str(quoted: &str) -> Result<Self, AscesisError> {
+        Ok(unquote(quoted)
+            .map(Literal::Name)
+           // FIXME (replace enquote?)
+            .map_err(|_| AscesisErrorKind::EnquoteFailure("Quoted string is invalid".into()))?)
     }
 }
 

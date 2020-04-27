@@ -1,4 +1,4 @@
-use std::{fmt, error::Error};
+use std::{fmt, num::ParseIntError, error::Error};
 use crate::{PropSelector, Token};
 
 pub(crate) type ParserError = lalrpop_util::ParseError<usize, String, AscesisError>;
@@ -140,6 +140,9 @@ pub enum AscesisErrorKind {
     SizeLiteralOverflow,
     ExpectedSizeLiteral,
     ExpectedNameLiteral,
+    ParseIntFailure(ParseIntError),
+    EnquoteFailure(String),
+    NotANodeList,
 }
 
 impl fmt::Display for AscesisErrorKind {
@@ -174,6 +177,9 @@ impl fmt::Display for AscesisErrorKind {
             SizeLiteralOverflow => write!(f, "Size literal overflow"),
             ExpectedSizeLiteral => write!(f, "Bad literal, not a size"),
             ExpectedNameLiteral => write!(f, "Bad literal, not a name"),
+            ParseIntFailure(err) => err.fmt(f),
+            EnquoteFailure(err) => write!(f, "{}", err),
+            NotANodeList => write!(f, "Not a node list"),
         }
     }
 }
@@ -201,6 +207,12 @@ impl<'input> From<Vec<RawParserRecovery<'input>>> for AscesisErrorKind {
         let err = err.into_iter().map(|e| e.error.map_token(|t| t.to_string())).collect();
 
         AscesisErrorKind::ParsingRecovery(err)
+    }
+}
+
+impl From<ParseIntError> for AscesisErrorKind {
+    fn from(err: ParseIntError) -> Self {
+        AscesisErrorKind::ParseIntFailure(err)
     }
 }
 

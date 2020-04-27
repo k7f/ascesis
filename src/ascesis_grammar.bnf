@@ -185,7 +185,10 @@
 <PolyTerm> ::= <Identifier>
              | "(" <Polynomial> ")" ;
 
-<NodeList> ::= <Polynomial> ;
+;; Node list
+
+<NodeList> ::= <Identifier>
+             | <Identifier> <NodeList> ;
 
 ;; Identifiers
 
