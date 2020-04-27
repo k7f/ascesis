@@ -657,30 +657,38 @@ impl InhibitorsBlock {
         Default::default()
     }
 
-    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, AscesisError> {
+    pub fn new_causes(post_nodes: Polynomial, pre_poly: Polynomial) -> Result<Self, AscesisError> {
         let post_nodes: NodeList = post_nodes.try_into()?;
-        let pre_set: NodeList = pre_set.try_into()?;
+        let mut inhibitors = Vec::new();
 
-        let inhibitors = post_nodes
-            .nodes
-            .into_iter()
-            .map(|post_node| Inhibitor::Rx(RxInhibitor { post_node, pre_set: pre_set.clone() }))
-            .collect();
-        // No need to sort: `post_nodes` are already ordered and deduplicated.
+        // `post_nodes` are already ordered and deduplicated
+        for post_node in post_nodes.nodes {
+            // monomials are already ordered and deduplicated
+            for mono in pre_poly.monomials.iter() {
+                let post_node = post_node.clone();
+                let pre_set = mono.clone().into();
+
+                inhibitors.push(Inhibitor::Rx(RxInhibitor { post_node, pre_set }));
+            }
+        }
 
         Ok(InhibitorsBlock { inhibitors })
     }
 
-    pub fn new_effects(pre_nodes: Polynomial, post_set: Polynomial) -> Result<Self, AscesisError> {
+    pub fn new_effects(pre_nodes: Polynomial, post_poly: Polynomial) -> Result<Self, AscesisError> {
         let pre_nodes: NodeList = pre_nodes.try_into()?;
-        let post_set: NodeList = post_set.try_into()?;
+        let mut inhibitors = Vec::new();
 
-        let inhibitors = pre_nodes
-            .nodes
-            .into_iter()
-            .map(|pre_node| Inhibitor::Tx(TxInhibitor { pre_node, post_set: post_set.clone() }))
-            .collect();
-        // No need to sort: `pre_nodes` are already ordered and deduplicated.
+        // `pre_nodes` are already ordered and deduplicated
+        for pre_node in pre_nodes.nodes {
+            // monomials are already ordered and deduplicated
+            for mono in post_poly.monomials.iter() {
+                let pre_node = pre_node.clone();
+                let post_set = mono.clone().into();
+
+                inhibitors.push(Inhibitor::Tx(TxInhibitor { pre_node, post_set }));
+            }
+        }
 
         Ok(InhibitorsBlock { inhibitors })
     }
@@ -803,32 +811,40 @@ impl WeightlessBlock {
         Default::default()
     }
 
-    pub fn new_causes(post_nodes: Polynomial, pre_set: Polynomial) -> Result<Self, AscesisError> {
+    pub fn new_causes(post_nodes: Polynomial, pre_poly: Polynomial) -> Result<Self, AscesisError> {
         let face = Some(Face::Rx);
         let post_nodes: NodeList = post_nodes.try_into()?;
-        let pre_set: NodeList = pre_set.try_into()?;
+        let mut splits = Vec::new();
 
-        let splits = post_nodes
-            .nodes
-            .into_iter()
-            .map(|post_node| Weightless::Drop(RxWeightless { post_node, pre_set: pre_set.clone() }))
-            .collect();
-        // No need to sort: `post_nodes` are already ordered and deduplicated.
+        // `post_nodes` are already ordered and deduplicated
+        for post_node in post_nodes.nodes {
+            // monomials are already ordered and deduplicated
+            for mono in pre_poly.monomials.iter() {
+                let post_node = post_node.clone();
+                let pre_set = mono.clone().into();
+
+                splits.push(Weightless::Drop(RxWeightless { post_node, pre_set }));
+            }
+        }
 
         Ok(WeightlessBlock { face, splits })
     }
 
-    pub fn new_effects(pre_nodes: Polynomial, post_set: Polynomial) -> Result<Self, AscesisError> {
+    pub fn new_effects(pre_nodes: Polynomial, post_poly: Polynomial) -> Result<Self, AscesisError> {
         let face = Some(Face::Tx);
         let pre_nodes: NodeList = pre_nodes.try_into()?;
-        let post_set: NodeList = post_set.try_into()?;
+        let mut splits = Vec::new();
 
-        let splits = pre_nodes
-            .nodes
-            .into_iter()
-            .map(|pre_node| Weightless::Hold(TxWeightless { pre_node, post_set: post_set.clone() }))
-            .collect();
-        // No need to sort: `pre_nodes` are already ordered and deduplicated.
+        // `pre_nodes` are already ordered and deduplicated
+        for pre_node in pre_nodes.nodes {
+            // monomials are already ordered and deduplicated
+            for mono in post_poly.monomials.iter() {
+                let pre_node = pre_node.clone();
+                let post_set = mono.clone().into();
+
+                splits.push(Weightless::Hold(TxWeightless { pre_node, post_set }));
+            }
+        }
 
         Ok(WeightlessBlock { face, splits })
     }

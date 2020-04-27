@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, iter::FromIterator};
+use std::{collections::BTreeSet, convert::TryFrom, iter::FromIterator};
 use crate::{Polynomial, AscesisError, AscesisErrorKind};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
@@ -61,6 +61,15 @@ impl<T: ToNode> From<Vec<T>> for NodeList {
         nodes.sort();
         let len = nodes.partition_dedup().0.len();
         nodes.truncate(len);
+
+        NodeList { nodes }
+    }
+}
+
+impl From<BTreeSet<Node>> for NodeList {
+    fn from(nodes: BTreeSet<Node>) -> Self {
+        let nodes: Vec<Node> = nodes.into_iter().map(|n| n.to_node()).collect();
+
         NodeList { nodes }
     }
 }
