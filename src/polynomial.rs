@@ -2,6 +2,12 @@ use std::{collections::BTreeSet, iter::FromIterator};
 use aces::{ContextHandle, NodeID};
 use crate::{Node, ToNode, NodeList};
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub(crate) enum Warning {
+    SumIdempotency(BTreeSet<Node>),
+    ProductIdempotency(Node),
+}
+
 /// An alphabetically ordered and deduplicated list of monomials,
 /// where each monomial is alphabetically ordered and deduplicated
 /// list of [`Node`]s.
@@ -16,7 +22,8 @@ pub struct Polynomial {
     pub(crate) monomials: BTreeSet<BTreeSet<Node>>,
 
     // FIXME falsify on leading "+" or parens, even if still a single mono
-    pub(crate) is_flat: bool,
+    pub(crate) is_flat:  bool,
+    pub(crate) warnings: Vec<Warning>,
 }
 
 impl Polynomial {
@@ -42,6 +49,7 @@ impl Polynomial {
         if self.is_flat {
             self.clone()
         } else {
+            let warnings = self.warnings.clone();
             let mut more_monos = self.monomials.iter();
             let mut single_mono = more_monos.next().expect("non-flat empty polynomial").clone();
 
@@ -49,7 +57,7 @@ impl Polynomial {
                 single_mono.append(&mut mono.clone());
             }
 
-            Polynomial { monomials: BTreeSet::from_iter(Some(single_mono)), is_flat: true }
+            Polynomial { monomials: BTreeSet::from_iter(Some(single_mono)), is_flat: true, warnings }
         }
     }
 
@@ -64,17 +72,32 @@ impl Polynomial {
 
             for this_mono in lhs.iter() {
                 for other_mono in factor.monomials.iter() {
+                    if !this_mono.is_disjoint(other_mono) {
+                        for node in this_mono.intersection(&other_mono) {
+                            self.warnings.push(Warning::ProductIdempotency(node.clone()));
+                        }
+                    }
+
                     let mut mono = this_mono.clone();
                     mono.extend(other_mono.iter().cloned());
                     self.monomials.insert(mono);
                 }
             }
         }
+        self.log_warnings();
     }
 
     pub(crate) fn add_assign(&mut self, other: &mut Self) {
         self.is_flat = false;
+
+        if !self.monomials.is_disjoint(&other.monomials) {
+            for mono in self.monomials.intersection(&other.monomials) {
+                self.warnings.push(Warning::SumIdempotency(mono.clone()));
+            }
+        }
+
         self.monomials.append(&mut other.monomials);
+        self.log_warnings();
     }
 
     pub(crate) fn compile_as_vec(&self, ctx: &ContextHandle) -> Vec<Vec<NodeID>> {
@@ -85,11 +108,24 @@ impl Polynomial {
             .map(|mono| mono.iter().map(|node| ctx.share_node_name(node)).collect())
             .collect()
     }
+
+    pub fn log_warnings(&self) {
+        for warning in self.warnings.iter() {
+            match warning {
+                Warning::SumIdempotency(nodes) => {
+                    warn!("Applying sum idempotency of {:?}", nodes);
+                }
+                Warning::ProductIdempotency(node) => {
+                    warn!("Applying product idempotency of {:?}", node);
+                }
+            }
+        }
+    }
 }
 
 impl Default for Polynomial {
     fn default() -> Self {
-        Polynomial { monomials: BTreeSet::default(), is_flat: true }
+        Polynomial { monomials: BTreeSet::default(), is_flat: true, warnings: Vec::new() }
     }
 }
 
@@ -98,6 +134,7 @@ impl From<Node> for Polynomial {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node)))),
             is_flat:   true,
+            ..Default::default()
         }
     }
 }
@@ -108,6 +145,7 @@ impl From<&str> for Polynomial {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node.to_node())))),
             is_flat:   true,
+            ..Default::default()
         }
     }
 }
@@ -117,6 +155,7 @@ impl From<Vec<Node>> for Polynomial {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.iter().cloned()))),
             is_flat:   true,
+            ..Default::default()
         }
     }
 }
@@ -129,6 +168,7 @@ impl From<Vec<&str>> for Polynomial {
                 mono.iter().map(|n| n.to_node()),
             ))),
             is_flat:   true,
+            ..Default::default()
         }
     }
 }
@@ -140,6 +180,7 @@ impl From<Vec<Vec<Node>>> for Polynomial {
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().cloned())),
             ),
             is_flat:   false,
+            ..Default::default()
         }
     }
 }
@@ -152,6 +193,7 @@ impl From<Vec<Vec<&str>>> for Polynomial {
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().map(|n| n.to_node()))),
             ),
             is_flat:   false,
+            ..Default::default()
         }
     }
 }
@@ -161,6 +203,7 @@ impl From<NodeList> for Polynomial {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.nodes.iter().cloned()))),
             is_flat:   true,
+            ..Default::default()
         }
     }
 }
@@ -172,6 +215,7 @@ impl From<Vec<NodeList>> for Polynomial {
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.nodes.iter().cloned())),
             ),
             is_flat:   false,
+            ..Default::default()
         }
     }
 }
@@ -201,6 +245,7 @@ mod tests {
                     BTreeSet::from_iter(vec!["f".to_node(), "g".to_node()].into_iter()),
                 ]),
                 is_flat:   false,
+                ..Default::default()
             }
         );
     }
