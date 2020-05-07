@@ -1,7 +1,7 @@
 use std::{fmt, convert::TryFrom, str::FromStr};
 use logos::Logos;
 use enquote::unquote;
-use crate::{AscesisError, AscesisErrorKind};
+use crate::{Weight, AscesisError, AscesisErrorKind};
 
 #[derive(Clone, Copy, PartialEq, Logos, Debug)]
 pub enum Token<'input> {
@@ -30,6 +30,8 @@ pub enum Token<'input> {
     Semicolon,
     #[token(",")]
     Comma,
+    #[token(".")]
+    Dot,
     #[token(":")]
     Colon,
     #[token("{")]
@@ -70,6 +72,8 @@ pub enum Token<'input> {
     Unbounded,
     #[token("weights")]
     Weights,
+    #[token("flow")]
+    Flow,
     #[token("inhibit")]
     Inhibit,
     #[token("hold")]
@@ -94,6 +98,7 @@ impl<'input> fmt::Display for Token<'input> {
             Theta => write!(f, "θ"),
             Semicolon => write!(f, ";"),
             Comma => write!(f, ","),
+            Dot => write!(f, "."),
             Colon => write!(f, ":"),
             OpenCurly => write!(f, "{{"),
             CloseCurly => write!(f, "}}"),
@@ -114,6 +119,7 @@ impl<'input> fmt::Display for Token<'input> {
             Caps => write!(f, "caps"),
             Unbounded => write!(f, "unbounded"),
             Weights => write!(f, "weights"),
+            Flow => write!(f, "flow"),
             Inhibit => write!(f, "inhibit"),
             Hold => write!(f, "hold"),
             Drop => write!(f, "drop"),
@@ -209,6 +215,20 @@ impl TryFrom<Literal> for String {
             Ok(name)
         } else {
             Err("Bad literal, not a string")
+        }
+    }
+}
+
+impl TryFrom<Literal> for Weight {
+    type Error = AscesisError;
+
+    fn try_from(lit: Literal) -> Result<Self, Self::Error> {
+        match lit {
+            Literal::Size(sz) => {
+                Weight::finite(sz).ok_or_else(|| AscesisErrorKind::SizeLiteralOverflow.into())
+            }
+            Literal::Omega => Ok(Weight::omega()),
+            _ => Err(AscesisErrorKind::ExpectedSizeLiteral.into()),
         }
     }
 }

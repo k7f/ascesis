@@ -35,6 +35,7 @@ context_block = prop_block
               | caps_block
               | unbounded_block
               | weights_block
+              | flow_block
               | inhibit_block
               | hold_block
               | drop_block ;
@@ -60,6 +61,10 @@ unbounded_block = "unbounded" "{" [ node_list ] "}" ;
 weights_block = "weights" "{" [ weight_list ] "}" ;
 weight_list = weight_field { "," weight_field } [ "," ] ;
 weight_field = size node_list ( "->" | "<-" ) node_list ;
+
+flow_block = "flow" "{" [ flow_list ] "}" ;
+flow_list = flow_field { "," flow_field } [ "," ] ;
+flow_field = size node_list ( "=>" | "<=" ) node_list ;
 
 inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
 inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;

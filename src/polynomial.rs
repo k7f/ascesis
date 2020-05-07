@@ -57,11 +57,15 @@ impl Polynomial {
                 single_mono.append(&mut mono.clone());
             }
 
-            Polynomial { monomials: BTreeSet::from_iter(Some(single_mono)), is_flat: true, warnings }
+            Polynomial {
+                monomials: BTreeSet::from_iter(Some(single_mono)),
+                is_flat: true,
+                warnings,
+            }
         }
     }
 
-    fn multiply_assign(&mut self, factors: &mut [Self]) {
+    pub(crate) fn multiply_assign(&mut self, factors: &mut [Self]) {
         for factor in factors {
             if !factor.is_flat {
                 self.is_flat = false;
@@ -133,7 +137,7 @@ impl From<Node> for Polynomial {
     fn from(node: Node) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node)))),
-            is_flat:   true,
+            is_flat: true,
             ..Default::default()
         }
     }
@@ -144,7 +148,7 @@ impl From<&str> for Polynomial {
     fn from(node: &str) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node.to_node())))),
-            is_flat:   true,
+            is_flat: true,
             ..Default::default()
         }
     }
@@ -154,7 +158,7 @@ impl From<Vec<Node>> for Polynomial {
     fn from(mono: Vec<Node>) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.iter().cloned()))),
-            is_flat:   true,
+            is_flat: true,
             ..Default::default()
         }
     }
@@ -167,7 +171,7 @@ impl From<Vec<&str>> for Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(
                 mono.iter().map(|n| n.to_node()),
             ))),
-            is_flat:   true,
+            is_flat: true,
             ..Default::default()
         }
     }
@@ -179,7 +183,7 @@ impl From<Vec<Vec<Node>>> for Polynomial {
             monomials: BTreeSet::from_iter(
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().cloned())),
             ),
-            is_flat:   false,
+            is_flat: false,
             ..Default::default()
         }
     }
@@ -192,7 +196,7 @@ impl From<Vec<Vec<&str>>> for Polynomial {
             monomials: BTreeSet::from_iter(
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().map(|n| n.to_node()))),
             ),
-            is_flat:   false,
+            is_flat: false,
             ..Default::default()
         }
     }
@@ -202,7 +206,7 @@ impl From<NodeList> for Polynomial {
     fn from(mono: NodeList) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.nodes.iter().cloned()))),
-            is_flat:   true,
+            is_flat: true,
             ..Default::default()
         }
     }
@@ -214,7 +218,7 @@ impl From<Vec<NodeList>> for Polynomial {
             monomials: BTreeSet::from_iter(
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.nodes.iter().cloned())),
             ),
-            is_flat:   false,
+            is_flat: false,
             ..Default::default()
         }
     }
@@ -244,7 +248,7 @@ mod tests {
                     ),
                     BTreeSet::from_iter(vec!["f".to_node(), "g".to_node()].into_iter()),
                 ]),
-                is_flat:   false,
+                is_flat: false,
                 ..Default::default()
             }
         );

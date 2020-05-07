@@ -17,6 +17,7 @@ pub CesFileBlock: CesFileBlock = {
     <CapsBlock> => <>.into(),
     <UnboundedBlock> => <>.into(),
     <WeightsBlock> => <>.into(),
+    <FlowBlock> => <>.into(),
     <InhibitBlock> => <>.into(),
     <WeightlessBlock> => <>.into(),
     ! => {
@@ -84,6 +85,7 @@ ArgValue: String = <Identifier>;
 //               | caps_block
 //               | unbounded_block
 //               | weights_block
+//               | flow_block
 //               | inhibit_block
 //               | hold_block
 //               | drop_block ;
@@ -169,9 +171,39 @@ CommaThenWeightField: WeightsBlock = "," <WeightField>;
 // weight_field = size node_list ( "->" | "<-" ) node_list ;
 WeightField: WeightsBlock = {
     <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>?
-        Ok(WeightsBlock::new_effects(size, pre_nodes, post_set)?),
+        Ok(WeightsBlock::new_hyper_effects(size, pre_nodes, post_set)?),
     <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>?
-        Ok(WeightsBlock::new_causes(size, post_nodes, pre_set)?),
+        Ok(WeightsBlock::new_hyper_causes(size, post_nodes, pre_set)?),
+};
+
+// flow_block = "flow" "{" [ flow_list ] "}" ;
+pub FlowBlock: WeightsBlock = {
+    "flow" "{" "}" => WeightsBlock::new(),
+    "flow" "{" <head: FlowField> <tail: CommaThenFlowField*> ","? "}" =>
+        head.with_more(tail),
+};
+
+// flow_list = flow_field { "," flow_field } [ "," ] ;
+CommaThenFlowField: WeightsBlock = "," <FlowField>;
+
+// flow_field = size node_list ( "=>" | "<=" ) node_list ;
+FlowField: WeightsBlock = {
+    <size: Size> <host_node: Identifier> <side_nodes: NodeList> "=>" <post_set: NodeList> =>? {
+        let host_node = Node::from(host_node);
+        let mut pre_set = Polynomial::from(host_node.clone());
+
+        pre_set.multiply_assign(vec![side_nodes].as_mut_slice());
+
+        Ok(WeightsBlock::new_flow_effects(size, host_node, pre_set, post_set)?)
+    },
+    <size: Size> <host_node: Identifier> <side_nodes: NodeList> "<=" <pre_set: NodeList> =>? {
+        let host_node = Node::from(host_node);
+        let mut post_set = Polynomial::from(host_node.clone());
+
+        post_set.multiply_assign(vec![side_nodes].as_mut_slice());
+
+        Ok(WeightsBlock::new_flow_causes(size, host_node, pre_set, post_set)?)
+    },
 };
 
 // inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
@@ -342,6 +374,7 @@ extern {
         r"[Θθ]" => Token::Theta,
         ";" => Token::Semicolon,
         "," => Token::Comma,
+        "." => Token::Dot,
         ":" => Token::Colon,
         "{" => Token::OpenCurly,
         "}" => Token::CloseCurly,
@@ -362,6 +395,7 @@ extern {
         "caps" => Token::Caps,
         "unbounded" => Token::Unbounded,
         "weights" => Token::Weights,
+        "flow" => Token::Flow,
         "inhibit" => Token::Inhibit,
         "hold" => Token::Hold,
         "drop" => Token::Drop,

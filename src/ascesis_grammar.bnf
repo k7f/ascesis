@@ -6,6 +6,7 @@
                  | <CapsBlock>
                  | <UnboundedBlock>
                  | <WeightsBlock>
+                 | <FlowBlock>
                  | <InhibitBlock>
                  | <HoldBlock>
                  | <DropBlock> ;
@@ -88,6 +89,18 @@
 
 <WeightField> ::= <Size> <NodeList> "->" <NodeList>
                 | <Size> <NodeList> "<-" <NodeList>;
+
+<FlowBlock> ::= "flow" "{" "}"
+              | "flow" "{" <FlowList> "}" ;
+
+<FlowList> ::= <PlainFlowList>
+             | <PlainFlowList> "," ;
+
+<PlainFlowList> ::= <FlowField>
+                  | <FlowField> "," <PlainFlowList> ;
+
+<FlowField> ::= <Size> <NodeList> "=>" <NodeList>
+              | <Size> <NodeList> "<=" <NodeList>;
 
 ;; Inhibitors
 

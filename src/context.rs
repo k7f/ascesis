@@ -480,25 +480,25 @@ impl WeightsBlock {
         Default::default()
     }
 
-    pub fn new_causes(
+    pub fn new_hyper_causes(
         size: Literal,
         post_nodes: Polynomial,
-        pre_set: Polynomial,
+        pre_suit: Polynomial,
     ) -> Result<Self, AscesisError> {
-        let weight = match size {
-            Literal::Size(sz) => Weight::finite(sz)
-                .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
-            Literal::Omega => Weight::omega(),
-            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral)),
-        };
+        let weight = size.try_into()?;
         let post_nodes: NodeList = post_nodes.try_into()?;
-        let pre_set: NodeList = pre_set.try_into()?;
+        let pre_suit: NodeList = pre_suit.try_into()?;
 
         let xfer_multiplicities = post_nodes
             .nodes
             .into_iter()
-            .map(|post_node| {
-                XferMultiplicity::Rx(RxWeight { weight, post_node, pre_set: pre_set.clone() })
+            .map(|host_node| {
+                XferMultiplicity::Rx(RxWeight {
+                    weight,
+                    host_node,
+                    pre_suit: pre_suit.clone(),
+                    post_set: None,
+                })
             })
             .collect();
         // No need to sort: `post_nodes` are already ordered and deduplicated.
@@ -506,30 +506,68 @@ impl WeightsBlock {
         Ok(WeightsBlock { xfer_multiplicities })
     }
 
-    pub fn new_effects(
+    pub fn new_hyper_effects(
         size: Literal,
         pre_nodes: Polynomial,
-        post_set: Polynomial,
+        post_suit: Polynomial,
     ) -> Result<Self, AscesisError> {
-        let weight = match size {
-            Literal::Size(sz) => Weight::finite(sz)
-                .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
-            Literal::Omega => Weight::omega(),
-            _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral)),
-        };
+        let weight = size.try_into()?;
         let pre_nodes: NodeList = pre_nodes.try_into()?;
-        let post_set: NodeList = post_set.try_into()?;
+        let post_suit: NodeList = post_suit.try_into()?;
 
         let xfer_multiplicities = pre_nodes
             .nodes
             .into_iter()
-            .map(|pre_node| {
-                XferMultiplicity::Tx(TxWeight { weight, pre_node, post_set: post_set.clone() })
+            .map(|host_node| {
+                XferMultiplicity::Tx(TxWeight {
+                    weight,
+                    host_node,
+                    pre_set: None,
+                    post_suit: post_suit.clone(),
+                })
             })
             .collect();
         // No need to sort: `pre_nodes` are already ordered and deduplicated.
 
         Ok(WeightsBlock { xfer_multiplicities })
+    }
+
+    pub fn new_flow_causes(
+        size: Literal,
+        host_node: Node,
+        pre_set: Polynomial,
+        post_set: Polynomial,
+    ) -> Result<Self, AscesisError> {
+        let weight = size.try_into()?;
+        let pre_set: NodeList = pre_set.try_into()?;
+        let post_set: NodeList = post_set.try_into()?;
+        let mult = XferMultiplicity::Rx(RxWeight {
+            weight,
+            host_node,
+            pre_suit: pre_set,
+            post_set: Some(post_set),
+        });
+
+        Ok(WeightsBlock { xfer_multiplicities: vec![mult] })
+    }
+
+    pub fn new_flow_effects(
+        size: Literal,
+        host_node: Node,
+        pre_set: Polynomial,
+        post_set: Polynomial,
+    ) -> Result<Self, AscesisError> {
+        let weight = size.try_into()?;
+        let pre_set: NodeList = pre_set.try_into()?;
+        let post_set: NodeList = post_set.try_into()?;
+        let mult = XferMultiplicity::Tx(TxWeight {
+            weight,
+            host_node,
+            pre_set: Some(pre_set),
+            post_suit: post_set,
+        });
+
+        Ok(WeightsBlock { xfer_multiplicities: vec![mult] })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
@@ -552,14 +590,48 @@ impl Compilable for WeightsBlock {
         for weight in self.xfer_multiplicities.iter() {
             match weight {
                 XferMultiplicity::Rx(rx) => {
-                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+                    let pre_names = rx.pre_suit.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_weight_by_name(Face::Rx, rx.post_node.as_ref(), suit_names, rx.weight);
+                    if let Some(ref post_set) = rx.post_set {
+                        let post_names = post_set.nodes.iter().map(|n| n.as_ref());
+
+                        ctx.set_flow_weight_by_names(
+                            Face::Rx,
+                            rx.host_node.as_ref(),
+                            pre_names,
+                            post_names,
+                            rx.weight,
+                        )?;
+                    } else {
+                        ctx.set_hyper_weight_by_names(
+                            Face::Rx,
+                            rx.host_node.as_ref(),
+                            pre_names,
+                            rx.weight,
+                        );
+                    }
                 }
                 XferMultiplicity::Tx(tx) => {
-                    let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+                    let post_names = tx.post_suit.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_weight_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names, tx.weight);
+                    if let Some(ref pre_set) = tx.pre_set {
+                        let pre_names = pre_set.nodes.iter().map(|n| n.as_ref());
+
+                        ctx.set_flow_weight_by_names(
+                            Face::Tx,
+                            tx.host_node.as_ref(),
+                            pre_names,
+                            post_names,
+                            tx.weight,
+                        )?;
+                    } else {
+                        ctx.set_hyper_weight_by_names(
+                            Face::Tx,
+                            tx.host_node.as_ref(),
+                            post_names,
+                            tx.weight,
+                        );
+                    }
                 }
             }
         }
@@ -598,14 +670,15 @@ impl cmp::PartialOrd for XferMultiplicity {
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct RxWeight {
     weight:    Weight,
-    post_node: Node,
-    pre_set:   NodeList,
+    host_node: Node,
+    pre_suit:  NodeList, // this is the entire pre_set if post_set is specified
+    post_set:  Option<NodeList>,
 }
 
 impl cmp::Ord for RxWeight {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.post_node.cmp(&other.post_node) {
-            cmp::Ordering::Equal => match self.pre_set.cmp(&other.pre_set) {
+        match self.host_node.cmp(&other.host_node) {
+            cmp::Ordering::Equal => match self.pre_suit.cmp(&other.pre_suit) {
                 cmp::Ordering::Equal => self.weight.cmp(&other.weight),
                 result => result,
             },
@@ -622,15 +695,16 @@ impl cmp::PartialOrd for RxWeight {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct TxWeight {
-    weight:   Weight,
-    pre_node: Node,
-    post_set: NodeList,
+    weight:    Weight,
+    host_node: Node,
+    pre_set:   Option<NodeList>,
+    post_suit: NodeList, // this is the entire post_set if pre_set is specified
 }
 
 impl cmp::Ord for TxWeight {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.pre_node.cmp(&other.pre_node) {
-            cmp::Ordering::Equal => match self.post_set.cmp(&other.post_set) {
+        match self.host_node.cmp(&other.host_node) {
+            cmp::Ordering::Equal => match self.post_suit.cmp(&other.post_suit) {
                 cmp::Ordering::Equal => self.weight.cmp(&other.weight),
                 result => result,
             },
@@ -715,12 +789,12 @@ impl Compilable for InhibitorsBlock {
                 Inhibitor::Rx(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_inhibitor_by_name(Face::Rx, rx.post_node.as_ref(), suit_names);
+                    ctx.set_hyper_inhibitor_by_names(Face::Rx, rx.post_node.as_ref(), suit_names);
                 }
                 Inhibitor::Tx(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_inhibitor_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names);
+                    ctx.set_hyper_inhibitor_by_names(Face::Tx, tx.pre_node.as_ref(), suit_names);
                 }
             }
         }
@@ -880,7 +954,7 @@ impl From<WeightlessBlock> for WeightsBlock {
             match split {
                 Weightless::Hold(hold) => {
                     more_weights.push(
-                        WeightsBlock::new_effects(
+                        WeightsBlock::new_hyper_effects(
                             Literal::Size(0),
                             hold.pre_node.into(),
                             hold.post_set.into(),
@@ -890,7 +964,7 @@ impl From<WeightlessBlock> for WeightsBlock {
                 }
                 Weightless::Drop(drop) => {
                     more_weights.push(
-                        WeightsBlock::new_causes(
+                        WeightsBlock::new_hyper_causes(
                             Literal::Size(0),
                             drop.post_node.into(),
                             drop.pre_set.into(),
@@ -914,12 +988,12 @@ impl Compilable for WeightlessBlock {
                 Weightless::Hold(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_holder_by_name(Face::Tx, tx.pre_node.as_ref(), suit_names);
+                    ctx.set_hyper_holder_by_names(Face::Tx, tx.pre_node.as_ref(), suit_names);
                 }
                 Weightless::Drop(rx) => {
                     let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
 
-                    ctx.set_holder_by_name(Face::Rx, rx.post_node.as_ref(), suit_names);
+                    ctx.set_hyper_holder_by_names(Face::Rx, rx.post_node.as_ref(), suit_names);
                 }
             }
         }
