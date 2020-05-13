@@ -916,7 +916,7 @@ impl WeightlessBlock {
                 let pre_node = pre_node.clone();
                 let post_set = mono.clone().into();
 
-                splits.push(Weightless::Hold(TxWeightless { pre_node, post_set }));
+                splits.push(Weightless::Activate(TxWeightless { pre_node, post_set }));
             }
         }
 
@@ -952,12 +952,12 @@ impl From<WeightlessBlock> for WeightsBlock {
         for split in block.splits {
             // FIXME unwraps
             match split {
-                Weightless::Hold(hold) => {
+                Weightless::Activate(activate) => {
                     more_weights.push(
                         WeightsBlock::new_hyper_effects(
                             Literal::Size(0),
-                            hold.pre_node.into(),
-                            hold.post_set.into(),
+                            activate.pre_node.into(),
+                            activate.post_set.into(),
                         )
                         .unwrap(),
                     );
@@ -985,7 +985,7 @@ impl Compilable for WeightlessBlock {
 
         for holder in self.splits.iter() {
             match holder {
-                Weightless::Hold(tx) => {
+                Weightless::Activate(tx) => {
                     let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
 
                     ctx.set_hyper_holder_by_names(Face::Tx, tx.pre_node.as_ref(), suit_names);
@@ -1004,19 +1004,19 @@ impl Compilable for WeightlessBlock {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Weightless {
-    Hold(TxWeightless),
+    Activate(TxWeightless),
     Drop(RxWeightless),
 }
 
 impl cmp::Ord for Weightless {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         match self {
-            Self::Hold(s) => match other {
-                Self::Hold(o) => s.cmp(o),
+            Self::Activate(s) => match other {
+                Self::Activate(o) => s.cmp(o),
                 Self::Drop(_) => cmp::Ordering::Greater,
             },
             Self::Drop(s) => match other {
-                Self::Hold(_) => cmp::Ordering::Less,
+                Self::Activate(_) => cmp::Ordering::Less,
                 Self::Drop(o) => s.cmp(o),
             },
         }

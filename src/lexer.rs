@@ -76,8 +76,8 @@ pub enum Token<'input> {
     Flow,
     #[token("inhibit")]
     Inhibit,
-    #[token("hold")]
-    Hold,
+    #[token("activate")]
+    Activate,
     #[token("drop")]
     Drop,
 }
@@ -121,7 +121,7 @@ impl<'input> fmt::Display for Token<'input> {
             Weights => write!(f, "weights"),
             Flow => write!(f, "flow"),
             Inhibit => write!(f, "inhibit"),
-            Hold => write!(f, "hold"),
+            Activate => write!(f, "activate"),
             Drop => write!(f, "drop"),
         }
     }

@@ -2,7 +2,7 @@ use std::{ops::Deref, fmt, error::Error};
 use log::Level::Debug;
 use aces::{
     Content, PartialContent, Compilable, CompilableMut, CompilableAsContent,
-    CompilableAsDependency, ContextHandle, NodeID, Face, sat,
+    CompilableAsDependency, ContextHandle, NodeId, Face, sat,
 };
 use crate::{
     PropBlock, PropSelector, CapacitiesBlock, UnboundedBlock, WeightsBlock, InhibitorsBlock,
@@ -11,10 +11,11 @@ use crate::{
 
 #[derive(Default, Debug)]
 pub struct CesFile {
-    script:  Option<String>,
-    blocks:  Vec<CesFileBlock>,
-    root:    Option<usize>,
-    content: Option<PartialContent>,
+    script:        Option<String>,
+    blocks:        Vec<CesFileBlock>,
+    root_block_id: Option<usize>,
+    root_content:  Option<PartialContent>,
+    modules:       Vec<PartialContent>,
 }
 
 impl CesFile {
@@ -39,13 +40,13 @@ impl CesFile {
     pub fn set_root_name<S: AsRef<str>>(&mut self, root_name: S) -> Result<(), Box<dyn Error>> {
         let root_name = root_name.as_ref();
 
-        self.root = None;
+        self.root_block_id = None;
 
         for (ndx, block) in self.blocks.iter().enumerate() {
             if let CesFileBlock::Imm(imm) = block {
                 if imm.name.0.as_str() == root_name {
-                    if self.root.is_none() {
-                        self.root = Some(ndx);
+                    if self.root_block_id.is_none() {
+                        self.root_block_id = Some(ndx);
                     } else {
                         return Err(AscesisError::from(AscesisErrorKind::RootRedefined(
                             root_name.into(),
@@ -56,7 +57,7 @@ impl CesFile {
             }
         }
 
-        if self.root.is_some() {
+        if self.root_block_id.is_some() {
             Ok(())
         } else {
             Err(AscesisError::from(AscesisErrorKind::RootMissing(root_name.into())).into())
@@ -64,7 +65,7 @@ impl CesFile {
     }
 
     fn get_root_verified(&self) -> Result<&ImmediateDef, AscesisError> {
-        if let Some(ndx) = self.root {
+        if let Some(ndx) = self.root_block_id {
             if let Some(block) = self.blocks.get(ndx) {
                 if let CesFileBlock::Imm(ref root) = block {
                     Ok(root)
@@ -80,7 +81,7 @@ impl CesFile {
     }
 
     fn get_root(&self) -> Result<&ImmediateDef, AscesisError> {
-        if let Some(ndx) = self.root {
+        if let Some(ndx) = self.root_block_id {
             if let CesFileBlock::Imm(ref root) = self.blocks[ndx] {
                 Ok(root)
             } else {
@@ -92,7 +93,7 @@ impl CesFile {
     }
 
     fn get_content(&self) -> Result<&PartialContent, AscesisError> {
-        if let Some(ref content) = self.content {
+        if let Some(ref content) = self.root_content {
             Ok(content)
         } else {
             self.get_root_verified().and(Err(AscesisErrorKind::ScriptUncompiled.into()))
@@ -100,7 +101,7 @@ impl CesFile {
     }
 
     fn get_content_mut(&mut self) -> Result<&mut PartialContent, AscesisError> {
-        if let Some(ref mut content) = self.content {
+        if let Some(ref mut content) = self.root_content {
             Ok(content)
         } else {
             self.get_root_verified().and(Err(AscesisErrorKind::ScriptUncompiled.into()))
@@ -232,8 +233,8 @@ impl CompilableMut for CesFile {
                 CesFileBlock::Inhibit(ref inhibit) => {
                     inhibit.compile(ctx)?;
                 }
-                CesFileBlock::Hold(ref hold) => {
-                    hold.compile(ctx)?;
+                CesFileBlock::Activate(ref activate) => {
+                    activate.compile(ctx)?;
                 }
                 CesFileBlock::Drop(ref drop) => {
                     drop.compile(ctx)?;
@@ -269,7 +270,7 @@ impl CompilableMut for CesFile {
         if root.is_compiled(ctx) {
             let content = root.get_compiled_content(ctx)?;
 
-            self.content = Some(content);
+            self.root_content = Some(content);
 
             Ok(true)
         } else {
@@ -285,27 +286,34 @@ impl From<Vec<CesFileBlock>> for CesFile {
 }
 
 impl Content for CesFile {
+    #[inline]
     fn get_script(&self) -> Option<&str> {
         self.script.as_deref()
     }
 
+    #[inline]
     fn get_name(&self) -> Option<&str> {
         self.get_root().ok().map(|root| root.name.as_str())
     }
 
-    fn get_carrier_ids(&mut self) -> Vec<NodeID> {
+    #[inline]
+    fn is_module(&self) -> bool {
+        self.root_content.is_none()
+    }
+
+    fn get_carrier_ids(&mut self) -> Vec<NodeId> {
         let content = self.get_content_mut().unwrap();
 
         content.get_carrier_ids()
     }
 
-    fn get_causes_by_id(&self, id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
+    fn get_causes_by_id(&self, id: NodeId) -> Option<&Vec<Vec<NodeId>>> {
         let content = self.get_content().unwrap();
 
         content.get_causes_by_id(id)
     }
 
-    fn get_effects_by_id(&self, id: NodeID) -> Option<&Vec<Vec<NodeID>>> {
+    fn get_effects_by_id(&self, id: NodeId) -> Option<&Vec<Vec<NodeId>>> {
         let content = self.get_content().unwrap();
 
         content.get_effects_by_id(id)
@@ -321,7 +329,7 @@ pub enum CesFileBlock {
     Unbounded(UnboundedBlock),
     Weights(WeightsBlock),
     Inhibit(InhibitorsBlock),
-    Hold(WeightlessBlock),
+    Activate(WeightlessBlock),
     Drop(WeightlessBlock),
     Bad(AscesisError),
 }
@@ -379,7 +387,7 @@ impl From<WeightlessBlock> for CesFileBlock {
     #[inline]
     fn from(block: WeightlessBlock) -> Self {
         match block.get_face() {
-            Some(Face::Tx) => CesFileBlock::Hold(block),
+            Some(Face::Tx) => CesFileBlock::Activate(block),
             Some(Face::Rx) => CesFileBlock::Drop(block),
             None => CesFileBlock::Weights(block.into()),
         }

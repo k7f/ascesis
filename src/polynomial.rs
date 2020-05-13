@@ -1,5 +1,5 @@
 use std::{collections::BTreeSet, iter::FromIterator};
-use aces::{ContextHandle, NodeID};
+use aces::{ContextHandle, NodeId};
 use crate::{Node, ToNode, NodeList};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -104,7 +104,7 @@ impl Polynomial {
         self.log_warnings();
     }
 
-    pub(crate) fn compile_as_vec(&self, ctx: &ContextHandle) -> Vec<Vec<NodeID>> {
+    pub(crate) fn compile_as_vec(&self, ctx: &ContextHandle) -> Vec<Vec<NodeId>> {
         let mut ctx = ctx.lock().unwrap();
 
         self.monomials

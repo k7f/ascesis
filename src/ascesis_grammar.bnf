@@ -8,7 +8,7 @@
                  | <WeightsBlock>
                  | <FlowBlock>
                  | <InhibitBlock>
-                 | <HoldBlock>
+                 | <ActivateBlock>
                  | <DropBlock> ;
 
 ;; Structure definition, immediate form
@@ -71,7 +71,7 @@
 <PlainCapList> ::= <CapField>
                  | <CapField> "," <PlainCapList> ;
 
-<CapField> ::= <Size> <NodeList>
+<CapField> ::= <Size> <NodeList> ;
 
 <UnboundedBlock> ::= "unbounded" "{" "}"
                    | "unbounded" "{" <NodeList> "}" ;
@@ -116,18 +116,18 @@
 <InhibitField> ::= <NodeList> "->" <NodeList>
                  | <NodeList> "<-" <NodeList>;
 
-;; Zero-weight splits
+;; Activators (zero-weight splits)
 
-<HoldBlock> ::= "hold" "{" "}"
-              | "hold" "{" <HoldList> "}" ;
+<ActivateBlock> ::= "activate" "{" "}"
+                  | "activate" "{" <ActivateList> "}" ;
 
-<HoldList> ::= <PlainHoldList>
-             | <PlainHoldList> "," ;
+<ActivateList> ::= <PlainActivateList>
+                 | <PlainActivateList> "," ;
 
-<PlainHoldList> ::= <HoldField>
-                  | <HoldField> "," <PlainHoldList> ;
+<PlainActivateList> ::= <ActivateField>
+                      | <ActivateField> "," <PlainActivateList> ;
 
-<HoldField> ::= <NodeList> "->" <NodeList> ;
+<ActivateField> ::= <NodeList> "->" <NodeList> ;
 
 <DropBlock> ::= "drop" "{" "}"
               | "drop" "{" <DropList> "}" ;

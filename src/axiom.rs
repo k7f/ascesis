@@ -20,10 +20,9 @@ impl Axiom {
 
         match symbol {
             "CesFileBlock" | "ImmediateDef" | "CesImmediate" | "CesInstance" | "PropBlock"
-            | "CapsBlock" | "UnboundedBlock" | "WeightsBlock" | "InhibitBlock" | "HoldBlock"
-            | "DropBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule" | "Polynomial" => {
-                Some(Axiom(symbol.to_owned()))
-            }
+            | "CapsBlock" | "UnboundedBlock" | "WeightsBlock" | "InhibitBlock"
+            | "ActivateBlock" | "DropBlock" | "Rex" | "ThinArrowRule" | "FatArrowRule"
+            | "Polynomial" => Some(Axiom(symbol.to_owned())),
             _ => None,
         }
     }
@@ -37,7 +36,7 @@ impl Axiom {
             static ref UNBOUNDED_RE: Regex = Regex::new(r"^unbounded\s*\{").unwrap();
             static ref WEIGHTS_RE: Regex = Regex::new(r"^weights\s*\{").unwrap();
             static ref INHIBIT_RE: Regex = Regex::new(r"^inhibit\s*\{").unwrap();
-            static ref HOLD_RE: Regex = Regex::new(r"^hold\s*\{").unwrap();
+            static ref ACTIVATE_RE: Regex = Regex::new(r"^activate\s*\{").unwrap();
             static ref DROP_RE: Regex = Regex::new(r"^drop\s*\{").unwrap();
             static ref TIN_RE: Regex = Regex::new(r"^[[:alpha:]][[:word:]]*\s*!\s*\(").unwrap();
             static ref IIN_RE: Regex =
@@ -61,8 +60,8 @@ impl Axiom {
             Axiom("WeightsBlock".to_owned())
         } else if INHIBIT_RE.is_match(phrase) {
             Axiom("InhibitBlock".to_owned())
-        } else if HOLD_RE.is_match(phrase) {
-            Axiom("HoldBlock".to_owned())
+        } else if ACTIVATE_RE.is_match(phrase) {
+            Axiom("ActivateBlock".to_owned())
         } else if DROP_RE.is_match(phrase) {
             Axiom("DropBlock".to_owned())
         } else if IIN_RE.is_match(phrase) {
@@ -106,7 +105,7 @@ impl Axiom {
             "UnboundedBlock" => from_phrase_as!(UnboundedBlock, phrase),
             "WeightsBlock" => from_phrase_as!(WeightsBlock, phrase),
             "InhibitBlock" => from_phrase_as!(InhibitorsBlock, phrase),
-            "HoldBlock" => from_phrase_as!(WeightlessBlock, phrase),
+            "ActivateBlock" => from_phrase_as!(WeightlessBlock, phrase),
             "DropBlock" => from_phrase_as!(WeightlessBlock, phrase),
             "Rex" => from_phrase_as!(Rex, phrase),
             "ThinArrowRule" => from_phrase_as!(ThinArrowRule, phrase),

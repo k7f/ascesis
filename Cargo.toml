@@ -23,11 +23,11 @@ lazy_static = "1.4"
 rand = "0.7"
 enquote = "1.0"
 logos = "0.11"
-lalrpop-util = "0.18"
+lalrpop-util = "0.19"
 aces = { path = "../aces" }
 # aces = "0.0.13"
 
 [build-dependencies.lalrpop]
 
-version = "0.18"
+version = "0.19"
 features = ["lexer"]

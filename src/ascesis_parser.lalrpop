@@ -87,7 +87,7 @@ ArgValue: String = <Identifier>;
 //               | weights_block
 //               | flow_block
 //               | inhibit_block
-//               | hold_block
+//               | activate_block
 //               | drop_block ;
 
 // prop_selector = "vis" | "sat" ;
@@ -224,20 +224,20 @@ InhibitField: InhibitorsBlock = {
         Ok(InhibitorsBlock::new_causes(post_nodes, pre_poly)?),
 };
 
-pub WeightlessBlock: WeightlessBlock = { HoldBlock, DropBlock };
+pub WeightlessBlock: WeightlessBlock = { ActivateBlock, DropBlock };
 
-// hold_block = "hold" "{" [ hold_list ] "}" ;
-pub HoldBlock: WeightlessBlock = {
-    "hold" "{" "}" => WeightlessBlock::new(),
-    "hold" "{" <head: HoldField> <tail: CommaThenHoldField*> ","? "}" =>
+// Activate_block = "activate" "{" [ activate_list ] "}" ;
+pub ActivateBlock: WeightlessBlock = {
+    "activate" "{" "}" => WeightlessBlock::new(),
+    "activate" "{" <head: ActivateField> <tail: CommaThenActivateField*> ","? "}" =>
         head.with_more(tail),
 };
 
-// hold_list = hold_field { "," hold_field } [ "," ] ;
-CommaThenHoldField: WeightlessBlock = "," <HoldField>;
+// activate_list = activate_field { "," activate_field } [ "," ] ;
+CommaThenActivateField: WeightlessBlock = "," <ActivateField>;
 
-// hold_field = node_list "->" node_list ;
-HoldField: WeightlessBlock =
+// activate_field = node_list "->" node_list ;
+ActivateField: WeightlessBlock =
     <pre_nodes: NodeList> "->" <post_poly: Polynomial> =>?
         Ok(WeightlessBlock::new_effects(pre_nodes, post_poly)?);
 
@@ -397,7 +397,7 @@ extern {
         "weights" => Token::Weights,
         "flow" => Token::Flow,
         "inhibit" => Token::Inhibit,
-        "hold" => Token::Hold,
+        "activate" => Token::Activate,
         "drop" => Token::Drop,
     }
 }

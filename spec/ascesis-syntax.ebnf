@@ -37,7 +37,7 @@ context_block = prop_block
               | weights_block
               | flow_block
               | inhibit_block
-              | hold_block
+              | activate_block
               | drop_block ;
 
 prop_selector = "vis" | "sat" ;
@@ -70,9 +70,9 @@ inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
 inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
 inhibit_field = node_list ( "->" | "<-" ) node_list ;
 
-hold_block = "hold" "{" [ hold_list ] "}" ;
-hold_list = hold_field { "," hold_field } [ "," ] ;
-hold_field = node_list "->" node_list ;
+activate_block = "activate" "{" [ activate_list ] "}" ;
+activate_list = activate_field { "," activate_field } [ "," ] ;
+activate_field = activate_list "->" node_list ;
 
 drop_block = "drop" "{" [ drop_list ] "}" ;
 drop_list = drop_field { "," drop_field } [ "," ] ;
