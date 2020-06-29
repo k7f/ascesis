@@ -14,7 +14,7 @@ _Ascesis_ terminal symbols are keywords, identifiers, literals,
 operators, separators, delimiters and modifiers.
 
   - Keywords are `ces`, `vis`, `caps`, `unbounded`, `weights`,
-    `inhibit`, `hold`, `drop`, `Node`, `CES`, `Size` and `String`.
+    `inhibit`, `hold`, `drop`, `Dot`, `CES`, `Size` and `String`.
 
   - Identifiers are unquoted strings of alphanumeric characters (plus
     underscore) not starting from a digit and different from any of
@@ -35,7 +35,7 @@ operators, separators, delimiters and modifiers.
 ```bnf
 keyword = "ces" | "vis" | "caps" | "unbounded"
         | "weights" | "inhibit" | "hold" | "drop"
-        | "Node" | "CES" | "Size" |  "String" ;
+        | "Dot" | "CES" | "Size" |  "String" ;
 
 identifier = r"[a-zA-Z_][a-zA-Z0-9_]*" - keyword;
 

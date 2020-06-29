@@ -1,5 +1,4 @@
 #![feature(slice_partition_dedup)]
-#![feature(str_strip)]
 
 #[macro_use]
 extern crate log;
@@ -30,7 +29,7 @@ mod context;
 mod content;
 mod rex;
 mod polynomial;
-mod node;
+mod domain;
 mod lexer;
 
 pub use aces::*;
@@ -45,5 +44,5 @@ pub use context::{
 pub use content::AscesisFormat;
 pub use rex::{Rex, ThinArrowRule, FatArrowRule};
 pub use polynomial::Polynomial;
-pub use node::{Node, ToNode, NodeList};
+pub use domain::{DotName, ToDotName, DotList};
 pub use lexer::{Lexer, Token, Literal, BinOp};

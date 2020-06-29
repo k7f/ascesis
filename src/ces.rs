@@ -2,7 +2,7 @@ use std::{ops::Deref, fmt, error::Error};
 use log::Level::Debug;
 use aces::{
     Content, PartialContent, Compilable, CompilableMut, CompilableAsContent,
-    CompilableAsDependency, ContextHandle, NodeId, Face, sat,
+    CompilableAsDependency, ContextHandle, DotId, Polarity, sat,
 };
 use crate::{
     PropBlock, PropSelector, CapacitiesBlock, UnboundedBlock, WeightsBlock, InhibitorsBlock,
@@ -301,19 +301,19 @@ impl Content for CesFile {
         self.root_content.is_none()
     }
 
-    fn get_carrier_ids(&mut self) -> Vec<NodeId> {
+    fn get_carrier_ids(&mut self) -> Vec<DotId> {
         let content = self.get_content_mut().unwrap();
 
         content.get_carrier_ids()
     }
 
-    fn get_causes_by_id(&self, id: NodeId) -> Option<&Vec<Vec<NodeId>>> {
+    fn get_causes_by_id(&self, id: DotId) -> Option<&Vec<Vec<DotId>>> {
         let content = self.get_content().unwrap();
 
         content.get_causes_by_id(id)
     }
 
-    fn get_effects_by_id(&self, id: NodeId) -> Option<&Vec<Vec<NodeId>>> {
+    fn get_effects_by_id(&self, id: DotId) -> Option<&Vec<Vec<DotId>>> {
         let content = self.get_content().unwrap();
 
         content.get_effects_by_id(id)
@@ -386,9 +386,9 @@ impl From<InhibitorsBlock> for CesFileBlock {
 impl From<WeightlessBlock> for CesFileBlock {
     #[inline]
     fn from(block: WeightlessBlock) -> Self {
-        match block.get_face() {
-            Some(Face::Tx) => CesFileBlock::Activate(block),
-            Some(Face::Rx) => CesFileBlock::Drop(block),
+        match block.get_polarity() {
+            Some(Polarity::Tx) => CesFileBlock::Activate(block),
+            Some(Polarity::Rx) => CesFileBlock::Drop(block),
             None => CesFileBlock::Weights(block.into()),
         }
     }

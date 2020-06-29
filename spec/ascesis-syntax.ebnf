@@ -17,7 +17,7 @@ immediate_sig = "ces" identifier ;
 template_def = template_sig "{" [ rex ] "}" ;
 template_sig = "ces" identifier "(" { template_args } ")" ;
 template_args = arg_decl { "," arg_decl } [ "," ] ;
-arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "Name" ) ;
+arg_decl = identifier ":" ( "Dot" | "CES" | "Size" | "Name" ) ;
 
 ## Structure instantiation
 
@@ -35,7 +35,6 @@ context_block = prop_block
               | caps_block
               | unbounded_block
               | weights_block
-              | flow_block
               | inhibit_block
               | activate_block
               | drop_block ;
@@ -48,35 +47,31 @@ prop_value_array = prop_value { "," prop_value } [ "," ] ;
 
 prop_value = name
            | size_list
-           | node_list
+           | dot_list
            | "[" prop_value_array "]"
            | "{" prop_list "}" ;
 
 caps_block = "caps" "{" [ cap_list ] "}" ;
 cap_list = cap_field { "," cap_field } [ "," ] ;
-cap_field = size node_list ;
+cap_field = size dot_list ;
 
-unbounded_block = "unbounded" "{" [ node_list ] "}" ;
+unbounded_block = "unbounded" "{" [ dot_list ] "}" ;
 
 weights_block = "weights" "{" [ weight_list ] "}" ;
 weight_list = weight_field { "," weight_field } [ "," ] ;
-weight_field = size node_list ( "->" | "<-" ) node_list ;
-
-flow_block = "flow" "{" [ flow_list ] "}" ;
-flow_list = flow_field { "," flow_field } [ "," ] ;
-flow_field = size node_list ( "=>" | "<=" ) node_list ;
+weight_field = size dot_list ( "->" | "<-" ) dot_list ;
 
 inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
 inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
-inhibit_field = node_list ( "->" | "<-" ) node_list ;
+inhibit_field = dot_list ( "->" | "<-" ) dot_list ;
 
 activate_block = "activate" "{" [ activate_list ] "}" ;
 activate_list = activate_field { "," activate_field } [ "," ] ;
-activate_field = activate_list "->" node_list ;
+activate_field = activate_list "->" dot_list ;
 
 drop_block = "drop" "{" [ drop_list ] "}" ;
 drop_list = drop_field { "," drop_field } [ "," ] ;
-drop_field = node_list "<-" node_list ;
+drop_field = dot_list "<-" dot_list ;
 
 ## Rule expression
 
@@ -90,30 +85,30 @@ rex_term = ces_instance | "{" rex "}" ;
 
 thin_arrow_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
 
-# effect polynomial with explicit node list on the left
-e_rule = node_list "->" polynomial ;
+# effect polynomial with explicit dot list on the left
+e_rule = dot_list "->" polynomial ;
 
-# cause polynomial with explicit node list on the left
-c_rule = node_list "<-" polynomial ;
+# cause polynomial with explicit dot list on the left
+c_rule = dot_list "<-" polynomial ;
 
-# effect-then-cause polynomial with explicit node list on the left
-ec_rule = node_list "->" polynomial "<-" polynomial ;
+# effect-then-cause polynomial with explicit dot list on the left
+ec_rule = dot_list "->" polynomial "<-" polynomial ;
 
-# cause-then-effect polynomial with explicit node list on the left
-ce_rule = node_list "<-" polynomial "->" polynomial ;
+# cause-then-effect polynomial with explicit dot list on the left
+ce_rule = dot_list "<-" polynomial "->" polynomial ;
 
-# cause-then-effect pair of polynomials with explicit node list in the
+# cause-then-effect pair of polynomials with explicit dot list in the
 # middle
-fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
+fw_rule = "+" plain_polynomial "->" dot_list "->" polynomial ;
 
-# effect-then-cause pair of polynomials with explicit node list in the
+# effect-then-cause pair of polynomials with explicit dot list in the
 # middle
-bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
+bw_rule = "+" plain_polynomial "<-" dot_list "<-" polynomial ;
 
-node_list = identifier { identifier } ;
+dot_list = identifier { identifier } ;
 size_list = size { size } ;
 
-# multi-polynomial rule with implicit node lists
+# multi-polynomial rule with implicit dot lists
 fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;
 
 ## Polynomial

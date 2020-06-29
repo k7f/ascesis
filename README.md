@@ -90,7 +90,7 @@ structure, which is instantiated in the context providing explicitly
 specified node labels and increased capacity of node `a`.
 
 ```rust
-ces Arrow(x: Node, y: Node) { x => y }
+ces Arrow(x: Dot, y: Dot) { x => y }
 
 vis { labels: { a: "Source", z: "Sink" } }
 caps { 3 a }
@@ -109,7 +109,7 @@ a fat arrow rule with four single-node polynomials results in three
 arrows,
 
 ```rust
-ces ThreeArrowsInARow(w: Node, x: Node, y: Node, z: Node) { w => x => y => z }
+ces ThreeArrowsInARow(w: Dot, x: Dot, y: Dot, z: Dot) { w => x => y => z }
 
 // seven arrows in a row
 ces Main {

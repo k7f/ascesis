@@ -3,7 +3,7 @@ use crate::{
     CesFile, CesFileBlock, CesName, ImmediateDef, CesImmediate, CesInstance,
     PropBlock, PropValue, CapacitiesBlock, UnboundedBlock, WeightsBlock,
     InhibitorsBlock, WeightlessBlock, Rex, ThinArrowRule, FatArrowRule, Polynomial,
-    Node, BinOp, Literal, Token, AscesisError, AscesisErrorKind,
+    DotName, BinOp, Literal, Token, AscesisError, AscesisErrorKind,
 };
 
 grammar<'input, 'env>(errors: &'env mut Vec<ErrorRecovery<usize, Token<'input>, AscesisError>>);
@@ -17,7 +17,6 @@ pub CesFileBlock: CesFileBlock = {
     <CapsBlock> => <>.into(),
     <UnboundedBlock> => <>.into(),
     <WeightsBlock> => <>.into(),
-    <FlowBlock> => <>.into(),
     <InhibitBlock> => <>.into(),
     <WeightlessBlock> => <>.into(),
     ! => {
@@ -47,7 +46,7 @@ ImmediateSig: CesName =
 // template_def = template_sig "{" [ rex ] "}" ;
 // template_sig = "ces" identifier "(" { template_args } ")" ;
 // template_args = arg_decl { "," arg_decl } [ "," ] ;
-// arg_decl = identifier ":" ( "Node" | "CES" | "Size" | "String" ) ;
+// arg_decl = identifier ":" ( "Dot" | "CES" | "Size" | "String" ) ;
 
 // Structure instantiation
 
@@ -85,7 +84,6 @@ ArgValue: String = <Identifier>;
 //               | caps_block
 //               | unbounded_block
 //               | weights_block
-//               | flow_block
 //               | inhibit_block
 //               | activate_block
 //               | drop_block ;
@@ -125,13 +123,13 @@ CommaThenPropValue: PropValue = "," <PropValue>;
 
 // prop_value = name
 //            | size_list
-//            | node_list
+//            | dot_list
 //            | "[" prop_value_array "]"
 //            | "{" prop_list "}" ;
 PropValue: PropValue = {
     <Name> =>? Ok(PropValue::new_name(<>)?),
     <SizeList> =>? Ok(PropValue::new_size_list(<>)?),
-    <IdentifierList> =>? Ok(PropValue::new_node_list(<>)?),
+    <IdentifierList> =>? Ok(PropValue::new_dot_list(<>)?),
     "[" <PropValueArray> "]" => <>.into(),
     "{" <PropList> "}" => <>.into(),
 };
@@ -146,16 +144,16 @@ pub CapsBlock: CapacitiesBlock = {
 // cap_list = cap_field { "," cap_field } [ "," ] ;
 CommaThenCapField: CapacitiesBlock = "," <CapField>;
 
-// cap_field = size node_list ;
+// cap_field = size dot_list ;
 CapField: CapacitiesBlock =
-    <size: Size> <nodes: NodeList> =>?
-        Ok(CapacitiesBlock::new().with_nodes(size, nodes)?);
+    <size: Size> <dots: DotList> =>?
+        Ok(CapacitiesBlock::new().with_dot_names(size, dots)?);
 
-// unbounded_block = "unbounded" "{" [ node_list ] "}" ;
+// unbounded_block = "unbounded" "{" [ dot_list ] "}" ;
 pub UnboundedBlock: UnboundedBlock = {
     "unbounded" "{" "}" => UnboundedBlock::new(),
-    "unbounded" "{" <nodes: NodeList> "}" =>?
-        Ok(UnboundedBlock::from_nodes(nodes)?),
+    "unbounded" "{" <dots: DotList> "}" =>?
+        Ok(UnboundedBlock::from_dot_names(dots)?),
 };
 
 // weights_block = "weights" "{" [ weight_list ] "}" ;
@@ -168,42 +166,12 @@ pub WeightsBlock: WeightsBlock = {
 // weight_list = weight_field { "," weight_field } [ "," ] ;
 CommaThenWeightField: WeightsBlock = "," <WeightField>;
 
-// weight_field = size node_list ( "->" | "<-" ) node_list ;
+// weight_field = size dot_list ( "->" | "<-" ) dot_list ;
 WeightField: WeightsBlock = {
-    <size: Size> <pre_nodes: NodeList> "->" <post_set: NodeList> =>?
-        Ok(WeightsBlock::new_hyper_effects(size, pre_nodes, post_set)?),
-    <size: Size> <post_nodes: NodeList> "<-" <pre_set: NodeList> =>?
-        Ok(WeightsBlock::new_hyper_causes(size, post_nodes, pre_set)?),
-};
-
-// flow_block = "flow" "{" [ flow_list ] "}" ;
-pub FlowBlock: WeightsBlock = {
-    "flow" "{" "}" => WeightsBlock::new(),
-    "flow" "{" <head: FlowField> <tail: CommaThenFlowField*> ","? "}" =>
-        head.with_more(tail),
-};
-
-// flow_list = flow_field { "," flow_field } [ "," ] ;
-CommaThenFlowField: WeightsBlock = "," <FlowField>;
-
-// flow_field = size node_list ( "=>" | "<=" ) node_list ;
-FlowField: WeightsBlock = {
-    <size: Size> <host_node: Identifier> <side_nodes: NodeList> "=>" <post_set: NodeList> =>? {
-        let host_node = Node::from(host_node);
-        let mut pre_set = Polynomial::from(host_node.clone());
-
-        pre_set.multiply_assign(vec![side_nodes].as_mut_slice());
-
-        Ok(WeightsBlock::new_flow_effects(size, host_node, pre_set, post_set)?)
-    },
-    <size: Size> <host_node: Identifier> <side_nodes: NodeList> "<=" <pre_set: NodeList> =>? {
-        let host_node = Node::from(host_node);
-        let mut post_set = Polynomial::from(host_node.clone());
-
-        post_set.multiply_assign(vec![side_nodes].as_mut_slice());
-
-        Ok(WeightsBlock::new_flow_causes(size, host_node, pre_set, post_set)?)
-    },
+    <size: Size> <pre_dots: DotList> "->" <post_set: DotList> =>?
+        Ok(WeightsBlock::new_fork_weights(size, pre_dots, post_set)?),
+    <size: Size> <post_dots: DotList> "<-" <pre_set: DotList> =>?
+        Ok(WeightsBlock::new_join_weights(size, post_dots, pre_set)?),
 };
 
 // inhibit_block = "inhibit" "{" [ inhibit_list ] "}" ;
@@ -216,12 +184,12 @@ pub InhibitBlock: InhibitorsBlock = {
 // inhibit_list = inhibit_field { "," inhibit_field } [ "," ] ;
 CommaThenInhibitField: InhibitorsBlock = "," <InhibitField>;
 
-// inhibit_field = node_list ( "->" | "<-" ) node_list ;
+// inhibit_field = dot_list ( "->" | "<-" ) dot_list ;
 InhibitField: InhibitorsBlock = {
-    <pre_nodes: NodeList> "->" <post_poly: Polynomial> =>?
-        Ok(InhibitorsBlock::new_effects(pre_nodes, post_poly)?),
-    <post_nodes: NodeList> "<-" <pre_poly: NodeList> =>?
-        Ok(InhibitorsBlock::new_causes(post_nodes, pre_poly)?),
+    <pre_dots: DotList> "->" <post_poly: Polynomial> =>?
+        Ok(InhibitorsBlock::new_effects(pre_dots, post_poly)?),
+    <post_dots: DotList> "<-" <pre_poly: DotList> =>?
+        Ok(InhibitorsBlock::new_causes(post_dots, pre_poly)?),
 };
 
 pub WeightlessBlock: WeightlessBlock = { ActivateBlock, DropBlock };
@@ -236,10 +204,10 @@ pub ActivateBlock: WeightlessBlock = {
 // activate_list = activate_field { "," activate_field } [ "," ] ;
 CommaThenActivateField: WeightlessBlock = "," <ActivateField>;
 
-// activate_field = node_list "->" node_list ;
+// activate_field = dot_list "->" dot_list ;
 ActivateField: WeightlessBlock =
-    <pre_nodes: NodeList> "->" <post_poly: Polynomial> =>?
-        Ok(WeightlessBlock::new_effects(pre_nodes, post_poly)?);
+    <pre_dots: DotList> "->" <post_poly: Polynomial> =>?
+        Ok(WeightlessBlock::new_effects(pre_dots, post_poly)?);
 
 // drop_block = "drop" "{" [ drop_list ] "}" ;
 pub DropBlock: WeightlessBlock = {
@@ -251,10 +219,10 @@ pub DropBlock: WeightlessBlock = {
 // drop_list = drop_field { "," drop_field } [ "," ] ;
 CommaThenDropField: WeightlessBlock = "," <DropField>;
 
-// drop_field = node_list "<-" node_list ;
+// drop_field = dot_list "<-" dot_list ;
 DropField: WeightlessBlock =
-    <post_nodes: NodeList> "<-" <pre_poly: Polynomial> =>?
-        Ok(WeightlessBlock::new_causes(post_nodes, pre_poly)?);
+    <post_dots: DotList> "<-" <pre_poly: Polynomial> =>?
+        Ok(WeightlessBlock::new_causes(post_dots, pre_poly)?);
 
 // Rule expression
 
@@ -277,36 +245,36 @@ RexTerm: Rex = {
 // Arrow rules
 
 // thin_arrow_rule = e_rule | c_rule | ec_rule | ce_rule | fw_rule | bw_rule ;
-// e_rule = node_list "->" polynomial ;
-// c_rule = node_list "<-" polynomial ;
-// ec_rule = node_list "->" polynomial "<-" polynomial ;
-// ce_rule = node_list "<-" polynomial "->" polynomial ;
-// fw_rule = "+" plain_polynomial "->" node_list "->" polynomial ;
-// bw_rule = "+" plain_polynomial "<-" node_list "<-" polynomial ;
+// e_rule = dot_list "->" polynomial ;
+// c_rule = dot_list "<-" polynomial ;
+// ec_rule = dot_list "->" polynomial "<-" polynomial ;
+// ce_rule = dot_list "<-" polynomial "->" polynomial ;
+// fw_rule = "+" plain_polynomial "->" dot_list "->" polynomial ;
+// bw_rule = "+" plain_polynomial "<-" dot_list "<-" polynomial ;
 pub ThinArrowRule: ThinArrowRule = {
     // effect-only rule
-    <nodes: Polynomial> "->" <effect: Polynomial> =>?
-        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_effect(effect)),
+    <dots: Polynomial> "->" <effect: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_dots(dots)?.with_effect(effect)),
 
    // cause-only rule
-    <nodes: Polynomial> "<-" <cause: Polynomial> =>?
-        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause)),
+    <dots: Polynomial> "<-" <cause: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_dots(dots)?.with_cause(cause)),
 
     // effect-then-cause rule
-    <nodes: Polynomial> "->" <effect: Polynomial> "<-" <cause: Polynomial> =>?
-        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+    <dots: Polynomial> "->" <effect: Polynomial> "<-" <cause: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_dots(dots)?.with_cause(cause).with_effect(effect)),
 
     // cause-then-effect rule
-    <nodes: Polynomial> "<-" <cause: Polynomial> "->" <effect: Polynomial> =>?
-        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+    <dots: Polynomial> "<-" <cause: Polynomial> "->" <effect: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_dots(dots)?.with_cause(cause).with_effect(effect)),
 
     // forward rule
-    <cause: Polynomial> "->" <nodes: Polynomial> "->" <effect: Polynomial> =>?
-        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+    <cause: Polynomial> "->" <dots: Polynomial> "->" <effect: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_dots(dots)?.with_cause(cause).with_effect(effect)),
 
     // backward rule
-    <effect: Polynomial> "<-" <nodes: Polynomial> "<-" <cause: Polynomial> =>?
-        Ok(ThinArrowRule::new().with_nodes(nodes)?.with_cause(cause).with_effect(effect)),
+    <effect: Polynomial> "<-" <dots: Polynomial> "<-" <cause: Polynomial> =>?
+        Ok(ThinArrowRule::new().with_dots(dots)?.with_cause(cause).with_effect(effect)),
 };
 
 // fat_arrow_rule = polynomial ( "=>" | "<=" | "<=>" ) polynomial { ( "=>" | "<=" | "<=>" ) polynomial } ;
@@ -325,19 +293,19 @@ pub Polynomial: Polynomial = {
 // poly_term = identifier | "(" polynomial ")" ;
 #[inline]
 PolyTerm: Polynomial = {
-    <Identifier> => Polynomial::from(Node::from(<>)),
+    <Identifier> => Polynomial::from(DotName::from(<>)),
     "(" <Polynomial> ")",
 };
 
-// Node list
+// Dot list
 
-// node_list = identifier { identifier } ;
-pub NodeList: Polynomial =
-    <head: NodeListTerm> <tail: NodeListTerm*> => head.with_product_multiplied(tail);
+// dot_list = identifier { identifier } ;
+pub DotList: Polynomial =
+    <head: DotListTerm> <tail: DotListTerm*> => head.with_product_multiplied(tail);
 
 #[inline]
-NodeListTerm: Polynomial =
-    <Identifier> => Polynomial::from(Node::from(<>));
+DotListTerm: Polynomial =
+    <Identifier> => Polynomial::from(DotName::from(<>));
 
 // Operators
 
@@ -395,7 +363,6 @@ extern {
         "caps" => Token::Caps,
         "unbounded" => Token::Unbounded,
         "weights" => Token::Weights,
-        "flow" => Token::Flow,
         "inhibit" => Token::Inhibit,
         "activate" => Token::Activate,
         "drop" => Token::Drop,

@@ -2,7 +2,7 @@ use std::{convert::TryInto, error::Error};
 use log::Level::Debug;
 use aces::{ContextHandle, PartialContent, CompilableAsContent};
 use crate::{
-    CesImmediate, CesInstance, Node, NodeList, BinOp, polynomial::Polynomial, AscesisError,
+    CesImmediate, CesInstance, DotName, DotList, BinOp, polynomial::Polynomial, AscesisError,
     AscesisErrorKind,
 };
 
@@ -199,7 +199,7 @@ impl CompilableAsContent for Rex {
                 RexKind::Product(ast) | RexKind::Sum(ast) => {
                     merged_content[pos] = Some(PartialContent::new(ctx));
 
-                    debug!("Rex compile node {} -> {:?}", pos, kind);
+                    debug!("Rex compile dot {} -> {:?}", pos, kind);
                     for &i in ast.as_slice() {
                         if i > pos {
                             parent_pos[i] = pos;
@@ -332,7 +332,7 @@ impl AppendWithOffset for Vec<RexKind> {
 
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct ThinArrowRule {
-    nodes:  NodeList,
+    dots:   DotList,
     cause:  Polynomial,
     effect: Polynomial,
 }
@@ -342,8 +342,8 @@ impl ThinArrowRule {
         Default::default()
     }
 
-    pub(crate) fn with_nodes(mut self, nodes: Polynomial) -> Result<Self, AscesisError> {
-        self.nodes = nodes.try_into()?;
+    pub(crate) fn with_dots(mut self, dots: Polynomial) -> Result<Self, AscesisError> {
+        self.dots = dots.try_into()?;
         Ok(self)
     }
 
@@ -357,8 +357,8 @@ impl ThinArrowRule {
         self
     }
 
-    pub fn get_nodes(&self) -> &[Node] {
-        &self.nodes.nodes
+    pub fn get_dots(&self) -> &[DotName] {
+        &self.dots.dot_names
     }
 }
 
@@ -381,14 +381,14 @@ impl CompilableAsContent for ThinArrowRule {
             String::new()
         };
 
-        for node in self.get_nodes() {
+        for dot in self.get_dots() {
             let id = {
                 let mut ctx = ctx.lock().unwrap();
-                ctx.share_node_name(node)
+                ctx.share_dot_name(dot)
             };
 
             if log_enabled!(Debug) {
-                debug_mess.push_str(&format!(" {:?}:{:?}", node, id));
+                debug_mess.push_str(&format!(" {:?}:{:?}", dot, id));
             }
 
             if !cause.is_empty() {
@@ -473,10 +473,10 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
             let sinks = part.effect.flattened_clone();
 
             tx_tars.push(
-                ThinArrowRule::new().with_nodes(sources).unwrap().with_effect(part.effect.clone()),
+                ThinArrowRule::new().with_dots(sources).unwrap().with_effect(part.effect.clone()),
             );
             rx_tars.push(
-                ThinArrowRule::new().with_nodes(sinks).unwrap().with_cause(part.cause.clone()),
+                ThinArrowRule::new().with_dots(sinks).unwrap().with_cause(part.cause.clone()),
             );
         }
 
@@ -484,15 +484,15 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
             let mut at_fixpoint = true;
 
             // 2. The resulting rule expression is simplified by
-            // integrating effect-only rules having a common node list and
-            // doing the same with cause-only rules.
+            // integrating effect-only rules having a common dot list
+            // and doing the same with cause-only rules.
 
             let mut tx_tars_2: Vec<ThinArrowRule> = Vec::new();
             let mut rx_tars_2: Vec<ThinArrowRule> = Vec::new();
 
             'outer_tx_2: for mut tar_1 in tx_tars {
                 for tar_2 in tx_tars_2.iter_mut() {
-                    if tar_2.nodes == tar_1.nodes {
+                    if tar_2.dots == tar_1.dots {
                         tar_2.effect.add_assign(&mut tar_1.effect);
 
                         at_fixpoint = false;
@@ -504,7 +504,7 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
 
             'outer_rx_2: for mut tar_1 in rx_tars {
                 for tar_2 in rx_tars_2.iter_mut() {
-                    if tar_2.nodes == tar_1.nodes {
+                    if tar_2.dots == tar_1.dots {
                         tar_2.cause.add_assign(&mut tar_1.cause);
 
                         at_fixpoint = false;
@@ -514,9 +514,9 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
                 rx_tars_2.push(tar_1);
             }
 
-            // 3. Rule expression is further simplified by merging
-            // node lists which point to the same effect polynomials,
-            // and merging node lists pointed to by the same cause
+            // 3. Rule expression is further simplified by merging dot
+            // lists which point to the same effect polynomials, and
+            // merging dot lists pointed to by the same cause
             // polynomials.
 
             let mut tx_tars_3: Vec<ThinArrowRule> = Vec::new();
@@ -525,7 +525,7 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
             'outer_tx_3: for mut tar_2 in tx_tars_2 {
                 for tar_3 in tx_tars_3.iter_mut() {
                     if tar_3.effect == tar_2.effect {
-                        tar_3.nodes.add_assign(&mut tar_2.nodes);
+                        tar_3.dots.add_assign(&mut tar_2.dots);
 
                         at_fixpoint = false;
                         continue 'outer_tx_3
@@ -537,7 +537,7 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
             'outer_rx_3: for mut tar_2 in rx_tars_2 {
                 for tar_3 in rx_tars_3.iter_mut() {
                     if tar_3.cause == tar_2.cause {
-                        tar_3.nodes.add_assign(&mut tar_2.nodes);
+                        tar_3.dots.add_assign(&mut tar_2.dots);
 
                         at_fixpoint = false;
                         continue 'outer_rx_3
@@ -559,12 +559,12 @@ impl From<&FatArrowRule> for Vec<ThinArrowRule> {
             }
         }
 
-        // 4. Any pair of rules with the same node list is combined
+        // 4. Any pair of rules with the same dot list is combined
         // into a two-polynomial rule.
 
         'outer_4: for rx_tar in rx_tars {
             for tx_tar in tx_tars.iter_mut() {
-                if rx_tar.nodes == tx_tar.nodes {
+                if rx_tar.dots == tx_tar.dots {
                     tx_tar.cause = rx_tar.cause;
                     continue 'outer_4
                 }
@@ -619,17 +619,17 @@ mod tests {
                     RexKind::Product(RexTree { ids: vec![9, 13] }),
                     RexKind::Product(RexTree { ids: vec![10, 11, 12] }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["k"]),
+                        dots:   DotList::from(vec!["k"]),
                         cause:  Polynomial::from("j"),
                         effect: Polynomial::from("l"),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["j"]),
+                        dots:   DotList::from(vec!["j"]),
                         cause:  Polynomial::default(),
                         effect: Polynomial::from("k"),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["l"]),
+                        dots:   DotList::from(vec!["l"]),
                         cause:  Polynomial::from("k"),
                         effect: Polynomial::default(),
                     }),
@@ -664,12 +664,12 @@ mod tests {
                 kinds: vec![
                     RexKind::Sum(RexTree { ids: vec![1, 2] }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["a"]),
+                        dots:   DotList::from(vec!["a"]),
                         cause:  Polynomial::default(),
                         effect: Polynomial::from("b"),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["b"]),
+                        dots:   DotList::from(vec!["b"]),
                         cause:  Polynomial::from("a"),
                         effect: Polynomial::default(),
                     }),
@@ -690,17 +690,17 @@ mod tests {
                 kinds: vec![
                     RexKind::Sum(RexTree { ids: vec![1, 2, 3] }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["a"]),
+                        dots:   DotList::from(vec!["a"]),
                         cause:  Polynomial::default(),
                         effect: Polynomial::from("b"),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["b"]),
+                        dots:   DotList::from(vec!["b"]),
                         cause:  Polynomial::from("a"),
                         effect: Polynomial::from("c"),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["c"]),
+                        dots:   DotList::from(vec!["c"]),
                         cause:  Polynomial::from("b"),
                         effect: Polynomial::default(),
                     }),
@@ -721,12 +721,12 @@ mod tests {
                 kinds: vec![
                     RexKind::Sum(RexTree { ids: vec![1, 2] }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["b"]),
+                        dots:   DotList::from(vec!["b"]),
                         cause:  Polynomial::default(),
                         effect: Polynomial::from(vec![vec!["a"], vec!["c"]]),
                     }),
                     RexKind::Thin(ThinArrowRule {
-                        nodes:  NodeList::from(vec!["a", "c"]),
+                        dots:   DotList::from(vec!["a", "c"]),
                         cause:  Polynomial::from("b"),
                         effect: Polynomial::default(),
                     }),

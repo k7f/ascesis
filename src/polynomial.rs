@@ -1,25 +1,25 @@
 use std::{collections::BTreeSet, iter::FromIterator};
-use aces::{ContextHandle, NodeId};
-use crate::{Node, ToNode, NodeList};
+use aces::{ContextHandle, DotId};
+use crate::{DotName, ToDotName, DotList};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub(crate) enum Warning {
-    SumIdempotency(BTreeSet<Node>),
-    ProductIdempotency(Node),
+    SumIdempotency(BTreeSet<DotName>),
+    ProductIdempotency(DotName),
 }
 
 /// An alphabetically ordered and deduplicated list of monomials,
 /// where each monomial is alphabetically ordered and deduplicated
-/// list of [`Node`]s.
+/// list of [`DotName`]s.
 ///
 /// The `is_flat` flag indicates whether a `Polynomial` may be
-/// interpreted as a [`NodeList`].  The flag is set if the textual
-/// form the `Polynomial` originated from was syntactically valid as a
-/// node list, or if the `Polynomial` is the result of
+/// interpreted as a [`DotList`].  The flag is set if the textual form
+/// the `Polynomial` originated from was syntactically valid as a dot
+/// list, or if the `Polynomial` is the result of
 /// [`Polynomial::flattened_clone`].
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Polynomial {
-    pub(crate) monomials: BTreeSet<BTreeSet<Node>>,
+    pub(crate) monomials: BTreeSet<BTreeSet<DotName>>,
 
     // FIXME falsify on leading "+" or parens, even if still a single mono
     pub(crate) is_flat:  bool,
@@ -42,8 +42,8 @@ impl Polynomial {
         self
     }
 
-    /// Transform this `Polynomial` into a [`NodeList`]-compatible
-    /// form by gathering all [`Node`]s as a single-monomial
+    /// Transform this `Polynomial` into a [`DotList`]-compatible form
+    /// by gathering all [`DotName`]s as a single-monomial
     /// `Polynomial` with the `is_flat` flag set.
     pub(crate) fn flattened_clone(&self) -> Self {
         if self.is_flat {
@@ -77,8 +77,8 @@ impl Polynomial {
             for this_mono in lhs.iter() {
                 for other_mono in factor.monomials.iter() {
                     if !this_mono.is_disjoint(other_mono) {
-                        for node in this_mono.intersection(&other_mono) {
-                            self.warnings.push(Warning::ProductIdempotency(node.clone()));
+                        for dot in this_mono.intersection(&other_mono) {
+                            self.warnings.push(Warning::ProductIdempotency(dot.clone()));
                         }
                     }
 
@@ -104,23 +104,23 @@ impl Polynomial {
         self.log_warnings();
     }
 
-    pub(crate) fn compile_as_vec(&self, ctx: &ContextHandle) -> Vec<Vec<NodeId>> {
+    pub(crate) fn compile_as_vec(&self, ctx: &ContextHandle) -> Vec<Vec<DotId>> {
         let mut ctx = ctx.lock().unwrap();
 
         self.monomials
             .iter()
-            .map(|mono| mono.iter().map(|node| ctx.share_node_name(node)).collect())
+            .map(|mono| mono.iter().map(|dot| ctx.share_dot_name(dot)).collect())
             .collect()
     }
 
     pub fn log_warnings(&self) {
         for warning in self.warnings.iter() {
             match warning {
-                Warning::SumIdempotency(nodes) => {
-                    warn!("Applying sum idempotency of {:?}", nodes);
+                Warning::SumIdempotency(dots) => {
+                    warn!("Applying sum idempotency of {:?}", dots);
                 }
-                Warning::ProductIdempotency(node) => {
-                    warn!("Applying product idempotency of {:?}", node);
+                Warning::ProductIdempotency(dot) => {
+                    warn!("Applying product idempotency of {:?}", dot);
                 }
             }
         }
@@ -133,10 +133,10 @@ impl Default for Polynomial {
     }
 }
 
-impl From<Node> for Polynomial {
-    fn from(node: Node) -> Self {
+impl From<DotName> for Polynomial {
+    fn from(dot: DotName) -> Self {
         Polynomial {
-            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node)))),
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(dot)))),
             is_flat: true,
             ..Default::default()
         }
@@ -145,17 +145,17 @@ impl From<Node> for Polynomial {
 
 // FIXME fight with orphan rules, maybe...
 impl From<&str> for Polynomial {
-    fn from(node: &str) -> Self {
+    fn from(dot: &str) -> Self {
         Polynomial {
-            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(node.to_node())))),
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(Some(dot.to_dot())))),
             is_flat: true,
             ..Default::default()
         }
     }
 }
 
-impl From<Vec<Node>> for Polynomial {
-    fn from(mono: Vec<Node>) -> Self {
+impl From<Vec<DotName>> for Polynomial {
+    fn from(mono: Vec<DotName>) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.iter().cloned()))),
             is_flat: true,
@@ -169,7 +169,7 @@ impl From<Vec<&str>> for Polynomial {
     fn from(mono: Vec<&str>) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(
-                mono.iter().map(|n| n.to_node()),
+                mono.iter().map(|n| n.to_dot()),
             ))),
             is_flat: true,
             ..Default::default()
@@ -177,8 +177,8 @@ impl From<Vec<&str>> for Polynomial {
     }
 }
 
-impl From<Vec<Vec<Node>>> for Polynomial {
-    fn from(monos: Vec<Vec<Node>>) -> Self {
+impl From<Vec<Vec<DotName>>> for Polynomial {
+    fn from(monos: Vec<Vec<DotName>>) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(
                 monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().cloned())),
@@ -194,7 +194,7 @@ impl From<Vec<Vec<&str>>> for Polynomial {
     fn from(monos: Vec<Vec<&str>>) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(
-                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().map(|n| n.to_node()))),
+                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.iter().map(|n| n.to_dot()))),
             ),
             is_flat: false,
             ..Default::default()
@@ -202,21 +202,23 @@ impl From<Vec<Vec<&str>>> for Polynomial {
     }
 }
 
-impl From<NodeList> for Polynomial {
-    fn from(mono: NodeList) -> Self {
+impl From<DotList> for Polynomial {
+    fn from(mono: DotList) -> Self {
         Polynomial {
-            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(mono.nodes.iter().cloned()))),
+            monomials: BTreeSet::from_iter(Some(BTreeSet::from_iter(
+                mono.dot_names.iter().cloned(),
+            ))),
             is_flat: true,
             ..Default::default()
         }
     }
 }
 
-impl From<Vec<NodeList>> for Polynomial {
-    fn from(monos: Vec<NodeList>) -> Self {
+impl From<Vec<DotList>> for Polynomial {
+    fn from(monos: Vec<DotList>) -> Self {
         Polynomial {
             monomials: BTreeSet::from_iter(
-                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.nodes.iter().cloned())),
+                monos.into_iter().map(|mono| BTreeSet::from_iter(mono.dot_names.iter().cloned())),
             ),
             is_flat: false,
             ..Default::default()
@@ -226,7 +228,7 @@ impl From<Vec<NodeList>> for Polynomial {
 
 #[cfg(test)]
 mod tests {
-    use crate::ToNode;
+    use crate::ToDotName;
     use super::*;
 
     #[test]
@@ -239,14 +241,12 @@ mod tests {
             Polynomial {
                 monomials: BTreeSet::from_iter(vec![
                     BTreeSet::from_iter(
-                        vec!["a".to_node(), "b".to_node(), "d".to_node(), "e".to_node()]
-                            .into_iter()
+                        vec!["a".to_dot(), "b".to_dot(), "d".to_dot(), "e".to_dot()].into_iter()
                     ),
                     BTreeSet::from_iter(
-                        vec!["a".to_node(), "c".to_node(), "d".to_node(), "e".to_node()]
-                            .into_iter()
+                        vec!["a".to_dot(), "c".to_dot(), "d".to_dot(), "e".to_dot()].into_iter()
                     ),
-                    BTreeSet::from_iter(vec!["f".to_node(), "g".to_node()].into_iter()),
+                    BTreeSet::from_iter(vec!["f".to_dot(), "g".to_dot()].into_iter()),
                 ]),
                 is_flat: false,
                 ..Default::default()

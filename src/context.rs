@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, convert::TryInto, cmp, fmt, error::Error};
-use aces::{ContextHandle, Compilable, Face, Capacity, Weight, sat};
-use crate::{Polynomial, Node, NodeList, Literal, AscesisError, AscesisErrorKind};
+use aces::{ContextHandle, Compilable, Polarity, Capacity, Weight, sat};
+use crate::{Polynomial, DotName, DotList, Literal, AscesisError, AscesisErrorKind};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum PropSelector {
@@ -36,7 +36,7 @@ pub enum PropValue {
     Identifier(String),
     SizeList(Vec<Literal>),
     IdentifierList(Vec<String>),
-    Nodes(NodeList),
+    DotList(DotList),
     Array(Vec<PropValue>),
     Block(PropBlock),
 }
@@ -69,8 +69,8 @@ impl PropValue {
         }
     }
 
-    pub(crate) fn new_node_list(names: Vec<String>) -> Result<Self, AscesisError> {
-        Ok(PropValue::Nodes(names.into()))
+    pub(crate) fn new_dot_list(names: Vec<String>) -> Result<Self, AscesisError> {
+        Ok(PropValue::DotList(names.into()))
     }
 }
 
@@ -191,9 +191,9 @@ impl PropBlock {
             match value {
                 PropValue::Literal(Literal::Name(name)) => return Ok(Some(name.as_str())),
                 PropValue::Identifier(identifier) => return Ok(Some(identifier.as_str())),
-                PropValue::Nodes(nodes) => {
-                    if nodes.nodes.len() == 1 {
-                        return Ok(nodes.nodes.first().map(|n| n.as_ref()))
+                PropValue::DotList(dot_list) => {
+                    if dot_list.dot_names.len() == 1 {
+                        return Ok(dot_list.dot_names.first().map(|n| n.as_ref()))
                     }
                 }
                 PropValue::IdentifierList(ids) => {
@@ -348,14 +348,14 @@ impl Compilable for PropBlock {
                 }
 
                 if let Some(labels) = self.get_vis_labels()? {
-                    for (node_name, node_label) in labels {
-                        match node_label {
+                    for (dot_name, dot_label) in labels {
+                        match dot_label {
                             PropValue::Literal(Literal::Name(ref label))
                             | PropValue::Identifier(ref label) => {
                                 let mut ctx = ctx.lock().unwrap();
-                                let node_id = ctx.share_node_name(node_name);
+                                let dot_id = ctx.share_dot_name(dot_name);
 
-                                ctx.set_label(node_id, label);
+                                ctx.set_label(dot_id, label);
                             }
                             _ => {
                                 return Err(AscesisError::from(AscesisErrorKind::InvalidPropType(
@@ -388,10 +388,10 @@ impl Compilable for PropBlock {
     }
 }
 
-/// A map from nodes to their capacities.
+/// A map from dots to their capacities.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct CapacitiesBlock {
-    capacities: BTreeMap<Node, Capacity>,
+    capacities: BTreeMap<DotName, Capacity>,
 }
 
 impl CapacitiesBlock {
@@ -400,17 +400,21 @@ impl CapacitiesBlock {
         Default::default()
     }
 
-    pub fn with_nodes(mut self, size: Literal, nodes: Polynomial) -> Result<Self, AscesisError> {
+    pub fn with_dot_names(
+        mut self,
+        size: Literal,
+        dot_names: Polynomial,
+    ) -> Result<Self, AscesisError> {
         let capacity = match size {
             Literal::Size(sz) => Capacity::finite(sz)
                 .ok_or_else(|| AscesisError::from(AscesisErrorKind::SizeLiteralOverflow))?,
             Literal::Omega => Capacity::omega(),
             _ => return Err(AscesisError::from(AscesisErrorKind::ExpectedSizeLiteral)),
         };
-        let nodes: NodeList = nodes.try_into()?;
+        let dot_list: DotList = dot_names.try_into()?;
 
-        for node in nodes.nodes.into_iter() {
-            self.capacities.insert(node, capacity);
+        for dot_name in dot_list.dot_names.into_iter() {
+            self.capacities.insert(dot_name, capacity);
         }
 
         Ok(self)
@@ -428,18 +432,18 @@ impl Compilable for CapacitiesBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for (node, cap) in self.capacities.iter() {
-            ctx.set_capacity_by_name(node.as_ref(), *cap);
+        for (dot_name, cap) in self.capacities.iter() {
+            ctx.set_capacity_by_name(dot_name.as_ref(), *cap);
         }
 
         Ok(true)
     }
 }
 
-/// A vector of unbounded capacity nodes.
+/// A vector of unbounded capacity dots.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct UnboundedBlock {
-    nodes: Vec<Node>,
+    dot_names: Vec<DotName>,
 }
 
 impl UnboundedBlock {
@@ -448,10 +452,10 @@ impl UnboundedBlock {
         Default::default()
     }
 
-    pub fn from_nodes(nodes: Polynomial) -> Result<Self, AscesisError> {
-        let nodes: NodeList = nodes.try_into()?;
+    pub fn from_dot_names(dot_names: Polynomial) -> Result<Self, AscesisError> {
+        let dot_list: DotList = dot_names.try_into()?;
 
-        Ok(UnboundedBlock { nodes: nodes.nodes })
+        Ok(UnboundedBlock { dot_names: dot_list.dot_names })
     }
 }
 
@@ -459,8 +463,8 @@ impl Compilable for UnboundedBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for node in self.nodes.iter() {
-            ctx.set_capacity_by_name(node.as_ref(), Capacity::omega());
+        for dot_name in self.dot_names.iter() {
+            ctx.set_capacity_by_name(dot_name.as_ref(), Capacity::omega());
         }
 
         Ok(true)
@@ -480,94 +484,46 @@ impl WeightsBlock {
         Default::default()
     }
 
-    pub fn new_hyper_causes(
+    pub fn new_join_weights(
         size: Literal,
-        post_nodes: Polynomial,
-        pre_suit: Polynomial,
+        post_dots: Polynomial,
+        pre_arms: Polynomial,
     ) -> Result<Self, AscesisError> {
         let weight = size.try_into()?;
-        let post_nodes: NodeList = post_nodes.try_into()?;
-        let pre_suit: NodeList = pre_suit.try_into()?;
+        let post_dots: DotList = post_dots.try_into()?;
+        let pre_arms: DotList = pre_arms.try_into()?;
 
-        let xfer_multiplicities = post_nodes
-            .nodes
+        let xfer_multiplicities = post_dots
+            .dot_names
             .into_iter()
-            .map(|host_node| {
-                XferMultiplicity::Rx(RxWeight {
-                    weight,
-                    host_node,
-                    pre_suit: pre_suit.clone(),
-                    post_set: None,
-                })
+            .map(|tip_name| {
+                XferMultiplicity::Rx(RxWeight { weight, tip_name, pre_arms: pre_arms.clone() })
             })
             .collect();
-        // No need to sort: `post_nodes` are already ordered and deduplicated.
+        // No need to sort: `post_dots` are already ordered and deduplicated.
 
         Ok(WeightsBlock { xfer_multiplicities })
     }
 
-    pub fn new_hyper_effects(
+    pub fn new_fork_weights(
         size: Literal,
-        pre_nodes: Polynomial,
-        post_suit: Polynomial,
+        pre_dots: Polynomial,
+        post_arms: Polynomial,
     ) -> Result<Self, AscesisError> {
         let weight = size.try_into()?;
-        let pre_nodes: NodeList = pre_nodes.try_into()?;
-        let post_suit: NodeList = post_suit.try_into()?;
+        let pre_dots: DotList = pre_dots.try_into()?;
+        let post_arms: DotList = post_arms.try_into()?;
 
-        let xfer_multiplicities = pre_nodes
-            .nodes
+        let xfer_multiplicities = pre_dots
+            .dot_names
             .into_iter()
-            .map(|host_node| {
-                XferMultiplicity::Tx(TxWeight {
-                    weight,
-                    host_node,
-                    pre_set: None,
-                    post_suit: post_suit.clone(),
-                })
+            .map(|tip_name| {
+                XferMultiplicity::Tx(TxWeight { weight, tip_name, post_arms: post_arms.clone() })
             })
             .collect();
-        // No need to sort: `pre_nodes` are already ordered and deduplicated.
+        // No need to sort: `pre_dots` are already ordered and deduplicated.
 
         Ok(WeightsBlock { xfer_multiplicities })
-    }
-
-    pub fn new_flow_causes(
-        size: Literal,
-        host_node: Node,
-        pre_set: Polynomial,
-        post_set: Polynomial,
-    ) -> Result<Self, AscesisError> {
-        let weight = size.try_into()?;
-        let pre_set: NodeList = pre_set.try_into()?;
-        let post_set: NodeList = post_set.try_into()?;
-        let mult = XferMultiplicity::Rx(RxWeight {
-            weight,
-            host_node,
-            pre_suit: pre_set,
-            post_set: Some(post_set),
-        });
-
-        Ok(WeightsBlock { xfer_multiplicities: vec![mult] })
-    }
-
-    pub fn new_flow_effects(
-        size: Literal,
-        host_node: Node,
-        pre_set: Polynomial,
-        post_set: Polynomial,
-    ) -> Result<Self, AscesisError> {
-        let weight = size.try_into()?;
-        let pre_set: NodeList = pre_set.try_into()?;
-        let post_set: NodeList = post_set.try_into()?;
-        let mult = XferMultiplicity::Tx(TxWeight {
-            weight,
-            host_node,
-            pre_set: Some(pre_set),
-            post_suit: post_set,
-        });
-
-        Ok(WeightsBlock { xfer_multiplicities: vec![mult] })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
@@ -590,48 +546,24 @@ impl Compilable for WeightsBlock {
         for weight in self.xfer_multiplicities.iter() {
             match weight {
                 XferMultiplicity::Rx(rx) => {
-                    let pre_names = rx.pre_suit.nodes.iter().map(|n| n.as_ref());
+                    let pre_names = rx.pre_arms.dot_names.iter().map(|n| n.as_ref());
 
-                    if let Some(ref post_set) = rx.post_set {
-                        let post_names = post_set.nodes.iter().map(|n| n.as_ref());
-
-                        ctx.set_flow_weight_by_names(
-                            Face::Rx,
-                            rx.host_node.as_ref(),
-                            pre_names,
-                            post_names,
-                            rx.weight,
-                        )?;
-                    } else {
-                        ctx.set_hyper_weight_by_names(
-                            Face::Rx,
-                            rx.host_node.as_ref(),
-                            pre_names,
-                            rx.weight,
-                        );
-                    }
+                    ctx.set_wedge_weight_by_names(
+                        Polarity::Rx,
+                        rx.tip_name.as_ref(),
+                        pre_names,
+                        rx.weight,
+                    );
                 }
                 XferMultiplicity::Tx(tx) => {
-                    let post_names = tx.post_suit.nodes.iter().map(|n| n.as_ref());
+                    let post_names = tx.post_arms.dot_names.iter().map(|n| n.as_ref());
 
-                    if let Some(ref pre_set) = tx.pre_set {
-                        let pre_names = pre_set.nodes.iter().map(|n| n.as_ref());
-
-                        ctx.set_flow_weight_by_names(
-                            Face::Tx,
-                            tx.host_node.as_ref(),
-                            pre_names,
-                            post_names,
-                            tx.weight,
-                        )?;
-                    } else {
-                        ctx.set_hyper_weight_by_names(
-                            Face::Tx,
-                            tx.host_node.as_ref(),
-                            post_names,
-                            tx.weight,
-                        );
-                    }
+                    ctx.set_wedge_weight_by_names(
+                        Polarity::Tx,
+                        tx.tip_name.as_ref(),
+                        post_names,
+                        tx.weight,
+                    );
                 }
             }
         }
@@ -669,16 +601,15 @@ impl cmp::PartialOrd for XferMultiplicity {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct RxWeight {
-    weight:    Weight,
-    host_node: Node,
-    pre_suit:  NodeList, // this is the entire pre_set if post_set is specified
-    post_set:  Option<NodeList>,
+    weight:   Weight,
+    tip_name: DotName,
+    pre_arms: DotList,
 }
 
 impl cmp::Ord for RxWeight {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.host_node.cmp(&other.host_node) {
-            cmp::Ordering::Equal => match self.pre_suit.cmp(&other.pre_suit) {
+        match self.tip_name.cmp(&other.tip_name) {
+            cmp::Ordering::Equal => match self.pre_arms.cmp(&other.pre_arms) {
                 cmp::Ordering::Equal => self.weight.cmp(&other.weight),
                 result => result,
             },
@@ -696,15 +627,14 @@ impl cmp::PartialOrd for RxWeight {
 #[derive(Clone, PartialEq, Eq, Debug)]
 struct TxWeight {
     weight:    Weight,
-    host_node: Node,
-    pre_set:   Option<NodeList>,
-    post_suit: NodeList, // this is the entire post_set if pre_set is specified
+    tip_name:  DotName,
+    post_arms: DotList,
 }
 
 impl cmp::Ord for TxWeight {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.host_node.cmp(&other.host_node) {
-            cmp::Ordering::Equal => match self.post_suit.cmp(&other.post_suit) {
+        match self.tip_name.cmp(&other.tip_name) {
+            cmp::Ordering::Equal => match self.post_arms.cmp(&other.post_arms) {
                 cmp::Ordering::Equal => self.weight.cmp(&other.weight),
                 result => result,
             },
@@ -731,36 +661,36 @@ impl InhibitorsBlock {
         Default::default()
     }
 
-    pub fn new_causes(post_nodes: Polynomial, pre_poly: Polynomial) -> Result<Self, AscesisError> {
-        let post_nodes: NodeList = post_nodes.try_into()?;
+    pub fn new_causes(post_dots: Polynomial, pre_poly: Polynomial) -> Result<Self, AscesisError> {
+        let post_dots: DotList = post_dots.try_into()?;
         let mut inhibitors = Vec::new();
 
-        // `post_nodes` are already ordered and deduplicated
-        for post_node in post_nodes.nodes {
+        // `post_dots` are already ordered and deduplicated
+        for post_dot in post_dots.dot_names {
             // monomials are already ordered and deduplicated
             for mono in pre_poly.monomials.iter() {
-                let post_node = post_node.clone();
-                let pre_set = mono.clone().into();
+                let post_tip = post_dot.clone();
+                let pre_arms = mono.clone().into();
 
-                inhibitors.push(Inhibitor::Rx(RxInhibitor { post_node, pre_set }));
+                inhibitors.push(Inhibitor::Rx(RxInhibitor { post_tip, pre_arms }));
             }
         }
 
         Ok(InhibitorsBlock { inhibitors })
     }
 
-    pub fn new_effects(pre_nodes: Polynomial, post_poly: Polynomial) -> Result<Self, AscesisError> {
-        let pre_nodes: NodeList = pre_nodes.try_into()?;
+    pub fn new_effects(pre_dots: Polynomial, post_poly: Polynomial) -> Result<Self, AscesisError> {
+        let pre_dots: DotList = pre_dots.try_into()?;
         let mut inhibitors = Vec::new();
 
-        // `pre_nodes` are already ordered and deduplicated
-        for pre_node in pre_nodes.nodes {
+        // `pre_dots` are already ordered and deduplicated
+        for pre_dot in pre_dots.dot_names {
             // monomials are already ordered and deduplicated
             for mono in post_poly.monomials.iter() {
-                let pre_node = pre_node.clone();
-                let post_set = mono.clone().into();
+                let pre_tip = pre_dot.clone();
+                let post_arms = mono.clone().into();
 
-                inhibitors.push(Inhibitor::Tx(TxInhibitor { pre_node, post_set }));
+                inhibitors.push(Inhibitor::Tx(TxInhibitor { pre_tip, post_arms }));
             }
         }
 
@@ -787,14 +717,14 @@ impl Compilable for InhibitorsBlock {
         for inhibitor in self.inhibitors.iter() {
             match inhibitor {
                 Inhibitor::Rx(rx) => {
-                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+                    let arm_names = rx.pre_arms.dot_names.iter().map(|n| n.as_ref());
 
-                    ctx.set_hyper_inhibitor_by_names(Face::Rx, rx.post_node.as_ref(), suit_names);
+                    ctx.set_wedge_inhibitor_by_names(Polarity::Rx, rx.post_tip.as_ref(), arm_names);
                 }
                 Inhibitor::Tx(tx) => {
-                    let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+                    let arm_names = tx.post_arms.dot_names.iter().map(|n| n.as_ref());
 
-                    ctx.set_hyper_inhibitor_by_names(Face::Tx, tx.pre_node.as_ref(), suit_names);
+                    ctx.set_wedge_inhibitor_by_names(Polarity::Tx, tx.pre_tip.as_ref(), arm_names);
                 }
             }
         }
@@ -832,14 +762,14 @@ impl cmp::PartialOrd for Inhibitor {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RxInhibitor {
-    post_node: Node,
-    pre_set:   NodeList,
+    post_tip: DotName,
+    pre_arms: DotList,
 }
 
 impl cmp::Ord for RxInhibitor {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.post_node.cmp(&other.post_node) {
-            cmp::Ordering::Equal => self.pre_set.cmp(&other.pre_set),
+        match self.post_tip.cmp(&other.post_tip) {
+            cmp::Ordering::Equal => self.pre_arms.cmp(&other.pre_arms),
             result => result,
         }
     }
@@ -853,14 +783,14 @@ impl cmp::PartialOrd for RxInhibitor {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TxInhibitor {
-    pre_node: Node,
-    post_set: NodeList,
+    pre_tip:   DotName,
+    post_arms: DotList,
 }
 
 impl cmp::Ord for TxInhibitor {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.pre_node.cmp(&other.pre_node) {
-            cmp::Ordering::Equal => self.post_set.cmp(&other.post_set),
+        match self.pre_tip.cmp(&other.pre_tip) {
+            cmp::Ordering::Equal => self.post_arms.cmp(&other.post_arms),
             result => result,
         }
     }
@@ -875,8 +805,8 @@ impl cmp::PartialOrd for TxInhibitor {
 /// An alphabetically ordered and deduplicated list of `Weightless` splits.
 #[derive(Clone, PartialEq, Eq, Default, Debug)]
 pub struct WeightlessBlock {
-    pub(crate) face:   Option<Face>,
-    pub(crate) splits: Vec<Weightless>,
+    pub(crate) polarity: Option<Polarity>,
+    pub(crate) splits:   Vec<Weightless>,
 }
 
 impl WeightlessBlock {
@@ -885,48 +815,48 @@ impl WeightlessBlock {
         Default::default()
     }
 
-    pub fn new_causes(post_nodes: Polynomial, pre_poly: Polynomial) -> Result<Self, AscesisError> {
-        let face = Some(Face::Rx);
-        let post_nodes: NodeList = post_nodes.try_into()?;
+    pub fn new_causes(post_dots: Polynomial, pre_poly: Polynomial) -> Result<Self, AscesisError> {
+        let polarity = Some(Polarity::Rx);
+        let post_dots: DotList = post_dots.try_into()?;
         let mut splits = Vec::new();
 
-        // `post_nodes` are already ordered and deduplicated
-        for post_node in post_nodes.nodes {
+        // `post_dots` are already ordered and deduplicated
+        for post_dot in post_dots.dot_names {
             // monomials are already ordered and deduplicated
             for mono in pre_poly.monomials.iter() {
-                let post_node = post_node.clone();
-                let pre_set = mono.clone().into();
+                let post_tip = post_dot.clone();
+                let pre_arms = mono.clone().into();
 
-                splits.push(Weightless::Drop(RxWeightless { post_node, pre_set }));
+                splits.push(Weightless::Drop(RxWeightless { post_tip, pre_arms }));
             }
         }
 
-        Ok(WeightlessBlock { face, splits })
+        Ok(WeightlessBlock { polarity, splits })
     }
 
-    pub fn new_effects(pre_nodes: Polynomial, post_poly: Polynomial) -> Result<Self, AscesisError> {
-        let face = Some(Face::Tx);
-        let pre_nodes: NodeList = pre_nodes.try_into()?;
+    pub fn new_effects(pre_dots: Polynomial, post_poly: Polynomial) -> Result<Self, AscesisError> {
+        let polarity = Some(Polarity::Tx);
+        let pre_dots: DotList = pre_dots.try_into()?;
         let mut splits = Vec::new();
 
-        // `pre_nodes` are already ordered and deduplicated
-        for pre_node in pre_nodes.nodes {
+        // `pre_dots` are already ordered and deduplicated
+        for pre_dot in pre_dots.dot_names {
             // monomials are already ordered and deduplicated
             for mono in post_poly.monomials.iter() {
-                let pre_node = pre_node.clone();
-                let post_set = mono.clone().into();
+                let pre_tip = pre_dot.clone();
+                let post_arms = mono.clone().into();
 
-                splits.push(Weightless::Activate(TxWeightless { pre_node, post_set }));
+                splits.push(Weightless::Activate(TxWeightless { pre_tip, post_arms }));
             }
         }
 
-        Ok(WeightlessBlock { face, splits })
+        Ok(WeightlessBlock { polarity, splits })
     }
 
     pub(crate) fn with_more(mut self, more: Vec<Self>) -> Self {
         for mut block in more {
-            if self.face.is_some() && block.face != self.face {
-                self.face = None;
+            if self.polarity.is_some() && block.polarity != self.polarity {
+                self.polarity = None;
             }
 
             self.splits.append(&mut block.splits);
@@ -940,8 +870,8 @@ impl WeightlessBlock {
     }
 
     #[inline]
-    pub fn get_face(&self) -> Option<Face> {
-        self.face
+    pub fn get_polarity(&self) -> Option<Polarity> {
+        self.polarity
     }
 }
 
@@ -954,20 +884,20 @@ impl From<WeightlessBlock> for WeightsBlock {
             match split {
                 Weightless::Activate(activate) => {
                     more_weights.push(
-                        WeightsBlock::new_hyper_effects(
+                        WeightsBlock::new_fork_weights(
                             Literal::Size(0),
-                            activate.pre_node.into(),
-                            activate.post_set.into(),
+                            activate.pre_tip.into(),
+                            activate.post_arms.into(),
                         )
                         .unwrap(),
                     );
                 }
                 Weightless::Drop(drop) => {
                     more_weights.push(
-                        WeightsBlock::new_hyper_causes(
+                        WeightsBlock::new_join_weights(
                             Literal::Size(0),
-                            drop.post_node.into(),
-                            drop.pre_set.into(),
+                            drop.post_tip.into(),
+                            drop.pre_arms.into(),
                         )
                         .unwrap(),
                     );
@@ -983,17 +913,17 @@ impl Compilable for WeightlessBlock {
     fn compile(&self, ctx: &ContextHandle) -> Result<bool, Box<dyn Error>> {
         let mut ctx = ctx.lock().unwrap();
 
-        for holder in self.splits.iter() {
-            match holder {
+        for activator in self.splits.iter() {
+            match activator {
                 Weightless::Activate(tx) => {
-                    let suit_names = tx.post_set.nodes.iter().map(|n| n.as_ref());
+                    let arm_names = tx.post_arms.dot_names.iter().map(|n| n.as_ref());
 
-                    ctx.set_hyper_holder_by_names(Face::Tx, tx.pre_node.as_ref(), suit_names);
+                    ctx.set_wedge_activator_by_names(Polarity::Tx, tx.pre_tip.as_ref(), arm_names);
                 }
                 Weightless::Drop(rx) => {
-                    let suit_names = rx.pre_set.nodes.iter().map(|n| n.as_ref());
+                    let arm_names = rx.pre_arms.dot_names.iter().map(|n| n.as_ref());
 
-                    ctx.set_hyper_holder_by_names(Face::Rx, rx.post_node.as_ref(), suit_names);
+                    ctx.set_wedge_activator_by_names(Polarity::Rx, rx.post_tip.as_ref(), arm_names);
                 }
             }
         }
@@ -1031,14 +961,14 @@ impl cmp::PartialOrd for Weightless {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct TxWeightless {
-    pre_node: Node,
-    post_set: NodeList,
+    pre_tip:   DotName,
+    post_arms: DotList,
 }
 
 impl cmp::Ord for TxWeightless {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.pre_node.cmp(&other.pre_node) {
-            cmp::Ordering::Equal => self.post_set.cmp(&other.post_set),
+        match self.pre_tip.cmp(&other.pre_tip) {
+            cmp::Ordering::Equal => self.post_arms.cmp(&other.post_arms),
             result => result,
         }
     }
@@ -1052,14 +982,14 @@ impl cmp::PartialOrd for TxWeightless {
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RxWeightless {
-    post_node: Node,
-    pre_set:   NodeList,
+    post_tip: DotName,
+    pre_arms: DotList,
 }
 
 impl cmp::Ord for RxWeightless {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        match self.post_node.cmp(&other.post_node) {
-            cmp::Ordering::Equal => self.pre_set.cmp(&other.pre_set),
+        match self.post_tip.cmp(&other.post_tip) {
+            cmp::Ordering::Equal => self.pre_arms.cmp(&other.pre_arms),
             result => result,
         }
     }

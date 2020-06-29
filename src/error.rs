@@ -142,7 +142,7 @@ pub enum AscesisErrorKind {
     ExpectedNameLiteral,
     ParseIntFailure(ParseIntError),
     EnquoteFailure(String),
-    NotANodeList,
+    NotADotList,
 }
 
 impl fmt::Display for AscesisErrorKind {
@@ -179,7 +179,7 @@ impl fmt::Display for AscesisErrorKind {
             ExpectedNameLiteral => write!(f, "Bad literal, not a name"),
             ParseIntFailure(err) => err.fmt(f),
             EnquoteFailure(err) => write!(f, "{}", err),
-            NotANodeList => write!(f, "Not a node list"),
+            NotADotList => write!(f, "Not a dot list"),
         }
     }
 }

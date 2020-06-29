@@ -6,7 +6,6 @@
                  | <CapsBlock>
                  | <UnboundedBlock>
                  | <WeightsBlock>
-                 | <FlowBlock>
                  | <InhibitBlock>
                  | <ActivateBlock>
                  | <DropBlock> ;
@@ -56,7 +55,7 @@
 
 <PropValue> ::= <Name>
               | <SizeList>
-              | <NodeList>
+              | <DotList>
               | "[" <PropValueArray> "]"
               | "{" <PropList> "}" ;
 
@@ -71,10 +70,10 @@
 <PlainCapList> ::= <CapField>
                  | <CapField> "," <PlainCapList> ;
 
-<CapField> ::= <Size> <NodeList> ;
+<CapField> ::= <Size> <DotList> ;
 
 <UnboundedBlock> ::= "unbounded" "{" "}"
-                   | "unbounded" "{" <NodeList> "}" ;
+                   | "unbounded" "{" <DotList> "}" ;
 
 ;; Weights
 
@@ -87,20 +86,8 @@
 <PlainWeightList> ::= <WeightField>
                     | <WeightField> "," <PlainWeightList> ;
 
-<WeightField> ::= <Size> <NodeList> "->" <NodeList>
-                | <Size> <NodeList> "<-" <NodeList>;
-
-<FlowBlock> ::= "flow" "{" "}"
-              | "flow" "{" <FlowList> "}" ;
-
-<FlowList> ::= <PlainFlowList>
-             | <PlainFlowList> "," ;
-
-<PlainFlowList> ::= <FlowField>
-                  | <FlowField> "," <PlainFlowList> ;
-
-<FlowField> ::= <Size> <NodeList> "=>" <NodeList>
-              | <Size> <NodeList> "<=" <NodeList>;
+<WeightField> ::= <Size> <DotList> "->" <DotList>
+                | <Size> <DotList> "<-" <DotList>;
 
 ;; Inhibitors
 
@@ -113,8 +100,8 @@
 <PlainInhibitList> ::= <InhibitField>
                      | <InhibitField> "," <PlainInhibitList> ;
 
-<InhibitField> ::= <NodeList> "->" <NodeList>
-                 | <NodeList> "<-" <NodeList>;
+<InhibitField> ::= <DotList> "->" <DotList>
+                 | <DotList> "<-" <DotList>;
 
 ;; Activators (zero-weight splits)
 
@@ -127,7 +114,7 @@
 <PlainActivateList> ::= <ActivateField>
                       | <ActivateField> "," <PlainActivateList> ;
 
-<ActivateField> ::= <NodeList> "->" <NodeList> ;
+<ActivateField> ::= <DotList> "->" <DotList> ;
 
 <DropBlock> ::= "drop" "{" "}"
               | "drop" "{" <DropList> "}" ;
@@ -138,7 +125,7 @@
 <PlainDropList> ::= <DropField>
                   | <DropField> "," <PlainDropList> ;
 
-<DropField> ::= <NodeList> "<-" <NodeList> ;
+<DropField> ::= <DotList> "<-" <DotList> ;
 
 ;; Rule expression
 
@@ -158,27 +145,27 @@
 
 <ThinArrowRule> ::= <E-Rule> | <C-Rule> | <EC-Rule> | <CE-Rule> | <FW-Rule> | <BW-Rule> ;
 
-; effect polynomial with explicit node list on the left
-<E-Rule> ::= <NodeList> "->" <Polynomial> ;
+; effect polynomial with explicit dot list on the left
+<E-Rule> ::= <DotList> "->" <Polynomial> ;
 
-; cause polynomial with explicit node list on the left
-<C-Rule> ::= <NodeList> "<-" <Polynomial> ;
+; cause polynomial with explicit dot list on the left
+<C-Rule> ::= <DotList> "<-" <Polynomial> ;
 
-; effect-then-cause polynomial with explicit node list on the left
-<EC-Rule> ::= <NodeList> "->" <Polynomial> "<-" <Polynomial> ;
+; effect-then-cause polynomial with explicit dot list on the left
+<EC-Rule> ::= <DotList> "->" <Polynomial> "<-" <Polynomial> ;
 
-; cause-then-effect polynomial with explicit node list on the left
-<CE-Rule> ::= <NodeList> "<-" <Polynomial> "->" <Polynomial> ;
+; cause-then-effect polynomial with explicit dot list on the left
+<CE-Rule> ::= <DotList> "<-" <Polynomial> "->" <Polynomial> ;
 
-; cause-then-effect pair of polynomials with explicit node list in the
+; cause-then-effect pair of polynomials with explicit dot list in the
 ; middle
-<FW-Rule> ::= <Polynomial> "->" <NodeList> "->" <Polynomial> ;
+<FW-Rule> ::= <Polynomial> "->" <DotList> "->" <Polynomial> ;
 
-; effect-then-cause pair of polynomials with explicit node list in the
+; effect-then-cause pair of polynomials with explicit dot list in the
 ; middle
-<BW-Rule> ::= <Polynomial> "<-" <NodeList> "<-" <Polynomial> ;
+<BW-Rule> ::= <Polynomial> "<-" <DotList> "<-" <Polynomial> ;
 
-; multi-polynomial rule with implicit node lists
+; multi-polynomial rule with implicit dot lists
 <FatArrowRule> ::= <Polynomial> <FatArrow> <FatArrowRuleTail> ;
 
 <FatArrowRuleTail> ::= <Polynomial>
@@ -198,10 +185,10 @@
 <PolyTerm> ::= <Identifier>
              | "(" <Polynomial> ")" ;
 
-;; Node list
+;; Dot list
 
-<NodeList> ::= <Identifier>
-             | <Identifier> <NodeList> ;
+<DotList> ::= <Identifier>
+            | <Identifier> <DotList> ;
 
 ;; Identifiers
 
